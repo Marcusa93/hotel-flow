@@ -1,25 +1,38 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  User, 
-  BedDouble, 
-  Calendar, 
+import {
+  ArrowLeft,
+  User,
+  BedDouble,
+  Calendar,
   CreditCard,
-  Edit,
-  Trash2,
   CheckCircle,
   XCircle,
   LogIn,
   LogOut,
   AlertTriangle,
-  Plus
+  Plus,
+  Phone,
+  Mail,
+  MapPin,
+  Clock,
+  ShieldCheck,
+  MoreVertical
 } from 'lucide-react';
 import { useHotel } from '@/context/HotelContext';
-import { PageHeader, StatusBadge } from '@/components/shared';
+import { StatusBadge } from '@/components/shared';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BookingStatus } from '@/types/hotel';
@@ -35,6 +48,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { RegisterPaymentDialog } from '@/components/payments/RegisterPaymentDialog';
+import { motion } from 'framer-motion';
 
 export default function BookingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -46,7 +60,7 @@ export default function BookingDetail() {
 
   if (!booking) {
     return (
-      <div className="flex flex-col items-center justify-center py-12">
+      <div className="flex flex-col items-center justify-center h-[50vh]">
         <p className="text-muted-foreground mb-4">Reserva no encontrada</p>
         <Button variant="outline" onClick={() => navigate('/bookings')}>
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -59,296 +73,275 @@ export default function BookingDetail() {
   const bookingPayments = payments.filter(p => p.bookingId === booking.id);
   const totalPaid = bookingPayments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + p.amount, 0);
   const pendingAmount = booking.totalAmount - totalPaid;
+  const paymentProgress = Math.min((totalPaid / booking.totalAmount) * 100, 100);
 
   const handleStatusChange = (newStatus: BookingStatus) => {
     updateBookingStatus(booking.id, newStatus);
   };
 
-  const getStatusActions = () => {
-    switch (booking.status) {
-      case 'PENDING':
-        return (
-          <>
-            <Button onClick={() => handleStatusChange('CONFIRMED')} className="flex-1">
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Confirmar
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="flex-1">
-                  <XCircle className="w-4 h-4 mr-2" />
-                  Cancelar
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>¿Cancelar reserva?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta acción no se puede deshacer. La reserva quedará marcada como cancelada.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Volver</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => handleStatusChange('CANCELLED')}>
-                    Cancelar reserva
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </>
-        );
-      case 'CONFIRMED':
-        return (
-          <>
-            <Button onClick={() => handleStatusChange('CHECKED_IN')} className="flex-1">
-              <LogIn className="w-4 h-4 mr-2" />
-              Hacer Check-in
-            </Button>
-            <Button variant="outline" onClick={() => handleStatusChange('NO_SHOW')}>
-              No Show
-            </Button>
-          </>
-        );
-      case 'CHECKED_IN':
-        return (
-          <Button onClick={() => handleStatusChange('CHECKED_OUT')} className="flex-1">
-            <LogOut className="w-4 h-4 mr-2" />
-            Hacer Check-out
-          </Button>
-        );
-      default:
-        return null;
-    }
-  };
-
   const nights = Math.ceil(
-    (new Date(booking.checkOutDate).getTime() - new Date(booking.checkInDate).getTime()) / 
+    (new Date(booking.checkOutDate).getTime() - new Date(booking.checkInDate).getTime()) /
     (1000 * 60 * 60 * 24)
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={`Reserva ${booking.id.slice(0, 8)}`}
-        description={`Creada el ${format(new Date(booking.createdAt), "d 'de' MMMM, yyyy", { locale: es })}`}
-        actions={
-          <Button variant="outline" onClick={() => navigate('/bookings')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Volver
+    <div className="space-y-6 max-w-7xl mx-auto p-1">
+      {/* Header Section */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-background/40 backdrop-blur-md p-6 rounded-2xl border sticky top-0 z-10 shadow-sm"
+      >
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/bookings')} className="rounded-full hover:bg-background/80">
+            <ArrowLeft className="w-5 h-5" />
           </Button>
-        }
-      />
+          <Avatar className="h-16 w-16 border-2 border-primary/20 shadow-lg">
+            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${booking.guest.email}`} />
+            <AvatarFallback className="text-lg bg-primary/10 text-primary">
+              {booking.guest.fullName.slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight">{booking.guest.fullName}</h1>
+              <StatusBadge status={booking.status} />
+            </div>
+            <p className="text-muted-foreground flex items-center gap-2 text-sm mt-1">
+              <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">#{booking.id.slice(0, 8)}</span>
+              <span>•</span>
+              <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {nights} noches</span>
+              <span>•</span>
+              <span className="flex items-center gap-1"><User className="w-3 h-3" /> {booking.adults + booking.children} huéspedes</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          {booking.status === 'PENDING' && (
+            <Button onClick={() => handleStatusChange('CONFIRMED')} className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20">
+              <CheckCircle className="w-4 h-4 mr-2" /> Confirmar
+            </Button>
+          )}
+          {booking.status === 'CONFIRMED' && (
+            <Button onClick={() => handleStatusChange('CHECKED_IN')} className="bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20">
+              <LogIn className="w-4 h-4 mr-2" /> Check-in
+            </Button>
+          )}
+          {booking.status === 'CHECKED_IN' && (
+            <Button onClick={() => handleStatusChange('CHECKED_OUT')} className="bg-slate-800 hover:bg-slate-900 shadow-lg">
+              <LogOut className="w-4 h-4 mr-2" /> Check-out
+            </Button>
+          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="rounded-full">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleStatusChange('CANCELLED')} className="text-destructive">
+                <XCircle className="w-4 h-4 mr-2" /> Cancelar Reserva
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </motion.div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main info */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Status and actions */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Estado de la Reserva</CardTitle>
-                <StatusBadge status={booking.status} />
+        {/* Column 1: Guest Journey & Room */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1 }}
+          className="space-y-6"
+        >
+          <Card className="glass border-none shadow-md overflow-hidden">
+            <div className="h-32 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 relative">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <BedDouble className="w-12 h-12 text-primary/40" />
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-3">
-                {getStatusActions()}
+            </div>
+            <CardContent className="-mt-12 relative z-10 px-6">
+              <div className="flex justify-between items-end mb-4">
+                <div className="bg-background/80 backdrop-blur-md p-4 rounded-xl border shadow-sm">
+                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Habitación</p>
+                  <p className="text-3xl font-bold text-primary">{booking.room.roomNumber}</p>
+                </div>
+                <Badge variant="outline" className="mb-4 bg-background/50 h-8 px-3">
+                  {booking.roomType.name}
+                </Badge>
               </div>
-              {booking.needsReview && (
-                <div className="mt-4 p-3 rounded-lg bg-accent/10 border border-accent/20 flex items-start gap-2">
-                  <AlertTriangle className="w-5 h-5 text-accent shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-sm">Requiere revisión</p>
-                    <p className="text-xs text-muted-foreground">
-                      La cantidad de huéspedes supera la capacidad recomendada
-                    </p>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground">Entrada</span>
+                    <div className="font-semibold">{format(new Date(booking.checkInDate), "EEE d MMM", { locale: es })}</div>
+                    <div className="text-xs text-muted-foreground">14:00 PM</div>
+                  </div>
+                  <div className="space-y-1 text-right">
+                    <span className="text-xs text-muted-foreground">Salida</span>
+                    <div className="font-semibold">{format(new Date(booking.checkOutDate), "EEE d MMM", { locale: es })}</div>
+                    <div className="text-xs text-muted-foreground">11:00 AM</div>
                   </div>
                 </div>
-              )}
+
+                <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="absolute top-0 left-0 h-full bg-primary transition-all duration-1000"
+                    style={{ width: `${booking.status === 'CHECKED_IN' ? '50%' : booking.status === 'CHECKED_OUT' ? '100%' : '0%'}` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                  <span>Llegada</span>
+                  <span>Estadía</span>
+                  <span>Salida</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Guest info */}
-          <Card>
+          <Card className="glass border-none shadow-sm">
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Huésped
+              <CardTitle className="text-base flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                Datos del Huésped
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <p className="text-sm text-muted-foreground">Nombre completo</p>
-                  <p className="font-medium">{booking.guest.fullName}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Documento</p>
-                  <p className="font-medium">{booking.guest.documentId || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Email</p>
-                  <p className="font-medium">{booking.guest.email}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Teléfono</p>
-                  <p className="font-medium">{booking.guest.phone}</p>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-background/40 hover:bg-background/60 transition-colors">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary"><Mail className="w-4 h-4" /></div>
+                <div className="overflow-hidden">
+                  <p className="text-xs text-muted-foreground">Email</p>
+                  <p className="text-sm font-medium truncate">{booking.guest.email}</p>
                 </div>
               </div>
-              {booking.guest.notes && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-background/40 hover:bg-background/60 transition-colors">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary"><Phone className="w-4 h-4" /></div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Notas</p>
-                  <p className="text-sm">{booking.guest.notes}</p>
+                  <p className="text-xs text-muted-foreground">Teléfono</p>
+                  <p className="text-sm font-medium">{booking.guest.phone}</p>
                 </div>
-              )}
-              <Link to={`/guests/${booking.guest.id}`}>
-                <Button variant="outline" size="sm">Ver perfil completo</Button>
+              </div>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-background/40 hover:bg-background/60 transition-colors">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary"><MapPin className="w-4 h-4" /></div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Origen</p>
+                  <p className="text-sm font-medium">{booking.guest.country || 'No especificado'}</p>
+                </div>
+              </div>
+
+              <Link to={`/guests/${booking.guest.id}`} className="block">
+                <Button variant="outline" className="w-full">Ver Perfil CRM</Button>
               </Link>
             </CardContent>
           </Card>
+        </motion.div>
 
-          {/* Room info */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <BedDouble className="w-5 h-5" />
-                Habitación
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <p className="text-sm text-muted-foreground">Número</p>
-                  <p className="font-medium text-xl">{booking.room.roomNumber}</p>
+        {/* Column 2: Finance & Notes */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          className="lg:col-span-2 space-y-6"
+        >
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Finance Card */}
+            <Card className="glass border-none shadow-md bg-gradient-to-br from-background to-background/50">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base font-medium text-muted-foreground">Estado de Cuenta</CardTitle>
+                <CreditCard className="w-4 h-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold mb-1">${booking.totalAmount.toLocaleString('es-AR')}</div>
+                <div className="flex items-center gap-2 text-sm mb-6">
+                  <Badge variant={pendingAmount <= 0 ? "default" : "destructive"} className="rounded-full">
+                    {pendingAmount <= 0 ? 'Pagado' : 'Pendiente'}
+                  </Badge>
+                  {pendingAmount > 0 && (
+                    <span className="text-destructive font-medium">Restan ${pendingAmount.toLocaleString('es-AR')}</span>
+                  )}
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Tipo</p>
-                  <p className="font-medium">{booking.roomType.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Piso</p>
-                  <p className="font-medium">{booking.room.floor}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Capacidad máxima</p>
-                  <p className="font-medium">{booking.roomType.maxGuests} huéspedes</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Stay details */}
-          <Card>
+                <div className="space-y-2 mb-6">
+                  <div className="flex justify-between text-sm">
+                    <span>Progreso de pago</span>
+                    <span className="font-medium">{paymentProgress.toFixed(0)}%</span>
+                  </div>
+                  <Progress value={paymentProgress} className="h-2" />
+                </div>
+
+                <Button className="w-full" onClick={() => setIsPaymentDialogOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Registrar Pago
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Notes Card */}
+            <Card className="glass border-none shadow-sm h-full">
+              <CardHeader>
+                <CardTitle className="text-base">Notas y Requerimientos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {booking.notes ? (
+                  <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-yellow-600 dark:text-yellow-400">
+                    <p className="text-sm italic">"{booking.notes}"</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full py-8 text-muted-foreground/50">
+                    <Edit className="w-8 h-8 mb-2 opacity-20" />
+                    <p className="text-sm">Sin notas adicionales</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Payments History */}
+          <Card className="glass border-none shadow-sm">
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                Detalles de la Estadía
-              </CardTitle>
+              <CardTitle className="text-lg">Historial de Pagos</CardTitle>
+              <CardDescription>Transacciones registradas para esta reserva</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Check-in</p>
-                  <p className="font-medium">
-                    {format(new Date(booking.checkInDate), "EEE d MMM yyyy", { locale: es })}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Check-out</p>
-                  <p className="font-medium">
-                    {format(new Date(booking.checkOutDate), "EEE d MMM yyyy", { locale: es })}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Noches</p>
-                  <p className="font-medium">{nights}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Huéspedes</p>
-                  <p className="font-medium">
-                    {booking.adults} adultos{booking.children > 0 && `, ${booking.children} niños`}
-                  </p>
-                </div>
-              </div>
-              {booking.notes && (
-                <div className="mt-4 pt-4 border-t">
-                  <p className="text-sm text-muted-foreground">Notas de la reserva</p>
-                  <p className="text-sm mt-1">{booking.notes}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sidebar - Payments */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <CreditCard className="w-5 h-5" />
-                  Pagos
-                </CardTitle>
-                <Button size="sm" onClick={() => setIsPaymentDialogOpen(true)}>
-                  <Plus className="w-4 h-4 mr-1" />
-                  Agregar
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Summary */}
-              <div className="p-4 rounded-lg bg-muted/50 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total reserva</span>
-                  <span className="font-medium">${booking.totalAmount.toLocaleString('es-AR')}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Pagado</span>
-                  <span className="font-medium text-status-available">${totalPaid.toLocaleString('es-AR')}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between">
-                  <span className="font-medium">Pendiente</span>
-                  <span className={`font-bold ${pendingAmount > 0 ? 'text-accent' : 'text-status-available'}`}>
-                    ${pendingAmount.toLocaleString('es-AR')}
-                  </span>
-                </div>
-              </div>
-
-              {/* Payment list */}
               {bookingPayments.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No hay pagos registrados
-                </p>
+                <div className="text-center py-8 border-2 border-dashed rounded-xl">
+                  <p className="text-muted-foreground">No hay pagos registrados</p>
+                </div>
               ) : (
-                <div className="space-y-2">
-                  {bookingPayments.map(payment => (
-                    <div key={payment.id} className="p-3 rounded-lg border">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium">${payment.amount.toLocaleString('es-AR')}</span>
-                        <StatusBadge status={payment.status} />
+                <div className="space-y-4">
+                  {bookingPayments.map((payment, i) => (
+                    <div key={payment.id} className="flex items-center justify-between p-4 rounded-xl bg-background/40 hover:bg-background/60 transition-colors border border-transparent hover:border-border/50">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 font-bold text-xs ring-4 ring-background">
+                          ${i + 1}
+                        </div>
+                        <div>
+                          <p className="font-medium">{payment.method}</p>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {format(new Date(payment.date), "d MMM yyyy, HH:mm", { locale: es })}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{format(new Date(payment.date), 'dd/MM/yyyy')}</span>
-                        <span>{payment.method}</span>
+                      <div className="text-right">
+                        <p className="font-bold text-green-600 dark:text-green-400">+${payment.amount.toLocaleString('es-AR')}</p>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Automático</span>
                       </div>
-                      {payment.reference && (
-                        <p className="text-xs text-muted-foreground mt-1">Ref: {payment.reference}</p>
-                      )}
-                      {payment.comment && (
-                        <p className="text-xs text-muted-foreground mt-1">{payment.comment}</p>
-                      )}
                     </div>
                   ))}
                 </div>
               )}
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
       </div>
 
-      <RegisterPaymentDialog 
-        open={isPaymentDialogOpen} 
+      <RegisterPaymentDialog
+        open={isPaymentDialogOpen}
         onOpenChange={setIsPaymentDialogOpen}
         bookingId={booking.id}
         pendingAmount={pendingAmount}

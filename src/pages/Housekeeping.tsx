@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { ClipboardList, Check, Clock, Play, User } from 'lucide-react';
+import { ClipboardList, Filter } from 'lucide-react';
 import { useHotel } from '@/context/HotelContext';
-import { PageHeader, StatusBadge, EmptyState } from '@/components/shared';
+import { PageHeader, EmptyState } from '@/components/shared';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { HousekeepingBoard, StaffPerformanceCard } from '@/components/housekeeping';
+import { HousekeepingTask, HousekeepingStatus } from '@/types/hotel';
 import {
   Select,
   SelectContent,
@@ -12,13 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { HousekeepingStatus } from '@/types/hotel';
 
 export default function Housekeeping() {
-  const { housekeepingTasks, rooms, roomTypes, updateHousekeepingTask } = useHotel();
-  const [filter, setFilter] = useState<HousekeepingStatus | 'ALL'>('ALL');
+  const { housekeepingTasks, rooms, updateHousekeepingTask } = useHotel();
+  const [floorFilter, setFloorFilter] = useState<'ALL' | string>('ALL');
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -29,180 +26,86 @@ export default function Housekeeping() {
     return taskDate.getTime() === today.getTime();
   });
 
-  const filteredTasks = filter === 'ALL' 
-    ? todaysTasks 
-    : todaysTasks.filter(t => t.status === filter);
-
-  const getRoomInfo = (roomId: string) => {
-    const room = rooms.find(r => r.id === roomId);
-    const roomType = room ? roomTypes.find(rt => rt.id === room.roomTypeId) : null;
-    return { room, roomType };
-  };
-
   const handleStatusChange = (taskId: string, newStatus: HousekeepingStatus) => {
     updateHousekeepingTask(taskId, { status: newStatus });
   };
 
-  const todoCount = todaysTasks.filter(t => t.status === 'TODO').length;
-  const inProgressCount = todaysTasks.filter(t => t.status === 'IN_PROGRESS').length;
-  const doneCount = todaysTasks.filter(t => t.status === 'DONE').length;
+  // Mock staff (usually would come from context)
+  const staffMembers = [
+    { name: 'Maria G.', id: '1' },
+    { name: 'Carlos R.', id: '2' },
+  ];
 
-  // Dirty rooms that need tasks
-  const dirtyRooms = rooms.filter(r => r.status === 'DIRTY');
-  const dirtyRoomsWithoutTasks = dirtyRooms.filter(r => 
-    !todaysTasks.some(t => t.roomId === r.id)
-  );
+  const filteredRooms = floorFilter === 'ALL'
+    ? rooms
+    : rooms.filter(r => r.floor.toString() === floorFilter);
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Limpieza"
-        description={`${todaysTasks.length} tareas para hoy`}
+        title="Operaciones de Limpieza"
+        description="Tablero visual de estado de habitaciones"
+        actions={
+          <div className="flex gap-2">
+            <Select value={floorFilter} onValueChange={setFloorFilter}>
+              <SelectTrigger className="w-[140px] bg-white/50 backdrop-blur-sm border-white/20">
+                <SelectValue placeholder="Piso" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todos los pisos</SelectItem>
+                <SelectItem value="1">Piso 1</SelectItem>
+                <SelectItem value="2">Piso 2</SelectItem>
+                <SelectItem value="3">Piso 3</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="icon" className="bg-white/50 backdrop-blur-sm">
+              <Filter className="w-4 h-4 text-slate-600" />
+            </Button>
+          </div>
+        }
       />
 
-      {/* Summary cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setFilter('ALL')}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total</p>
-                <p className="text-2xl font-bold">{todaysTasks.length}</p>
-              </div>
-              <ClipboardList className="w-8 h-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className={`cursor-pointer hover:border-primary/50 transition-colors ${filter === 'TODO' ? 'border-accent' : ''}`} onClick={() => setFilter('TODO')}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Pendientes</p>
-                <p className="text-2xl font-bold text-accent">{todoCount}</p>
-              </div>
-              <Clock className="w-8 h-8 text-accent" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className={`cursor-pointer hover:border-primary/50 transition-colors ${filter === 'IN_PROGRESS' ? 'border-primary' : ''}`} onClick={() => setFilter('IN_PROGRESS')}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">En Progreso</p>
-                <p className="text-2xl font-bold text-primary">{inProgressCount}</p>
-              </div>
-              <Play className="w-8 h-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className={`cursor-pointer hover:border-primary/50 transition-colors ${filter === 'DONE' ? 'border-status-available' : ''}`} onClick={() => setFilter('DONE')}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Completadas</p>
-                <p className="text-2xl font-bold text-status-available">{doneCount}</p>
-              </div>
-              <Check className="w-8 h-8 text-status-available" />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Staff Stats Row */}
+      <div className="grid gap-4 md:grid-cols-3 mb-8">
+        <StaffPerformanceCard
+          name="Maria Gonzalez"
+          completed={todaysTasks.filter(t => t.assignedTo?.includes("Maria") && t.status === 'DONE').length}
+          total={Math.max(1, todaysTasks.filter(t => t.assignedTo?.includes("Maria")).length)}
+        />
+        <StaffPerformanceCard
+          name="Carlos Ruiz"
+          completed={todaysTasks.filter(t => t.assignedTo?.includes("Carlos") && t.status === 'DONE').length}
+          total={Math.max(1, todaysTasks.filter(t => t.assignedTo?.includes("Carlos")).length)}
+        />
+        <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4 flex items-center justify-center">
+          <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+            {Math.round((todaysTasks.filter(t => t.status === 'DONE').length / Math.max(1, todaysTasks.length)) * 100)}% Completado Hoy
+          </p>
+        </div>
       </div>
 
-      {/* Dirty rooms alert */}
-      {dirtyRoomsWithoutTasks.length > 0 && (
-        <Card className="border-accent">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-accent">Habitaciones Sucias Sin Tarea Asignada</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {dirtyRoomsWithoutTasks.map(room => (
-                <Badge key={room.id} variant="outline" className="text-accent border-accent">
-                  Hab. {room.roomNumber}
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Tasks grid */}
-      {filteredTasks.length === 0 ? (
-        <EmptyState
-          icon={ClipboardList}
-          title="No hay tareas"
-          description={filter === 'ALL' ? 'No hay tareas de limpieza para hoy' : 'No hay tareas con este estado'}
-        />
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredTasks.map(task => {
-            const { room, roomType } = getRoomInfo(task.roomId);
-            
-            return (
-              <Card key={task.id} className="overflow-hidden">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-xl">Hab. {room?.roomNumber}</CardTitle>
-                    <StatusBadge status={task.status} />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">{roomType?.name}</Badge>
-                    <span className="text-xs text-muted-foreground">Piso {room?.floor}</span>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {task.assignedTo && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <User className="w-4 h-4 text-muted-foreground" />
-                      <span>{task.assignedTo}</span>
-                    </div>
-                  )}
-                  
-                  {task.notes && (
-                    <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
-                      {task.notes}
-                    </p>
-                  )}
-
-                  <div className="flex gap-2">
-                    {task.status === 'TODO' && (
-                      <Button 
-                        size="sm" 
-                        className="flex-1"
-                        onClick={() => handleStatusChange(task.id, 'IN_PROGRESS')}
-                      >
-                        <Play className="w-4 h-4 mr-1" />
-                        Iniciar
-                      </Button>
-                    )}
-                    {task.status === 'IN_PROGRESS' && (
-                      <Button 
-                        size="sm" 
-                        className="flex-1"
-                        onClick={() => handleStatusChange(task.id, 'DONE')}
-                      >
-                        <Check className="w-4 h-4 mr-1" />
-                        Completar
-                      </Button>
-                    )}
-                    {task.status === 'DONE' && (
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="flex-1"
-                        disabled
-                      >
-                        <Check className="w-4 h-4 mr-1 text-status-available" />
-                        Completada
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+      <div className="relative min-h-[500px] bg-slate-100/50 dark:bg-slate-900/50 rounded-3xl p-6 border border-slate-200/60 dark:border-slate-800/60 shadow-inner">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+            Tablero de Habitaciones
+          </h3>
+          <div className="flex gap-4 text-xs font-medium text-muted-foreground">
+            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-rose-400" /> Sucia</div>
+            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-400" /> Limpiando</div>
+            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-400" /> Lista</div>
+          </div>
         </div>
-      )}
+
+        <HousekeepingBoard
+          rooms={filteredRooms}
+          tasks={todaysTasks}
+          onStatusChange={handleStatusChange}
+        />
+
+        {filteredRooms.length === 0 && (
+          <EmptyState icon={ClipboardList} title="No se encontraron habitaciones" />
+        )}
+      </div>
     </div>
   );
 }

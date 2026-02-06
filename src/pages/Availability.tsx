@@ -1,179 +1,150 @@
+import { useState, useMemo } from 'react';
 import { useHotel } from '@/context/HotelContext';
-import { PageHeader, KPICard } from '@/components/shared';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader, AvailabilityTimeline, AvailabilityFilters } from '@/components/shared';
+import { KPICardModern } from '@/components/shared/KPICardModern';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { BedDouble, TrendingUp, Calendar } from 'lucide-react';
+import { BedDouble, Calendar, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { motion } from 'framer-motion';
 
 export default function Availability() {
-  const { getDashboardStats, getOccupancyByType, rooms, bookings } = useHotel();
-  
+  const { getDashboardStats, getOccupancyByType, rooms, bookings, roomTypes } = useHotel();
+
   const stats = getDashboardStats();
   const occupancyByType = getOccupancyByType();
 
-  // Calculate availability for next 7 days
-  const next7Days = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() + i);
-    return date;
-  });
+  // Filter State
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedFloors, setSelectedFloors] = useState<number[]>([]);
 
-  const getAvailabilityForDate = (date: Date) => {
-    const targetDate = new Date(date);
-    targetDate.setHours(0, 0, 0, 0);
-    
-    const occupiedCount = bookings.filter(booking => {
-      const checkIn = new Date(booking.checkInDate);
-      checkIn.setHours(0, 0, 0, 0);
-      const checkOut = new Date(booking.checkOutDate);
-      checkOut.setHours(0, 0, 0, 0);
-      
-      return (
-        targetDate >= checkIn && 
-        targetDate < checkOut && 
-        (booking.status === 'CONFIRMED' || booking.status === 'CHECKED_IN' || booking.status === 'PENDING')
-      );
-    }).length;
+  // Derived Data
+  const uniqueFloors = useMemo(() => {
+    return Array.from(new Set(rooms.map(r => r.floor))).sort((a, b) => a - b);
+  }, [rooms]);
 
-    const availableCount = rooms.length - occupiedCount;
-    const rate = (occupiedCount / rooms.length) * 100;
-    
-    return { occupiedCount, availableCount, rate };
-  };
+  const filteredRooms = useMemo(() => {
+    return rooms.filter(room => {
+      const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(room.roomTypeId);
+      const floorMatch = selectedFloors.length === 0 || selectedFloors.includes(room.floor);
+      return typeMatch && floorMatch;
+    });
+  }, [rooms, selectedTypes, selectedFloors]);
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Disponibilidad"
-        description="Estado actual y proyección de ocupación"
-      />
+    <div className="space-y-6 p-1">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <PageHeader
+          title="Disponibilidad & Ocupación"
+          description={`Vista general al ${format(new Date(), "d 'de' MMMM", { locale: es })}`}
+        />
+      </motion.div>
 
-      {/* Main occupancy */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <BedDouble className="w-5 h-5 text-primary" />
-              Ocupación Actual
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-6">
-              <div className="text-6xl font-bold text-primary mb-2">
-                {stats.occupancyRate.toFixed(0)}%
-              </div>
-              <p className="text-muted-foreground">
-                {stats.occupiedRooms} de {stats.totalRooms} habitaciones ocupadas
-              </p>
-            </div>
-            <Progress value={stats.occupancyRate} className="h-3 mb-4" />
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-status-available">{stats.availableRooms}</div>
-                <p className="text-xs text-muted-foreground">Disponibles</p>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-status-dirty">{stats.dirtyRooms}</div>
-                <p className="text-xs text-muted-foreground">Sucias</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-primary" />
-              Proyección 7 días
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-7 gap-2">
-              {next7Days.map((date, i) => {
-                const { rate, availableCount } = getAvailabilityForDate(date);
-                const isToday = i === 0;
-                
-                return (
-                  <div 
-                    key={date.toISOString()} 
-                    className={`p-3 rounded-lg text-center ${isToday ? 'bg-primary/10 border border-primary/20' : 'bg-muted/50'}`}
-                  >
-                    <div className="text-xs text-muted-foreground mb-1">
-                      {format(date, 'EEE', { locale: es })}
-                    </div>
-                    <div className="text-sm font-medium mb-2">
-                      {format(date, 'd MMM', { locale: es })}
-                    </div>
-                    <div className={`text-xl font-bold ${rate > 80 ? 'text-destructive' : rate > 50 ? 'text-accent' : 'text-status-available'}`}>
-                      {rate.toFixed(0)}%
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {availableCount} libres
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* By room type */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Ocupación por Tipo de Habitación</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {occupancyByType.map(type => (
-              <div key={type.roomTypeId} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{type.roomTypeName}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {type.occupied}/{type.total}
-                  </span>
-                </div>
-                <Progress value={type.rate} className="h-2" />
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Ocupación</span>
-                  <span className={`font-medium ${type.rate > 80 ? 'text-destructive' : type.rate > 50 ? 'text-accent' : 'text-status-available'}`}>
-                    {type.rate.toFixed(0)}%
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Room status breakdown */}
-      <div className="grid gap-4 md:grid-cols-5">
-        <KPICard
+      {/* KPI Stats Grid */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <KPICardModern
+          title="Ocupación Total"
+          value={`${stats.occupancyRate.toFixed(0)}%`}
+          subtitle={`${stats.occupiedRooms} / ${stats.totalRooms} habitaciones`}
+          icon={<BedDouble className="w-5 h-5" />}
+          trend={{ value: 2, label: 'vs ayer', isPositive: true }}
+          delay={0.1}
+          chartData={[{ value: 40 }, { value: 30 }, { value: 45 }, { value: 60 }, { value: 55 }, { value: stats.occupancyRate }]}
+        />
+        <KPICardModern
           title="Disponibles"
           value={stats.availableRooms}
-          variant="success"
+          subtitle="Listas para venta"
+          icon={<CheckCircle2 className="w-5 h-5 text-status-available" />}
+          delay={0.2}
+          chartData={[{ value: 10 }, { value: 12 }, { value: 8 }, { value: 15 }, { value: 10 }, { value: stats.availableRooms }]}
         />
-        <KPICard
-          title="Ocupadas"
-          value={stats.occupiedRooms}
-          variant="primary"
-        />
-        <KPICard
-          title="Sucias"
-          value={stats.dirtyRooms}
-          variant="warning"
-        />
-        <KPICard
+        <KPICardModern
           title="Mantenimiento"
           value={stats.maintenanceRooms}
-          variant="danger"
+          subtitle="Fuera de servicio"
+          icon={<AlertTriangle className="w-5 h-5 text-destructive" />}
+          delay={0.3}
+          chartData={[{ value: 1 }, { value: 2 }, { value: 1 }, { value: 3 }, { value: 2 }, { value: stats.maintenanceRooms }]}
         />
-        <KPICard
+        <KPICardModern
           title="Check-ins Hoy"
           value={stats.checkInsToday}
+          subtitle="Llegadas esperadas"
+          icon={<Calendar className="w-5 h-5" />}
+          delay={0.4}
         />
       </div>
+
+      {/* Modern Timeline View */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, delay: 0.5 }}
+      >
+        <Card className="glass border-none shadow-lg overflow-hidden">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Cronograma de Reservas</CardTitle>
+                <CardDescription>Visualización de ocupación en tiempo real</CardDescription>
+              </div>
+              <AvailabilityFilters
+                roomTypes={roomTypes}
+                selectedTypeIds={selectedTypes}
+                onTypeChange={setSelectedTypes}
+                floors={uniqueFloors}
+                selectedFloors={selectedFloors}
+                onFloorChange={setSelectedFloors}
+              />
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="p-6 pt-0">
+              <AvailabilityTimeline rooms={filteredRooms} bookings={bookings} roomTypes={roomTypes} />
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Room Types Breakdown */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.6 }}
+      >
+        <Card className="glass border-none shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-lg">Detalle por Categoría</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {occupancyByType.map((type, index) => (
+                <div key={type.roomTypeId} className="space-y-3 p-4 rounded-xl bg-background/40 border border-white/5 hover:bg-white/10 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">{type.roomTypeName}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {type.occupied}/{type.total}
+                    </span>
+                  </div>
+                  <Progress value={type.rate} className="h-2" />
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground text-xs">Ocupación</span>
+                    <span className={`font-bold ${type.rate > 80 ? 'text-rose-500' : type.rate > 50 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                      {type.rate.toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 }

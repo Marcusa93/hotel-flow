@@ -31,37 +31,37 @@ export function Topbar() {
   const stats = getDashboardStats();
 
   return (
-    <header className="flex items-center justify-between h-16 px-6 bg-card border-b">
+    <header className="flex items-center justify-between h-16 px-6 bg-[#003366] border-b border-white/10 shadow-sm">
       {/* Search */}
       <div className="flex items-center gap-4 flex-1 max-w-md">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input 
-            placeholder="Buscar reservas, huéspedes, habitaciones..." 
-            className="pl-10 bg-muted/50 border-0"
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/70" />
+          <Input
+            placeholder="Buscar reservas, huéspedes, habitaciones..."
+            className="pl-10 bg-white/10 border-0 text-white placeholder:text-white/50 focus-visible:ring-1 focus-visible:ring-white/30"
           />
         </div>
       </div>
 
       {/* Right side */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 text-white">
         {/* Quick stats */}
         <div className="hidden md:flex items-center gap-4 text-sm">
           <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Ocupación:</span>
-            <span className="font-semibold text-foreground">{stats.occupancyRate.toFixed(0)}%</span>
+            <span className="text-white/70">Ocupación:</span>
+            <span className="font-semibold text-white">{stats.occupancyRate.toFixed(0)}%</span>
           </div>
-          <div className="w-px h-4 bg-border" />
+          <div className="w-px h-4 bg-white/20" />
           <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Check-ins hoy:</span>
-            <span className="font-semibold text-foreground">{stats.checkInsToday}</span>
+            <span className="text-white/70">Check-ins hoy:</span>
+            <span className="font-semibold text-white">{stats.checkInsToday}</span>
           </div>
         </div>
 
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
+            <Button variant="ghost" size="icon" className="relative text-white hover:bg-white/10 hover:text-white">
               <Bell className="w-5 h-5" />
               {(stats.dirtyRooms > 0 || stats.pendingPayments > 0) && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
@@ -119,13 +119,13 @@ export function Topbar() {
         {/* User menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="w-4 h-4 text-primary" />
+            <Button variant="ghost" className="gap-2 text-white hover:bg-white/10 hover:text-white">
+              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                <User className="w-4 h-4 text-white" />
               </div>
               <div className="hidden md:flex flex-col items-start">
                 <span className="text-sm font-medium">Usuario Demo</span>
-                <Badge variant="outline" className={`text-xs ${roleColors[currentRole]}`}>
+                <Badge variant="outline" className={`text-xs border-white/20 text-white ${roleColors[currentRole].replace('bg-primary', 'bg-white/20')}`}>
                   {roleLabels[currentRole]}
                 </Badge>
               </div>

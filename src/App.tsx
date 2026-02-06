@@ -1,27 +1,75 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { HotelProvider } from "@/context/HotelContext";
 import { MainLayout } from "@/components/layout";
-import Dashboard from "./pages/Dashboard";
-import Bookings from "./pages/Bookings";
-import BookingDetail from "./pages/BookingDetail";
-import Rooms from "./pages/Rooms";
-import Guests from "./pages/Guests";
-import Payments from "./pages/Payments";
-import Calendar from "./pages/Calendar";
-import Availability from "./pages/Availability";
-import Rates from "./pages/Rates";
-import Statistics from "./pages/Statistics";
-import Billing from "./pages/Billing";
-import Housekeeping from "./pages/Housekeeping";
-import Notifications from "./pages/Notifications";
-import Settings from "./pages/Settings";
-import NotFound from "./pages/NotFound";
+import { AnimatePresence, motion } from "framer-motion";
+
+// Lazy load pages for performance optimization
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Bookings = lazy(() => import("./pages/Bookings"));
+const BookingDetail = lazy(() => import("./pages/BookingDetail"));
+const Rooms = lazy(() => import("./pages/Rooms"));
+const Guests = lazy(() => import("./pages/Guests"));
+const Payments = lazy(() => import("./pages/Payments"));
+const Calendar = lazy(() => import("./pages/Calendar"));
+const Availability = lazy(() => import("./pages/Availability"));
+const Rates = lazy(() => import("./pages/Rates"));
+const Statistics = lazy(() => import("./pages/Statistics"));
+const Billing = lazy(() => import("./pages/Billing"));
+const Housekeeping = lazy(() => import("./pages/Housekeeping"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const Settings = lazy(() => import("./pages/Settings"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
+
+const PageWrapper = ({ children }: { children: React.ReactNode }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -20 }}
+    transition={{ duration: 0.3 }}
+  >
+    {children}
+  </motion.div>
+);
+
+const AnimatedRoutes = () => {
+  const location = useLocation();
+
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<MainLayout><PageWrapper><Dashboard /></PageWrapper></MainLayout>} />
+        <Route path="/bookings" element={<MainLayout><PageWrapper><Bookings /></PageWrapper></MainLayout>} />
+        <Route path="/bookings/:id" element={<MainLayout><PageWrapper><BookingDetail /></PageWrapper></MainLayout>} />
+        <Route path="/rooms" element={<MainLayout><PageWrapper><Rooms /></PageWrapper></MainLayout>} />
+        <Route path="/guests" element={<MainLayout><PageWrapper><Guests /></PageWrapper></MainLayout>} />
+        <Route path="/guests/:id" element={<MainLayout><PageWrapper><Guests /></PageWrapper></MainLayout>} />
+        <Route path="/payments" element={<MainLayout><PageWrapper><Payments /></PageWrapper></MainLayout>} />
+        <Route path="/calendar" element={<MainLayout><PageWrapper><Calendar /></PageWrapper></MainLayout>} />
+        <Route path="/availability" element={<MainLayout><PageWrapper><Availability /></PageWrapper></MainLayout>} />
+        <Route path="/rates" element={<MainLayout><PageWrapper><Rates /></PageWrapper></MainLayout>} />
+        <Route path="/statistics" element={<MainLayout><PageWrapper><Statistics /></PageWrapper></MainLayout>} />
+        <Route path="/billing" element={<MainLayout><PageWrapper><Billing /></PageWrapper></MainLayout>} />
+        <Route path="/housekeeping" element={<MainLayout><PageWrapper><Housekeeping /></PageWrapper></MainLayout>} />
+        <Route path="/notifications" element={<MainLayout><PageWrapper><Notifications /></PageWrapper></MainLayout>} />
+        <Route path="/settings" element={<MainLayout><PageWrapper><Settings /></PageWrapper></MainLayout>} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AnimatePresence>
+  );
+};
+
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center h-screen w-full bg-background">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+  </div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -30,24 +78,9 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<MainLayout><Dashboard /></MainLayout>} />
-            <Route path="/bookings" element={<MainLayout><Bookings /></MainLayout>} />
-            <Route path="/bookings/:id" element={<MainLayout><BookingDetail /></MainLayout>} />
-            <Route path="/rooms" element={<MainLayout><Rooms /></MainLayout>} />
-            <Route path="/guests" element={<MainLayout><Guests /></MainLayout>} />
-            <Route path="/guests/:id" element={<MainLayout><Guests /></MainLayout>} />
-            <Route path="/payments" element={<MainLayout><Payments /></MainLayout>} />
-            <Route path="/calendar" element={<MainLayout><Calendar /></MainLayout>} />
-            <Route path="/availability" element={<MainLayout><Availability /></MainLayout>} />
-            <Route path="/rates" element={<MainLayout><Rates /></MainLayout>} />
-            <Route path="/statistics" element={<MainLayout><Statistics /></MainLayout>} />
-            <Route path="/billing" element={<MainLayout><Billing /></MainLayout>} />
-            <Route path="/housekeeping" element={<MainLayout><Housekeeping /></MainLayout>} />
-            <Route path="/notifications" element={<MainLayout><Notifications /></MainLayout>} />
-            <Route path="/settings" element={<MainLayout><Settings /></MainLayout>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Suspense fallback={<LoadingFallback />}>
+            <AnimatedRoutes />
+          </Suspense>
         </BrowserRouter>
       </HotelProvider>
     </TooltipProvider>

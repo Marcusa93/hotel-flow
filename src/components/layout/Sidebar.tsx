@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  CalendarDays, 
-  BedDouble, 
-  Users, 
-  CreditCard, 
+import {
+  LayoutDashboard,
+  CalendarDays,
+  BedDouble,
+  Users,
+  CreditCard,
   BarChart3,
   Receipt,
   Bell,
@@ -58,54 +58,65 @@ export function Sidebar() {
   const isAuditor = currentRole === 'auditor';
 
   return (
-    <aside 
+    <aside
+
+      // Fixed Navy Background for Sidebar
       className={cn(
-        "flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300",
+        "flex flex-col border-r border-[#003366] transition-all duration-300",
+        "bg-[#003366] text-white", // Enforcing Navy background and White text
         collapsed ? "w-16" : "w-64"
       )}
     >
       {/* Logo */}
       <div className={cn(
-        "flex items-center h-16 px-4 border-b border-sidebar-border",
+        "flex items-center h-20 px-4 border-b border-white/10",
         collapsed ? "justify-center" : "gap-3"
       )}>
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-          <Building2 className="w-5 h-5" />
-        </div>
-        {!collapsed && (
-          <div className="flex flex-col">
-            <span className="font-semibold text-sidebar-foreground">Hotel PMS</span>
-            <span className="text-xs text-sidebar-foreground/60">Panel de Control</span>
+        <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white shadow-sm overflow-hidden shrink-0">
+            <img src="/logo.png" alt="Logo HM" className="w-full h-full object-cover" />
           </div>
-        )}
+          {!collapsed && (
+            <div className="flex flex-col animate-fade-in">
+              <span className="font-bold text-lg tracking-tight text-white">Hotel Manager</span>
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-white/70">Panel de Control</span>
+            </div>
+          )}
+        </Link>
       </div>
 
       {/* Navigation */}
-      <ScrollArea className="flex-1 py-4">
-        <nav className="px-2 space-y-1">
+      <ScrollArea className="flex-1 py-6">
+        <nav className="px-3 space-y-1.5">
           {filteredItems.map((item) => {
             const isActive = location.pathname === item.href;
             const showReadOnly = isAuditor && item.readOnly;
-            
+
             const linkContent = (
               <Link
                 to={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-                  isActive 
-                    ? "bg-sidebar-accent text-sidebar-primary" 
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden",
+                  isActive
+                    ? "bg-[rgba(255,255,255,0.12)] text-white shadow-none"
+                    : "text-white/70 hover:text-white hover:bg-white/10",
                   collapsed && "justify-center px-2"
                 )}
               >
-                <item.icon className={cn("w-5 h-5 shrink-0", isActive && "text-sidebar-primary")} />
+                <item.icon className={cn(
+                  "w-5 h-5 shrink-0 transition-transform duration-200",
+                  isActive ? "text-primary-foreground" : "group-hover:scale-110",
+                )} />
                 {!collapsed && (
                   <>
-                    <span className="flex-1 text-sm font-medium">{item.title}</span>
+                    <span className="flex-1 text-sm font-medium tracking-wide">{item.title}</span>
                     {showReadOnly && (
-                      <span className="read-only-badge">Solo lectura</span>
+                      <span className="read-only-badge bg-black/5 dark:bg-white/10">Solo lectura</span>
                     )}
                   </>
+                )}
+                {isActive && !collapsed && (
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white/20 rounded-l-full" />
                 )}
               </Link>
             );
@@ -116,7 +127,7 @@ export function Sidebar() {
                   <TooltipTrigger asChild>
                     {linkContent}
                   </TooltipTrigger>
-                  <TooltipContent side="right" className="flex items-center gap-2">
+                  <TooltipContent side="right" className="flex items-center gap-2 glass border-none shadow-xl">
                     {item.title}
                     {showReadOnly && <span className="read-only-badge">Solo lectura</span>}
                   </TooltipContent>
@@ -130,14 +141,14 @@ export function Sidebar() {
       </ScrollArea>
 
       {/* Collapse button */}
-      <div className="p-2 border-t border-sidebar-border">
+      <div className="p-4 border-t border-white/10">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setCollapsed(!collapsed)}
           className={cn(
-            "w-full text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50",
-            collapsed && "px-2"
+            "w-full text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-white/5 data-[state=open]:bg-transparent",
+            collapsed && "px-2 justify-center"
           )}
         >
           {collapsed ? (
@@ -145,11 +156,11 @@ export function Sidebar() {
           ) : (
             <>
               <ChevronLeft className="w-4 h-4 mr-2" />
-              <span className="text-sm">Colapsar</span>
+              <span className="text-xs font-medium uppercase tracking-wider">Colapsar Menú</span>
             </>
           )}
         </Button>
       </div>
-    </aside>
+    </aside >
   );
 }

@@ -57,6 +57,35 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Hotel status colors
+        status: {
+          available: "hsl(var(--status-available))",
+          occupied: "hsl(var(--status-occupied))",
+          dirty: "hsl(var(--status-dirty))",
+          maintenance: "hsl(var(--status-maintenance))",
+          "out-of-order": "hsl(var(--status-out-of-order))",
+        },
+        booking: {
+          pending: "hsl(var(--booking-pending))",
+          confirmed: "hsl(var(--booking-confirmed))",
+          "checked-in": "hsl(var(--booking-checked-in))",
+          "checked-out": "hsl(var(--booking-checked-out))",
+          cancelled: "hsl(var(--booking-cancelled))",
+          "no-show": "hsl(var(--booking-no-show))",
+        },
+        payment: {
+          pending: "hsl(var(--payment-pending))",
+          paid: "hsl(var(--payment-paid))",
+          failed: "hsl(var(--payment-failed))",
+          refunded: "hsl(var(--payment-refunded))",
+        },
+        chart: {
+          "1": "hsl(var(--chart-1))",
+          "2": "hsl(var(--chart-2))",
+          "3": "hsl(var(--chart-3))",
+          "4": "hsl(var(--chart-4))",
+          "5": "hsl(var(--chart-5))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -65,25 +94,45 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "fade-in": {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
+        "fade-out": {
+          from: { opacity: "1" },
+          to: { opacity: "0" },
+        },
+        "slide-in-right": {
+          from: { transform: "translateX(100%)" },
+          to: { transform: "translateX(0)" },
+        },
+        "slide-out-right": {
+          from: { transform: "translateX(0)" },
+          to: { transform: "translateX(100%)" },
+        },
+        "pulse-soft": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.5" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in": "fade-in 0.2s ease-out",
+        "fade-out": "fade-out 0.2s ease-out",
+        "slide-in-right": "slide-in-right 0.3s ease-out",
+        "slide-out-right": "slide-out-right 0.3s ease-out",
+        "pulse-soft": "pulse-soft 2s ease-in-out infinite",
+      },
+      fontFamily: {
+        sans: ["Inter", "system-ui", "sans-serif"],
       },
     },
   },

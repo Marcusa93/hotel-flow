@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format } from 'date-fns';
+import { format, startOfDay, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Tag, Percent, Sparkles, X } from 'lucide-react';
 import { useHotel } from '@/context/HotelContext';
+import { useRates } from '@/hooks/useRates';
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import { Badge } from '@/components/ui/badge';
 import {
   Popover,
   PopoverContent,
@@ -40,7 +42,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
-import { PaymentMethod, PaymentStatus } from '@/types/hotel';
+import { Rate } from '@/types/hotel';
 
 const paymentSchema = z.object({
   date: z.date({ required_error: 'Fecha requerida' }),
@@ -60,14 +62,17 @@ interface RegisterPaymentDialogProps {
   pendingAmount: number;
 }
 
-export function RegisterPaymentDialog({ 
-  open, 
-  onOpenChange, 
+export function RegisterPaymentDialog({
+  open,
+  onOpenChange,
   bookingId,
-  pendingAmount 
+  pendingAmount
 }: RegisterPaymentDialogProps) {
   const { addPayment } = useHotel();
+  const { data: rates = [] } = useRates();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<Rate | null>(null);
 
   const form = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
@@ -81,30 +86,108 @@ export function RegisterPaymentDialog({
     },
   });
 
+  // Get current active promotions with promo codes
+  const availablePromos = useMemo(() => {
+    const now = new Date();
+    return rates.filter(rate => {
+      if (!rate.isActive || !rate.promoCode) return false;
+      const start = startOfDay(new Date(rate.startDate));
+      const end = startOfDay(new Date(rate.endDate));
+      return isWithinInterval(now, { start, end });
+    });
+  }, [rates]);
+
+  // Calculate discount
+  const calculateDiscount = (promo: Rate, amount: number): number => {
+    if (promo.discountType === 'FIXED' && promo.discountAmount) {
+      return Math.min(promo.discountAmount, amount);
+    } else if (promo.discountPercent) {
+      return amount * (promo.discountPercent / 100);
+    }
+    return 0;
+  };
+
+  const originalAmount = form.watch('amount') || 0;
+  const discount = appliedPromo ? calculateDiscount(appliedPromo, originalAmount) : 0;
+  const finalAmount = Math.max(0, originalAmount - discount);
+
+  const handleApplyPromoCode = () => {
+    const code = promoCodeInput.trim().toUpperCase();
+    if (!code) return;
+
+    const matching = availablePromos.find(p => p.promoCode?.toUpperCase() === code);
+
+    if (matching) {
+      setAppliedPromo(matching);
+      toast({
+        title: '🎉 Código aplicado',
+        description: `Promoción "${matching.label}" - ${matching.discountType === 'FIXED'
+            ? `$${matching.discountAmount?.toLocaleString('es-AR')} de descuento`
+            : `${matching.discountPercent}% de descuento`
+          }`,
+      });
+    } else {
+      const existsButInactive = rates.find(p => p.promoCode?.toUpperCase() === code);
+      if (existsButInactive) {
+        toast({
+          title: 'Código expirado',
+          description: 'Este código promocional ya no está vigente',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Código inválido',
+          description: 'El código promocional no existe',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setPromoCodeInput('');
+  };
+
   const onSubmit = async (data: PaymentFormData) => {
     setIsSubmitting(true);
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
 
-    addPayment({
-      bookingId,
-      date: data.date,
-      method: data.method,
-      amount: data.amount,
-      reference: data.reference,
-      comment: data.comment,
-      status: data.status,
-    });
+    const paymentAmount = appliedPromo ? finalAmount : data.amount;
+    const comment = appliedPromo
+      ? `${data.comment || ''}\n[Promoción: ${appliedPromo.label} (${appliedPromo.promoCode}) - Descuento: $${discount.toLocaleString('es-AR')}]`.trim()
+      : data.comment;
 
-    toast({
-      title: 'Pago registrado',
-      description: `Se registró un pago de $${data.amount.toLocaleString('es-AR')}`,
-    });
+    try {
+      await addPayment({
+        bookingId,
+        date: data.date,
+        method: data.method,
+        amount: paymentAmount,
+        reference: data.reference,
+        comment,
+        status: data.status,
+      });
 
-    setIsSubmitting(false);
-    form.reset();
-    onOpenChange(false);
+      toast({
+        title: '✅ Pago registrado',
+        description: appliedPromo
+          ? `Pago de $${paymentAmount.toLocaleString('es-AR')} (Descuento: $${discount.toLocaleString('es-AR')})`
+          : `Se registró un pago de $${paymentAmount.toLocaleString('es-AR')}`,
+      });
+
+      form.reset();
+      setAppliedPromo(null);
+      setPromoCodeInput('');
+      onOpenChange(false);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo registrar el pago',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -165,7 +248,7 @@ export function RegisterPaymentDialog({
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Monto ($)</FormLabel>
+                  <FormLabel>Monto original ($)</FormLabel>
                   <FormControl>
                     <Input type="number" min={0} step={0.01} {...field} />
                   </FormControl>
@@ -178,6 +261,73 @@ export function RegisterPaymentDialog({
                 </FormItem>
               )}
             />
+
+            {/* Promo Code Section */}
+            <div className="space-y-2">
+              <FormLabel className="flex items-center gap-2">
+                <Tag className="w-4 h-4" />
+                Código promocional
+              </FormLabel>
+
+              {appliedPromo ? (
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-emerald-600" />
+                    <div>
+                      <Badge className="bg-emerald-500 text-white mr-2">
+                        {appliedPromo.promoCode}
+                      </Badge>
+                      <span className="text-sm text-emerald-700 dark:text-emerald-300">
+                        {appliedPromo.label}
+                      </span>
+                    </div>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" onClick={handleRemovePromo}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Ingresa el código"
+                    value={promoCodeInput}
+                    onChange={e => setPromoCodeInput(e.target.value.toUpperCase())}
+                    className="font-mono uppercase"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleApplyPromoCode}
+                    disabled={!promoCodeInput.trim()}
+                  >
+                    Aplicar
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Discount Summary */}
+            {appliedPromo && discount > 0 && (
+              <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Monto original</span>
+                  <span className="line-through">${originalAmount.toLocaleString('es-AR')}</span>
+                </div>
+                <div className="flex justify-between text-sm text-emerald-600">
+                  <span className="flex items-center gap-1">
+                    <Percent className="w-3 h-3" />
+                    Descuento ({appliedPromo.discountType === 'FIXED'
+                      ? `$${appliedPromo.discountAmount?.toLocaleString('es-AR')}`
+                      : `${appliedPromo.discountPercent}%`})
+                  </span>
+                  <span>-${discount.toLocaleString('es-AR')}</span>
+                </div>
+                <div className="flex justify-between font-bold text-lg pt-2 border-t border-emerald-200 dark:border-emerald-800">
+                  <span>Total a pagar</span>
+                  <span className="text-emerald-600">${finalAmount.toLocaleString('es-AR')}</span>
+                </div>
+              </div>
+            )}
 
             {/* Method */}
             <FormField
@@ -264,7 +414,7 @@ export function RegisterPaymentDialog({
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Registrando...' : 'Registrar Pago'}
+                {isSubmitting ? 'Registrando...' : `Registrar $${finalAmount.toLocaleString('es-AR')}`}
               </Button>
             </DialogFooter>
           </form>

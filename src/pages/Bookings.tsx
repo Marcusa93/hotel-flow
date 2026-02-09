@@ -1,5 +1,6 @@
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useHotel } from '@/context/HotelContext';
 import { BookingStatus } from '@/types/hotel';
 import {
@@ -12,12 +13,21 @@ import { NewBookingDialog } from '@/components/bookings/NewBookingDialog';
 
 export default function Bookings() {
   const { bookings, guests, rooms, roomTypes, updateBookingStatus } = useHotel();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // UI State
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+
+  // Handle ?new=true query param from Dashboard
+  useEffect(() => {
+    if (searchParams.get('new') === 'true') {
+      setIsNewDialogOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Filter Logic
   const filteredBookings = useMemo(() => {

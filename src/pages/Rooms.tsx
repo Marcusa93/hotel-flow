@@ -43,12 +43,12 @@ export default function Rooms() {
     if (action === 'occupy') updateRoomStatus(room.id, 'OCCUPIED'); // Mock check-in
   };
 
-  const handleStatusChange = (newStatus: RoomStatus) => {
+  const handleStatusChange = (newStatus: RoomStatus, notes?: string) => {
     if (selectedRoom) {
-      updateRoomStatus(selectedRoom.id, newStatus);
+      updateRoomStatus(selectedRoom.id, newStatus, notes);
       // Update local selection to reflect change immediately if needed, 
       // but context update should trigger re-render of drawer if passed correctly.
-      setSelectedRoom({ ...selectedRoom, status: newStatus });
+      setSelectedRoom({ ...selectedRoom, status: newStatus, notes });
     }
   };
 

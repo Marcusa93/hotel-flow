@@ -5,7 +5,10 @@ export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OU
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
 export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'OTHER';
 export type HousekeepingStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
+export type TaskPriority = 'LOW' | 'NORMAL' | 'URGENT' | 'CHECKOUT';
 export type UserRole = 'admin' | 'reception' | 'housekeeping' | 'auditor';
+export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'CANCELLED' | 'OVERDUE';
+export type InvoiceItemType = 'ACCOMMODATION' | 'SERVICE' | 'EXTRA' | 'OTHER';
 
 export interface RoomType {
   id: string;
@@ -31,6 +34,7 @@ export interface Guest {
   phone: string;
   email: string;
   notes?: string;
+  country?: string;
   createdAt: Date;
 }
 
@@ -47,6 +51,7 @@ export interface Booking {
   notes?: string;
   needsReview?: boolean;
   createdAt: Date;
+  updatedAt?: Date;
 }
 
 export interface Payment {
@@ -67,7 +72,14 @@ export interface HousekeepingTask {
   assignedTo?: string;
   status: HousekeepingStatus;
   notes?: string;
+  priority: TaskPriority;
+  startedAt?: Date;
+  completedAt?: Date;
+  durationMinutes?: number;
+  checkoutTriggered?: boolean;
 }
+
+export type DiscountType = 'PERCENTAGE' | 'FIXED';
 
 export interface Rate {
   id: string;
@@ -77,6 +89,38 @@ export interface Rate {
   price: number;
   label: string;
   isActive: boolean;
+  discountType?: DiscountType;
+  discountPercent?: number;
+  discountAmount?: number;
+  minNights?: number;
+  promoCode?: string;
+}
+
+export interface InvoiceItem {
+  id: string;
+  invoiceId: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  itemType: InvoiceItemType;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  bookingId: string;
+  guestId: string;
+  issueDate: Date;
+  dueDate?: Date;
+  status: InvoiceStatus;
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  notes?: string;
+  signatureData?: string;
+  items?: InvoiceItem[];
 }
 
 export interface NotificationLog {
@@ -132,4 +176,25 @@ export interface OccupancyByType {
   total: number;
   occupied: number;
   rate: number;
+}
+
+// Expense tracking
+export type ExpenseType =
+  | 'PANADERIA'
+  | 'SUPERMERCADO'
+  | 'VERDULERIA'
+  | 'CARNICERIA'
+  | 'BEBIDAS'
+  | 'LIMPIEZA'
+  | 'MANTENIMIENTO'
+  | 'SERVICIOS'
+  | 'OTROS';
+
+export interface Expense {
+  id: string;
+  date: Date;
+  expenseType: ExpenseType;
+  amount: number;
+  description?: string;
+  createdAt: Date;
 }

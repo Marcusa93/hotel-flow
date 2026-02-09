@@ -1,7 +1,6 @@
 import { Guest } from '@/types/hotel';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Phone, Calendar, ArrowUpRight, Crown } from 'lucide-react';
+import { Mail, Phone, Calendar, ArrowUpRight, MessageCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -10,13 +9,44 @@ import { Button } from '@/components/ui/button';
 interface GuestCardProps {
     guest: Guest;
     bookingsCount: number;
-    totalSpend: number; // Mocked or calculated
+    totalSpend: number;
     onClick: () => void;
+    onWhatsApp?: (guest: Guest) => void;
+    onEmail?: (guest: Guest) => void;
 }
 
-export function GuestCard({ guest, bookingsCount, totalSpend, onClick }: GuestCardProps) {
-    // Mock logic for VIP status based on spend/stays (could be real in future)
-    const isVip = bookingsCount > 3 || totalSpend > 5000;
+export function GuestCard({ guest, bookingsCount, totalSpend, onClick, onWhatsApp, onEmail }: GuestCardProps) {
+    // Get initials for display
+    const initials = guest.fullName
+        .split(' ')
+        .map(n => n[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase();
+
+    const handleWhatsApp = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (onWhatsApp) {
+            onWhatsApp(guest);
+        } else {
+            // Default WhatsApp behavior
+            const message = encodeURIComponent(
+                `Hola! ${guest.fullName} somos del Hotel Metropolitano. Nos comunicamos contigo por lo siguiente:`
+            );
+            const phone = guest.phone.replace(/\D/g, ''); // Remove non-digits
+            window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+        }
+    };
+
+    const handleEmail = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (onEmail) {
+            onEmail(guest);
+        } else {
+            // Default mailto
+            window.open(`mailto:${guest.email}?subject=Hotel Metropolitano - Información`, '_blank');
+        }
+    };
 
     return (
         <motion.div
@@ -27,32 +57,17 @@ export function GuestCard({ guest, bookingsCount, totalSpend, onClick }: GuestCa
                 onClick={onClick}
                 className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50 transition-all cursor-pointer h-full flex flex-col"
             >
-                {/* VIP Gradient Ring Effect */}
-                {isVip && (
-                    <div className="absolute top-0 right-0 p-4">
-                        <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-amber-200 gap-1 rounded-full px-3">
-                            <Crown className="w-3 h-3 fill-amber-700" /> VIP
-                        </Badge>
-                    </div>
-                )}
-
                 <div className="flex flex-col items-center text-center mb-6">
-                    <div className={cn(
-                        "p-1 rounded-full mb-3",
-                        isVip ? "bg-gradient-to-tr from-amber-300 via-yellow-400 to-orange-400 p-[3px]" : "bg-slate-100"
-                    )}>
-                        <Avatar className="h-20 w-20 border-4 border-white dark:border-slate-900 shadow-sm bg-white">
-                            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${guest.email}`} />
-                            <AvatarFallback className="text-xl bg-slate-100 text-slate-500 font-bold">
-                                {guest.fullName.slice(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                        </Avatar>
+                    {/* Initials Circle (no avatar) */}
+                    <div className="h-20 w-20 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mb-3 shadow-lg">
+                        <span className="text-2xl font-bold text-white">{initials}</span>
                     </div>
 
                     <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1 line-clamp-1">
                         {guest.fullName}
                     </h3>
                     <p className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
                         Desde {format(new Date(guest.createdAt), 'MMM yyyy')}
                     </p>
                 </div>
@@ -71,13 +86,25 @@ export function GuestCard({ guest, bookingsCount, totalSpend, onClick }: GuestCa
                     </div>
                 </div>
 
-                {/* Contact Actions (Opacity on Hover) */}
-                <div className="mt-auto grid grid-cols-2 gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
-                    <Button variant="outline" size="sm" className="w-full rounded-xl h-9">
-                        <Mail className="w-3.5 h-3.5 mr-2" /> Email
+                {/* Contact Actions */}
+                <div className="mt-auto grid grid-cols-2 gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full rounded-xl h-9 hover:bg-green-50 hover:text-green-600 hover:border-green-200"
+                        onClick={handleWhatsApp}
+                    >
+                        <MessageCircle className="w-3.5 h-3.5 mr-2" />
+                        WhatsApp
                     </Button>
-                    <Button variant="outline" size="sm" className="w-full rounded-xl h-9">
-                        <Phone className="w-3.5 h-3.5 mr-2" /> Llama
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full rounded-xl h-9 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
+                        onClick={handleEmail}
+                    >
+                        <Mail className="w-3.5 h-3.5 mr-2" />
+                        Email
                     </Button>
                 </div>
 

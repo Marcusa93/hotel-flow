@@ -5,7 +5,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { HotelProvider } from "@/context/HotelContext";
+import { AuthProvider } from "@/context/AuthContext";
 import { MainLayout } from "@/components/layout";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import Login from "@/pages/Auth/Login";
 import { AnimatePresence, motion } from "framer-motion";
 
 // Lazy load pages for performance optimization
@@ -23,6 +26,7 @@ const Billing = lazy(() => import("./pages/Billing"));
 const Housekeeping = lazy(() => import("./pages/Housekeeping"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Settings = lazy(() => import("./pages/Settings"));
+const Expenses = lazy(() => import("./pages/Expenses"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -44,21 +48,22 @@ const AnimatedRoutes = () => {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<MainLayout><PageWrapper><Dashboard /></PageWrapper></MainLayout>} />
-        <Route path="/bookings" element={<MainLayout><PageWrapper><Bookings /></PageWrapper></MainLayout>} />
-        <Route path="/bookings/:id" element={<MainLayout><PageWrapper><BookingDetail /></PageWrapper></MainLayout>} />
-        <Route path="/rooms" element={<MainLayout><PageWrapper><Rooms /></PageWrapper></MainLayout>} />
-        <Route path="/guests" element={<MainLayout><PageWrapper><Guests /></PageWrapper></MainLayout>} />
-        <Route path="/guests/:id" element={<MainLayout><PageWrapper><Guests /></PageWrapper></MainLayout>} />
-        <Route path="/payments" element={<MainLayout><PageWrapper><Payments /></PageWrapper></MainLayout>} />
-        <Route path="/calendar" element={<MainLayout><PageWrapper><Calendar /></PageWrapper></MainLayout>} />
-        <Route path="/availability" element={<MainLayout><PageWrapper><Availability /></PageWrapper></MainLayout>} />
-        <Route path="/rates" element={<MainLayout><PageWrapper><Rates /></PageWrapper></MainLayout>} />
-        <Route path="/statistics" element={<MainLayout><PageWrapper><Statistics /></PageWrapper></MainLayout>} />
-        <Route path="/billing" element={<MainLayout><PageWrapper><Billing /></PageWrapper></MainLayout>} />
-        <Route path="/housekeeping" element={<MainLayout><PageWrapper><Housekeeping /></PageWrapper></MainLayout>} />
-        <Route path="/notifications" element={<MainLayout><PageWrapper><Notifications /></PageWrapper></MainLayout>} />
-        <Route path="/settings" element={<MainLayout><PageWrapper><Settings /></PageWrapper></MainLayout>} />
+        <Route path="/" element={<PageWrapper><Dashboard /></PageWrapper>} />
+        <Route path="/bookings" element={<PageWrapper><Bookings /></PageWrapper>} />
+        <Route path="/bookings/:id" element={<PageWrapper><BookingDetail /></PageWrapper>} />
+        <Route path="/rooms" element={<PageWrapper><Rooms /></PageWrapper>} />
+        <Route path="/guests" element={<PageWrapper><Guests /></PageWrapper>} />
+        <Route path="/guests/:id" element={<PageWrapper><Guests /></PageWrapper>} />
+        <Route path="/payments" element={<PageWrapper><Payments /></PageWrapper>} />
+        <Route path="/calendar" element={<PageWrapper><Calendar /></PageWrapper>} />
+        <Route path="/availability" element={<PageWrapper><Availability /></PageWrapper>} />
+        <Route path="/rates" element={<PageWrapper><Rates /></PageWrapper>} />
+        <Route path="/statistics" element={<PageWrapper><Statistics /></PageWrapper>} />
+        <Route path="/billing" element={<PageWrapper><Billing /></PageWrapper>} />
+        <Route path="/housekeeping" element={<PageWrapper><Housekeeping /></PageWrapper>} />
+        <Route path="/notifications" element={<PageWrapper><Notifications /></PageWrapper>} />
+        <Route path="/expenses" element={<PageWrapper><Expenses /></PageWrapper>} />
+        <Route path="/settings" element={<PageWrapper><Settings /></PageWrapper>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AnimatePresence>
@@ -73,17 +78,30 @@ const LoadingFallback = () => (
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
+    <AuthProvider>
       <HotelProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Suspense fallback={<LoadingFallback />}>
-            <AnimatedRoutes />
-          </Suspense>
-        </BrowserRouter>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+
+              <Route
+                path="/*"
+                element={
+                  <ProtectedRoute>
+                    <MainLayout>
+                      <AnimatedRoutes />
+                    </MainLayout>
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
       </HotelProvider>
-    </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

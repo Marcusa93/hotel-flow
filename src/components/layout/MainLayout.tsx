@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { AtlasChatbot } from '@/components/chat/AtlasChatbot';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -15,6 +16,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         <main className="flex-1 overflow-auto p-6 scrollbar-thin">
           {children}
         </main>
+        <AtlasChatbot />
       </div>
     </div>
   );

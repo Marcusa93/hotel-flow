@@ -9,15 +9,21 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ onNewBooking }: DashboardHeaderProps) {
     const today = new Date();
+    const hour = today.getHours();
+
+    let greeting = 'Hola';
+    if (hour < 12) greeting = 'Buenos días';
+    else if (hour < 20) greeting = 'Buenas tardes';
+    else greeting = 'Buenas noches';
 
     return (
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
-                    Hola, Marco 👋
+                    {greeting}, Marco 👋
                 </h1>
                 <p className="text-muted-foreground mt-1 text-sm font-medium flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5" />
+                    <Calendar className="w-4 h-4" />
                     {format(today, "EEEE d 'de' MMMM, yyyy", { locale: es })}
                 </p>
             </div>

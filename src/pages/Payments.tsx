@@ -11,14 +11,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PaymentStatus, PaymentMethod } from '@/types/hotel';
-import { PaymentStats, TransactionTable, PaymentRevenueChart, PaymentMethodChart } from '@/components/payments';
+import { Payment, PaymentStatus, PaymentMethod } from '@/types/hotel';
+import { PaymentStats, TransactionTable, NewPaymentDialog, PaymentReceipt } from '@/components/payments';
 
 export default function Payments() {
-  const { payments, bookings, guests, rooms } = useHotel();
+  const { payments, bookings, guests, rooms, updatePayment } = useHotel();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'ALL'>('ALL');
   const [methodFilter, setMethodFilter] = useState<PaymentMethod | 'ALL'>('ALL');
+  const [isNewPaymentOpen, setIsNewPaymentOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
 
   const filteredPayments = useMemo(() => {
     return payments
@@ -48,6 +51,15 @@ export default function Payments() {
     return { guest, room };
   };
 
+  const handlePaymentStatusChange = (paymentId: string, newStatus: PaymentStatus) => {
+    updatePayment(paymentId, { status: newStatus });
+  };
+
+  const handleViewReceipt = (payment: Payment) => {
+    setSelectedPayment(payment);
+    setIsReceiptOpen(true);
+  };
+
   const totalPaid = payments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + p.amount, 0);
   const totalPending = payments.filter(p => p.status === 'PENDING').reduce((sum, p) => sum + p.amount, 0);
   const totalFailed = payments.filter(p => p.status === 'FAILED').length;
@@ -60,9 +72,21 @@ export default function Payments() {
         actions={
           <div className="flex gap-2">
             <Button variant="outline" size="sm">Exportar Reporte</Button>
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">Nuevo Cobro</Button>
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => setIsNewPaymentOpen(true)}
+            >
+              Nuevo Cobro
+            </Button>
           </div>
         }
+      />
+
+      {/* New Payment Dialog */}
+      <NewPaymentDialog
+        open={isNewPaymentOpen}
+        onOpenChange={setIsNewPaymentOpen}
       />
 
       {/* KPI Cards */}
@@ -108,7 +132,6 @@ export default function Payments() {
         </Select>
       </div>
 
-      {/* Transactions List */}
       {filteredPayments.length === 0 ? (
         <EmptyState
           icon={Search}
@@ -119,8 +142,17 @@ export default function Payments() {
         <TransactionTable
           payments={filteredPayments}
           getBookingInfo={getBookingInfo}
+          onStatusChange={handlePaymentStatusChange}
+          onViewReceipt={handleViewReceipt}
         />
       )}
+
+      {/* Receipt Modal */}
+      <PaymentReceipt
+        open={isReceiptOpen}
+        onOpenChange={setIsReceiptOpen}
+        payment={selectedPayment}
+      />
     </div>
   );
 }

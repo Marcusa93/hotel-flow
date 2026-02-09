@@ -1,11 +1,17 @@
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+import { Skeleton } from '@/components/ui/skeleton';
+
 interface RevenueChartProps {
     data: { name: string; value: number }[];
+    isLoading?: boolean;
 }
 
-export function RevenueChart({ data }: RevenueChartProps) {
+export function RevenueChart({ data, isLoading }: RevenueChartProps) {
+    if (isLoading) {
+        return <Skeleton className="col-span-full lg:col-span-4 h-[400px] w-full rounded-xl" />;
+    }
     return (
         <Card className="col-span-full lg:col-span-4 h-[400px] border-none shadow-lg bg-white/50 dark:bg-slate-900/50 backdrop-blur">
             <CardHeader>

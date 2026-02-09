@@ -1,4 +1,5 @@
-import { Bell, Search, User, LogOut } from 'lucide-react';
+import { Search, User, LogOut } from 'lucide-react';
+import { MobileSidebar } from './Sidebar';
 import { useHotel } from '@/context/HotelContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import { NotificationBell } from '@/components/notifications';
 
 const roleLabels = {
   admin: 'Administrador',
@@ -31,9 +33,12 @@ export function Topbar() {
   const stats = getDashboardStats();
 
   return (
-    <header className="flex items-center justify-between h-16 px-6 bg-[#003366] border-b border-white/10 shadow-sm">
+    <header className="flex items-center justify-between h-16 px-4 md:px-6 bg-[#003366] border-b border-white/10 shadow-sm gap-4">
+      {/* Mobile Menu Trigger */}
+      <MobileSidebar />
+
       {/* Search */}
-      <div className="flex items-center gap-4 flex-1 max-w-md">
+      <div className="flex items-center gap-4 flex-1 max-w-md hidden md:flex">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/70" />
           <Input
@@ -58,63 +63,8 @@ export function Topbar() {
           </div>
         </div>
 
-        {/* Notifications */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative text-white hover:bg-white/10 hover:text-white">
-              <Bell className="w-5 h-5" />
-              {(stats.dirtyRooms > 0 || stats.pendingPayments > 0) && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>Alertas</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {stats.dirtyRooms > 0 && (
-              <DropdownMenuItem>
-                <div className="flex flex-col gap-1">
-                  <span className="font-medium">{stats.dirtyRooms} habitaciones sucias</span>
-                  <span className="text-xs text-muted-foreground">Requieren limpieza</span>
-                </div>
-              </DropdownMenuItem>
-            )}
-            {stats.maintenanceRooms > 0 && (
-              <DropdownMenuItem>
-                <div className="flex flex-col gap-1">
-                  <span className="font-medium">{stats.maintenanceRooms} en mantenimiento</span>
-                  <span className="text-xs text-muted-foreground">Fuera de servicio</span>
-                </div>
-              </DropdownMenuItem>
-            )}
-            {stats.pendingPayments > 0 && (
-              <DropdownMenuItem>
-                <div className="flex flex-col gap-1">
-                  <span className="font-medium">Pagos pendientes</span>
-                  <span className="text-xs text-muted-foreground">
-                    ${stats.pendingPayments.toLocaleString('es-AR')} por cobrar
-                  </span>
-                </div>
-              </DropdownMenuItem>
-            )}
-            {stats.checkInsToday > 0 && (
-              <DropdownMenuItem>
-                <div className="flex flex-col gap-1">
-                  <span className="font-medium">{stats.checkInsToday} check-ins hoy</span>
-                  <span className="text-xs text-muted-foreground">Esperando llegada</span>
-                </div>
-              </DropdownMenuItem>
-            )}
-            {stats.checkOutsToday > 0 && (
-              <DropdownMenuItem>
-                <div className="flex flex-col gap-1">
-                  <span className="font-medium">{stats.checkOutsToday} check-outs hoy</span>
-                  <span className="text-xs text-muted-foreground">Salidas programadas</span>
-                </div>
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Notifications Bell */}
+        <NotificationBell />
 
         {/* User menu */}
         <DropdownMenu>
@@ -148,3 +98,4 @@ export function Topbar() {
     </header>
   );
 }
+

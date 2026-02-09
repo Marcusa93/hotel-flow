@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useHotel } from '@/context/HotelContext';
 import { Guest } from '@/types/hotel';
 import {
@@ -7,14 +8,25 @@ import {
   GuestGrid,
   GuestDetailsDrawer
 } from '@/components/guests';
+import { NewGuestDialog } from '@/components/guests/NewGuestDialog';
 import { EmptyState } from '@/components/shared';
 import { Search } from 'lucide-react';
 
 export default function Guests() {
   const { guests, bookings } = useHotel();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('recent');
   const [selectedGuest, setSelectedGuest] = useState<Guest | undefined>(undefined);
+  const [isNewGuestDialogOpen, setIsNewGuestDialogOpen] = useState(false);
+
+  // Handle ?new=true query param
+  useEffect(() => {
+    if (searchParams.get('new') === 'true') {
+      setIsNewGuestDialogOpen(true);
+      setSearchParams({}, { replace: true }); // Clear the param
+    }
+  }, [searchParams, setSearchParams]);
 
   // Stats Helper
   const getGuestStats = (guestId: string) => {
@@ -57,7 +69,8 @@ export default function Guests() {
       <div className="flex-none px-6 pt-6 pb-2">
         <GuestsHeader
           guestCount={guests.length}
-          onNewGuest={() => {/* Todo: Open New Guest Modal */ }}
+          guests={guests}
+          onNewGuest={() => setIsNewGuestDialogOpen(true)}
         />
         <GuestsFilters
           search={search}
@@ -95,6 +108,13 @@ export default function Guests() {
         onClose={() => setSelectedGuest(undefined)}
         guest={selectedGuest}
       />
+
+      {/* New Guest Dialog */}
+      <NewGuestDialog
+        open={isNewGuestDialogOpen}
+        onOpenChange={setIsNewGuestDialogOpen}
+      />
     </div>
   );
 }
+

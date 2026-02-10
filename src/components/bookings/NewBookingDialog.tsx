@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, differenceInDays, isWithinInterval, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, AlertTriangle, Users, Tag, Percent, Sparkles } from 'lucide-react';
+import { CalendarIcon, AlertTriangle, Users, Tag, Percent, Sparkles, UserPlus, ArrowLeft } from 'lucide-react';
 import { useHotel } from '@/context/HotelContext';
 import { useRates } from '@/hooks/useRates';
 import { useCheckAvailability } from '@/hooks/useCheckAvailability';
@@ -47,7 +47,7 @@ import { toast } from '@/hooks/use-toast';
 import { Rate } from '@/types/hotel';
 
 const bookingSchema = z.object({
-  guestId: z.string().min(1, 'Selecciona un huésped'),
+  guestId: z.string(),
   roomId: z.string().min(1, 'Selecciona una habitación'),
   checkInDate: z.date({ required_error: 'Fecha de check-in requerida' }),
   checkOutDate: z.date({ required_error: 'Fecha de check-out requerida' }),
@@ -56,9 +56,39 @@ const bookingSchema = z.object({
   notes: z.string().optional(),
   promoCode: z.string().optional(),
   confirmOverCapacity: z.boolean().optional(),
+  // New guest fields (used when guestId is '__new__')
+  newGuestName: z.string().optional(),
+  newGuestEmail: z.string().optional(),
+  newGuestPhone: z.string().optional(),
+  newGuestDocumentId: z.string().optional(),
+  newGuestCountry: z.string().optional(),
 }).refine((data) => data.checkOutDate > data.checkInDate, {
   message: 'Check-out debe ser posterior a check-in',
   path: ['checkOutDate'],
+}).refine((data) => {
+  if (data.guestId === '__new__') {
+    return !!data.newGuestName && data.newGuestName.trim().length >= 2;
+  }
+  return data.guestId.length > 0;
+}, {
+  message: 'Ingresa el nombre del huésped o selecciona uno existente',
+  path: ['newGuestName'],
+}).refine((data) => {
+  if (data.guestId === '__new__') {
+    return !!data.newGuestEmail && data.newGuestEmail.includes('@');
+  }
+  return true;
+}, {
+  message: 'Ingresa un email válido',
+  path: ['newGuestEmail'],
+}).refine((data) => {
+  if (data.guestId !== '__new__') {
+    return data.guestId.length > 0;
+  }
+  return true;
+}, {
+  message: 'Selecciona un huésped',
+  path: ['guestId'],
 });
 
 type BookingFormData = z.infer<typeof bookingSchema>;
@@ -69,10 +99,11 @@ interface NewBookingDialogProps {
 }
 
 export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) {
-  const { guests, rooms, roomTypes, addBooking, checkRoomAvailability } = useHotel();
+  const { guests, rooms, roomTypes, addBooking, addGuest, checkRoomAvailability } = useHotel();
   const { data: rates = [] } = useRates();
   const checkAvailability = useCheckAvailability();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isNewGuest, setIsNewGuest] = useState(false);
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [appliedPromoCode, setAppliedPromoCode] = useState<Rate | null>(null);
 
@@ -86,6 +117,11 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
       notes: '',
       promoCode: '',
       confirmOverCapacity: false,
+      newGuestName: '',
+      newGuestEmail: '',
+      newGuestPhone: '',
+      newGuestDocumentId: '',
+      newGuestCountry: '',
     },
   });
 
@@ -248,8 +284,21 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
         return;
       }
 
+      // If new guest, create them first
+      let finalGuestId = data.guestId;
+      if (data.guestId === '__new__') {
+        const newGuest = await addGuest({
+          fullName: data.newGuestName!.trim(),
+          email: data.newGuestEmail!.trim(),
+          phone: data.newGuestPhone?.trim() || '',
+          documentId: data.newGuestDocumentId?.trim() || undefined,
+          country: data.newGuestCountry?.trim() || undefined,
+        });
+        finalGuestId = newGuest.id;
+      }
+
       await addBooking({
-        guestId: data.guestId,
+        guestId: finalGuestId,
         roomId: data.roomId,
         checkInDate: data.checkInDate,
         checkOutDate: data.checkOutDate,
@@ -271,6 +320,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
       });
 
       form.reset();
+      setIsNewGuest(false);
       setAppliedPromoCode(null);
       setPromoCodeInput('');
       onOpenChange(false);
@@ -299,30 +349,146 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             {/* Guest selection */}
-            <FormField
-              control={form.control}
-              name="guestId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Huésped</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar huésped" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {guests.map(guest => (
-                        <SelectItem key={guest.id} value={guest.id}>
-                          {guest.fullName} ({guest.email})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {!isNewGuest ? (
+              <div className="space-y-2">
+                <FormField
+                  control={form.control}
+                  name="guestId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Huésped</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar huésped" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {guests.map(guest => (
+                            <SelectItem key={guest.id} value={guest.id}>
+                              {guest.fullName} ({guest.email})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-primary hover:text-primary/80 gap-1.5 px-0"
+                  onClick={() => {
+                    setIsNewGuest(true);
+                    form.setValue('guestId', '__new__');
+                  }}
+                >
+                  <UserPlus className="w-4 h-4" />
+                  + Nuevo Huésped
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3 p-4 rounded-xl border-2 border-primary/20 bg-primary/5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UserPlus className="w-4 h-4 text-primary" />
+                    <span className="font-semibold text-sm">Nuevo Huésped</span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground hover:text-foreground gap-1 h-7 text-xs"
+                    onClick={() => {
+                      setIsNewGuest(false);
+                      form.setValue('guestId', '');
+                      form.setValue('newGuestName', '');
+                      form.setValue('newGuestEmail', '');
+                      form.setValue('newGuestPhone', '');
+                      form.setValue('newGuestDocumentId', '');
+                      form.setValue('newGuestCountry', '');
+                    }}
+                  >
+                    <ArrowLeft className="w-3 h-3" />
+                    Seleccionar existente
+                  </Button>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="newGuestName"
+                    render={({ field }) => (
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel>Nombre completo *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Juan Pérez" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="newGuestEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email *</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="juan@email.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="newGuestPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Teléfono</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+54 11 1234-5678" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="newGuestDocumentId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>DNI / Documento</FormLabel>
+                        <FormControl>
+                          <Input placeholder="12345678" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="newGuestCountry"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>País</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Argentina" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Room selection */}
             <FormField

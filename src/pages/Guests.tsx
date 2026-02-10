@@ -107,6 +107,7 @@ export default function Guests() {
         isOpen={!!selectedGuest}
         onClose={() => setSelectedGuest(undefined)}
         guest={selectedGuest}
+        onDeleted={() => setSelectedGuest(undefined)}
       />
 
       {/* New Guest Dialog */}

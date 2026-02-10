@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, differenceInDays, isWithinInterval, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, AlertTriangle, Users, Tag, Percent, Sparkles, UserPlus, ArrowLeft } from 'lucide-react';
+import { CalendarIcon, AlertTriangle, Users, Tag, Percent, Sparkles, UserPlus, ArrowLeft, Check, Loader2 } from 'lucide-react';
 import { useHotel } from '@/context/HotelContext';
 import { useRates } from '@/hooks/useRates';
 import { useCheckAvailability } from '@/hooks/useCheckAvailability';
@@ -104,6 +104,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
   const checkAvailability = useCheckAvailability();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isNewGuest, setIsNewGuest] = useState(false);
+  const [isSavingGuest, setIsSavingGuest] = useState(false);
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [appliedPromoCode, setAppliedPromoCode] = useState<Rate | null>(null);
 
@@ -256,6 +257,57 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
     r.status === 'AVAILABLE' || r.status === 'DIRTY'
   );
 
+  // Save new guest inline without closing the booking dialog
+  const handleSaveNewGuest = async () => {
+    const name = form.getValues('newGuestName')?.trim();
+    const email = form.getValues('newGuestEmail')?.trim();
+    const phone = form.getValues('newGuestPhone')?.trim();
+    const documentId = form.getValues('newGuestDocumentId')?.trim();
+    const country = form.getValues('newGuestCountry')?.trim();
+
+    if (!name || name.length < 2) {
+      form.setError('newGuestName', { message: 'Ingresa el nombre del huésped (mín. 2 caracteres)' });
+      return;
+    }
+    if (!email || !email.includes('@')) {
+      form.setError('newGuestEmail', { message: 'Ingresa un email válido' });
+      return;
+    }
+
+    setIsSavingGuest(true);
+    try {
+      const newGuest = await addGuest({
+        fullName: name,
+        email: email,
+        phone: phone || '',
+        documentId: documentId || undefined,
+        country: country || undefined,
+      });
+
+      // Auto-select the new guest and switch back to selector
+      form.setValue('guestId', newGuest.id);
+      form.setValue('newGuestName', '');
+      form.setValue('newGuestEmail', '');
+      form.setValue('newGuestPhone', '');
+      form.setValue('newGuestDocumentId', '');
+      form.setValue('newGuestCountry', '');
+      setIsNewGuest(false);
+
+      toast({
+        title: '✅ Huésped creado',
+        description: `${newGuest.fullName} fue registrado y seleccionado automáticamente`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error al crear huésped',
+        description: error instanceof Error ? error.message : 'Ocurrió un error inesperado',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingGuest(false);
+    }
+  };
+
   const onSubmit = async (data: BookingFormData) => {
     if (isOverCapacity && !data.confirmOverCapacity) {
       form.setError('confirmOverCapacity', {
@@ -284,18 +336,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
         return;
       }
 
-      // If new guest, create them first
-      let finalGuestId = data.guestId;
-      if (data.guestId === '__new__') {
-        const newGuest = await addGuest({
-          fullName: data.newGuestName!.trim(),
-          email: data.newGuestEmail!.trim(),
-          phone: data.newGuestPhone?.trim() || '',
-          documentId: data.newGuestDocumentId?.trim() || undefined,
-          country: data.newGuestCountry?.trim() || undefined,
-        });
-        finalGuestId = newGuest.id;
-      }
+      const finalGuestId = data.guestId;
 
       await addBooking({
         guestId: finalGuestId,
@@ -487,6 +528,21 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
                     )}
                   />
                 </div>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  className="w-full gap-2 mt-2"
+                  disabled={isSavingGuest}
+                  onClick={handleSaveNewGuest}
+                >
+                  {isSavingGuest ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Check className="w-4 h-4" />
+                  )}
+                  {isSavingGuest ? 'Guardando...' : 'Guardar Huésped'}
+                </Button>
               </div>
             )}
 

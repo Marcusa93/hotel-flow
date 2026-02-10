@@ -8,10 +8,11 @@ interface StatsOverviewProps {
     monthlyRevenue: number;
     totalGuests: number;
     adr: number; // Average Daily Rate
+    availableRooms?: number;
     isLoading?: boolean;
 }
 
-export function StatsOverview({ occupancyRate, monthlyRevenue, totalGuests, adr, isLoading }: StatsOverviewProps) {
+export function StatsOverview({ occupancyRate, monthlyRevenue, totalGuests, adr, availableRooms = 0, isLoading }: StatsOverviewProps) {
     if (isLoading) {
         return (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -46,7 +47,7 @@ export function StatsOverview({ occupancyRate, monthlyRevenue, totalGuests, adr,
                 </div>
                 <div className="flex items-center gap-2 text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 w-fit px-2 py-1 rounded-lg">
                     <TrendingUp className="w-3 h-3" />
-                    <span>+12% vs. mes pasado</span>
+                    <span>Actualizado hoy</span>
                 </div>
             </Card>
 
@@ -65,7 +66,7 @@ export function StatsOverview({ occupancyRate, monthlyRevenue, totalGuests, adr,
                     </div>
                 </div>
                 <div className="flex items-center gap-2 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/20 w-fit px-2 py-1 rounded-lg">
-                    <span>{3} Habitaciones Disp.</span>
+                    <span>{availableRooms} Habitaciones Disp.</span>
                 </div>
             </Card>
 

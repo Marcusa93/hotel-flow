@@ -7,6 +7,7 @@ import { es } from 'date-fns/locale';
 import { CalendarIcon, AlertTriangle, Users, Tag, Percent, Sparkles } from 'lucide-react';
 import { useHotel } from '@/context/HotelContext';
 import { useRates } from '@/hooks/useRates';
+import { useCheckAvailability } from '@/hooks/useCheckAvailability';
 import {
   Dialog,
   DialogContent,
@@ -70,6 +71,7 @@ interface NewBookingDialogProps {
 export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) {
   const { guests, rooms, roomTypes, addBooking, checkRoomAvailability } = useHotel();
   const { data: rates = [] } = useRates();
+  const checkAvailability = useCheckAvailability();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [appliedPromoCode, setAppliedPromoCode] = useState<Rate | null>(null);
@@ -229,6 +231,23 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
     setIsSubmitting(true);
 
     try {
+      // Server-side availability check
+      const isAvailable = await checkAvailability.mutateAsync({
+        roomId: data.roomId,
+        checkIn: data.checkInDate,
+        checkOut: data.checkOutDate
+      });
+
+      if (!isAvailable) {
+        toast({
+          title: '❌ Habitación no disponible',
+          description: 'La habitación ya tiene una reserva en estas fechas. Elige otra habitación o fechas diferentes.',
+          variant: 'destructive',
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       await addBooking({
         guestId: data.guestId,
         roomId: data.roomId,

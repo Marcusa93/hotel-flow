@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useExpenses } from '@/hooks/useExpenses';
+import { useDeleteExpense } from '@/hooks/useDeleteExpense';
 import { NewExpenseDialog } from '@/components/expenses';
 import { ExpenseType } from '@/types/hotel';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
@@ -33,8 +34,21 @@ import {
     ShoppingCart,
     Wrench,
     Zap,
-    Package
+    Package,
+    Trash2
 } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 const expenseTypeLabels: Record<ExpenseType, string> = {
     PANADERIA: 'Panadería',
@@ -85,6 +99,24 @@ export default function Expenses() {
         endDate,
         expenseType: filterType === 'ALL' ? undefined : filterType
     });
+
+    const deleteExpense = useDeleteExpense();
+
+    const handleDelete = async (id: string) => {
+        try {
+            await deleteExpense.mutateAsync(id);
+            toast({
+                title: 'Gasto eliminado',
+                description: 'El gasto se eliminó correctamente',
+            });
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'No se pudo eliminar el gasto',
+                variant: 'destructive',
+            });
+        }
+    };
 
     // Calculate monthly stats
     const stats = useMemo(() => {
@@ -228,6 +260,7 @@ export default function Expenses() {
                                     <TableHead>Tipo</TableHead>
                                     <TableHead>Descripción</TableHead>
                                     <TableHead className="text-right">Monto</TableHead>
+                                    <TableHead className="w-16"></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -246,6 +279,29 @@ export default function Expenses() {
                                         </TableCell>
                                         <TableCell className="text-right font-semibold">
                                             ${expense.amount.toLocaleString('es-AR')}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive">
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>¿Eliminar gasto?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Esta acción no se puede deshacer. El gasto de ${expense.amount.toLocaleString('es-AR')} será eliminado permanentemente.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDelete(expense.id)} className="bg-destructive hover:bg-destructive/90">
+                                                            Eliminar
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
                                         </TableCell>
                                     </TableRow>
                                 ))}

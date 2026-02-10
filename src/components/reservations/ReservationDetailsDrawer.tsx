@@ -73,9 +73,9 @@ export function ReservationDetailsDrawer({
                                 <ReservationStatusBadge status={booking.status} />
                             </p>
                         </div>
-                        <Link to={`/bookings/${booking.id}`}>
-                            <Button variant="outline" size="sm" className="hidden sm:flex">
-                                Ver Pantalla Completa <ExternalLink className="w-3 h-3 ml-2" />
+                        <Link to={`/bookings/${booking.id}`} onClick={onClose}>
+                            <Button variant="default" size="sm" className="gap-2">
+                                Ver Detalle Completo <ExternalLink className="w-3 h-3" />
                             </Button>
                         </Link>
                     </div>
@@ -161,10 +161,12 @@ export function ReservationDetailsDrawer({
                                 </div>
                             </div>
 
-                            <Button className="w-full" size="lg" variant="outline">
-                                <CreditCard className="w-4 h-4 mr-2" />
-                                Gestionar Pagos
-                            </Button>
+                            <Link to={`/bookings/${booking.id}`} onClick={onClose} className="w-full">
+                                <Button className="w-full" size="lg" variant="outline">
+                                    <CreditCard className="w-4 h-4 mr-2" />
+                                    Gestionar Pagos y Check-out
+                                </Button>
+                            </Link>
                         </section>
                     </div>
                 </ScrollArea>

@@ -92,7 +92,9 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <MainLayout>
-                      <AnimatedRoutes />
+                      <Suspense fallback={<LoadingFallback />}>
+                        <AnimatedRoutes />
+                      </Suspense>
                     </MainLayout>
                   </ProtectedRoute>
                 }

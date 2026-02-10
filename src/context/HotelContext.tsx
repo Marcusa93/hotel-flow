@@ -183,11 +183,20 @@ export function HotelProvider({ children }: { children: React.ReactNode }) {
   // Get booking with all details
   const getBookingWithDetails = useCallback((bookingId: string): BookingWithDetails | undefined => {
     const booking = bookings.find(b => b.id === bookingId);
-    if (!booking) return undefined;
+    if (!booking) {
+      return undefined;
+    }
 
-    const guest = guests.find(g => g.id === booking.guestId)!;
-    const room = rooms.find(r => r.id === booking.roomId)!;
-    const roomType = roomTypes.find(rt => rt.id === room.roomTypeId)!;
+    const guest = guests.find(g => g.id === booking.guestId);
+    const room = rooms.find(r => r.id === booking.roomId);
+
+    // Return undefined if required relationships are missing
+    if (!guest || !room) return undefined;
+
+    const roomType = roomTypes.find(rt => rt.id === room.roomTypeId);
+
+    if (!roomType) return undefined;
+
     const bookingPayments = payments.filter(p => p.bookingId === bookingId);
 
     return { ...booking, guest, room, roomType, payments: bookingPayments };

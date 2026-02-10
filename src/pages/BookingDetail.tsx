@@ -48,15 +48,27 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { RegisterPaymentDialog } from '@/components/payments/RegisterPaymentDialog';
+import { CheckoutDialog } from '@/components/bookings/CheckoutDialog';
 import { motion } from 'framer-motion';
 
 export default function BookingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getBookingWithDetails, updateBookingStatus, payments } = useHotel();
+  const { getBookingWithDetails, updateBookingStatus, payments, isLoading } = useHotel();
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
 
   const booking = id ? getBookingWithDetails(id) : undefined;
+
+  // Show loading while data is being fetched
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+        <p className="text-muted-foreground">Cargando reserva...</p>
+      </div>
+    );
+  }
 
   if (!booking) {
     return (
@@ -129,7 +141,7 @@ export default function BookingDetail() {
             </Button>
           )}
           {booking.status === 'CHECKED_IN' && (
-            <Button onClick={() => handleStatusChange('CHECKED_OUT')} className="bg-slate-800 hover:bg-slate-900 shadow-lg">
+            <Button onClick={() => setIsCheckoutDialogOpen(true)} className="bg-slate-800 hover:bg-slate-900 shadow-lg">
               <LogOut className="w-4 h-4 mr-2" /> Check-out
             </Button>
           )}
@@ -292,7 +304,7 @@ export default function BookingDetail() {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full py-8 text-muted-foreground/50">
-                    <Edit className="w-8 h-8 mb-2 opacity-20" />
+                    <AlertTriangle className="w-8 h-8 mb-2 opacity-20" />
                     <p className="text-sm">Sin notas adicionales</p>
                   </div>
                 )}
@@ -345,6 +357,14 @@ export default function BookingDetail() {
         onOpenChange={setIsPaymentDialogOpen}
         bookingId={booking.id}
         pendingAmount={pendingAmount}
+      />
+
+      <CheckoutDialog
+        open={isCheckoutDialogOpen}
+        onOpenChange={setIsCheckoutDialogOpen}
+        booking={booking}
+        bookingPayments={bookingPayments}
+        onCheckoutComplete={() => navigate('/bookings')}
       />
     </div>
   );

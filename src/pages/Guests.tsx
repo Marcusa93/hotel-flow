@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useHotel } from '@/context/HotelContext';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { Guest } from '@/types/hotel';
 import {
   GuestsHeader,
@@ -13,7 +14,8 @@ import { EmptyState } from '@/components/shared';
 import { Search } from 'lucide-react';
 
 export default function Guests() {
-  const { guests, bookings } = useHotel();
+  const { guests } = useGuestOperations();
+  const { bookings } = useBookingOperations();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('recent');

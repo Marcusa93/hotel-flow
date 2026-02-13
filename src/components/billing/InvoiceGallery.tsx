@@ -18,6 +18,7 @@ interface InvoiceGalleryProps {
     invoices: Invoice[];
     getInvoiceInfo: (invoice: Invoice) => { guest?: Guest; room?: Room };
     onViewInvoice?: (invoice: Invoice) => void;
+    onDownloadPDF?: (invoice: Invoice) => void;
     onStatusChange?: (invoiceId: string, newStatus: Invoice['status']) => void;
 }
 
@@ -29,7 +30,7 @@ const statusConfig: Record<Invoice['status'], { label: string; color: string }> 
     OVERDUE: { label: 'Vencida', color: 'bg-amber-100 text-amber-700 border-amber-200' },
 };
 
-export function InvoiceGallery({ invoices, getInvoiceInfo, onViewInvoice, onStatusChange }: InvoiceGalleryProps) {
+export function InvoiceGallery({ invoices, getInvoiceInfo, onViewInvoice, onDownloadPDF, onStatusChange }: InvoiceGalleryProps) {
     if (invoices.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -121,7 +122,7 @@ export function InvoiceGallery({ invoices, getInvoiceInfo, onViewInvoice, onStat
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                         <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                                        <DropdownMenuItem onClick={() => onViewInvoice?.(invoice)}>
+                                        <DropdownMenuItem onClick={() => onDownloadPDF?.(invoice)}>
                                             <Download className="w-4 h-4 mr-2" />
                                             Descargar PDF
                                         </DropdownMenuItem>

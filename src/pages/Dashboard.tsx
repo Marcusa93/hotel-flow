@@ -1,5 +1,8 @@
 import { useMemo } from 'react';
-import { useHotel } from '@/context/HotelContext';
+import { useDashboardStats } from '@/hooks/domain/useDashboardStats';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import {
   DashboardHeader,
   StatsOverview,
@@ -16,15 +19,12 @@ import { format, isToday, parseISO, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export default function Dashboard() {
-  const {
-    getDashboardStats,
-    rooms,
-    guests,
-    bookings,
-  } = useHotel();
+  const { stats } = useDashboardStats();
+  const { rooms } = useRoomOperations();
+  const { guests } = useGuestOperations();
+  const { bookings } = useBookingOperations();
 
   const navigate = useNavigate();
-  const stats = getDashboardStats();
 
   // Calculate today's check-ins and check-outs
   const { todayCheckIns, todayCheckOuts } = useMemo(() => {

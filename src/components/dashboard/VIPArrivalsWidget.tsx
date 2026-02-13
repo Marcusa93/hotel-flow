@@ -5,12 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CalendarCheck, ArrowRight, BedDouble, Users, AlertCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useHotel } from '@/context/HotelContext';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
+import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import { isToday, isTomorrow, addDays, startOfDay, isAfter, setHours } from 'date-fns';
 import { QuickCheckInDialog } from '@/components/bookings/QuickCheckInDialog';
 
 export function UpcomingArrivalsWidget() {
-    const { bookings, guests, rooms, roomTypes, payments } = useHotel();
+    const { bookings } = useBookingOperations();
+    const { guests } = useGuestOperations();
+    const { rooms, roomTypes } = useRoomOperations();
+    const { payments } = usePaymentOperations();
     const navigate = useNavigate();
 
     const [checkInDialog, setCheckInDialog] = useState<{

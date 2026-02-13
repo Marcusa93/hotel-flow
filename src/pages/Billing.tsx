@@ -1,9 +1,12 @@
 import { useState, useMemo } from 'react';
 import { Search, Plus, FileText } from 'lucide-react';
-import { useHotel } from '@/context/HotelContext';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useUpdateInvoice } from '@/hooks/useUpdateInvoice';
-import { PageHeader, EmptyState } from '@/components/shared';
+import { useHotelSettings } from '@/hooks/useHotelSettings';
+import { PageHeader, EmptyState, TableSkeleton } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -23,9 +26,12 @@ import { Invoice, InvoiceStatus } from '@/types/hotel';
 import { toast } from '@/hooks/use-toast';
 
 export default function Billing() {
-  const { bookings, guests, rooms, roomTypes } = useHotel();
+  const { bookings } = useBookingOperations();
+  const { guests } = useGuestOperations();
+  const { rooms, roomTypes } = useRoomOperations();
   const { data: invoices = [], isLoading } = useInvoices();
   const updateInvoiceMutation = useUpdateInvoice();
+  const { data: hotelSettings } = useHotelSettings();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | 'ALL'>('ALL');
@@ -63,6 +69,32 @@ export default function Billing() {
   const handleViewInvoice = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
     setIsPreviewOpen(true);
+  };
+
+  const handleDownloadPDF = async (invoice: Invoice) => {
+    try {
+      const { generateInvoicePDF } = await import('@/lib/pdfUtils');
+      const info = getInvoiceInfo(invoice);
+      await generateInvoicePDF({
+        invoice,
+        guest: info.guest,
+        booking: info.booking,
+        room: info.room,
+        roomType: info.roomType,
+        hotelSettings: hotelSettings ?? undefined,
+      });
+      toast({
+        title: 'PDF generado',
+        description: `Factura ${invoice.invoiceNumber} descargada`,
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo generar el PDF',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleStatusChange = async (invoiceId: string, newStatus: InvoiceStatus) => {
@@ -157,9 +189,7 @@ export default function Billing() {
 
       {/* Invoice Gallery */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-        </div>
+        <TableSkeleton rows={4} columns={5} />
       ) : filteredInvoices.length === 0 && search === '' && statusFilter === 'ALL' ? (
         <EmptyState
           icon={FileText}
@@ -175,6 +205,7 @@ export default function Billing() {
           invoices={filteredInvoices}
           getInvoiceInfo={getInvoiceInfo}
           onViewInvoice={handleViewInvoice}
+          onDownloadPDF={handleDownloadPDF}
           onStatusChange={handleStatusChange}
         />
       )}

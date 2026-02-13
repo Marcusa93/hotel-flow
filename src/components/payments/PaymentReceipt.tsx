@@ -9,7 +9,9 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { useHotel } from '@/context/HotelContext';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { Payment } from '@/types/hotel';
 import { toast } from '@/hooks/use-toast';
 
@@ -20,7 +22,9 @@ interface PaymentReceiptProps {
 }
 
 export function PaymentReceipt({ open, onOpenChange, payment }: PaymentReceiptProps) {
-    const { bookings, guests, rooms, roomTypes } = useHotel();
+    const { bookings } = useBookingOperations();
+    const { guests } = useGuestOperations();
+    const { rooms, roomTypes } = useRoomOperations();
     const receiptRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isDrawing, setIsDrawing] = useState(false);
@@ -102,110 +106,18 @@ export function PaymentReceipt({ open, onOpenChange, payment }: PaymentReceiptPr
     };
 
     const downloadPDF = async () => {
-        if (!receiptRef.current) return;
-
         try {
-            // Create a printable version
-            const printContent = receiptRef.current.innerHTML;
-            const printWindow = window.open('', '_blank');
-            if (!printWindow) {
-                toast({ title: 'Error', description: 'No se pudo abrir la ventana de impresión', variant: 'destructive' });
-                return;
-            }
-
-            printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Recibo de Pago - ${payment.id.slice(-8).toUpperCase()}</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
-            .hotel-name { font-size: 24px; font-weight: bold; color: #1e293b; }
-            .receipt-title { font-size: 14px; color: #64748b; margin-top: 5px; }
-            .receipt-number { font-family: monospace; font-size: 12px; color: #94a3b8; margin-top: 5px; }
-            .section { margin-bottom: 20px; }
-            .section-title { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
-            .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
-            .info-label { color: #64748b; font-size: 13px; }
-            .info-value { font-weight: 500; color: #1e293b; font-size: 13px; }
-            .amount-section { background: #f8fafc; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; }
-            .amount-label { font-size: 12px; color: #64748b; }
-            .amount-value { font-size: 32px; font-weight: bold; color: #059669; }
-            .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-            .status-paid { background: #dcfce7; color: #166534; }
-            .status-pending { background: #fef9c3; color: #854d0e; }
-            .signature-section { margin-top: 40px; }
-            .signature-line { border-top: 1px solid #cbd5e1; width: 200px; margin: 60px auto 10px; }
-            .signature-label { text-align: center; font-size: 12px; color: #64748b; }
-            .footer { margin-top: 40px; text-align: center; font-size: 11px; color: #94a3b8; }
-            @media print { body { padding: 20px; } }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="hotel-name">Hotel Mediterráneo</div>
-            <div class="receipt-title">Recibo de Pago</div>
-            <div class="receipt-number">Nº ${payment.id.slice(-8).toUpperCase()}</div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Información del Huésped</div>
-            <div class="info-row">
-              <span class="info-label">Nombre</span>
-              <span class="info-value">${guest?.fullName || 'N/A'}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Documento</span>
-              <span class="info-value">${guest?.documentId || 'N/A'}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Habitación</span>
-              <span class="info-value">${room?.roomNumber || 'N/A'} - ${roomType?.name || ''}</span>
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Detalles del Pago</div>
-            <div class="info-row">
-              <span class="info-label">Fecha</span>
-              <span class="info-value">${format(new Date(payment.date), 'PPP', { locale: es })}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Método</span>
-              <span class="info-value">${getMethodLabel(payment.method)}</span>
-            </div>
-            ${payment.reference ? `<div class="info-row"><span class="info-label">Referencia</span><span class="info-value">${payment.reference}</span></div>` : ''}
-            <div class="info-row">
-              <span class="info-label">Estado</span>
-              <span class="info-value"><span class="status-badge ${payment.status === 'PAID' ? 'status-paid' : 'status-pending'}">${getStatusLabel(payment.status)}</span></span>
-            </div>
-          </div>
-
-          <div class="amount-section">
-            <div class="amount-label">Monto Total</div>
-            <div class="amount-value">$${payment.amount.toLocaleString('es-AR')}</div>
-          </div>
-
-          <div class="signature-section">
-            <div class="signature-line"></div>
-            <div class="signature-label">Firma del Huésped</div>
-          </div>
-
-          <div class="footer">
-            <p>Gracias por su preferencia</p>
-            <p>Documento generado el ${format(new Date(), 'PPP HH:mm', { locale: es })}</p>
-          </div>
-        </body>
-        </html>
-      `);
-            printWindow.document.close();
-            printWindow.print();
-
-            toast({ title: '✅ Recibo generado', description: 'El recibo está listo para imprimir o guardar como PDF' });
+            const { generateReceiptPDF } = await import('@/lib/pdfUtils');
+            await generateReceiptPDF({
+                payment,
+                guest: guest ?? undefined,
+                room: room ?? undefined,
+                roomType: roomType ?? undefined,
+            });
+            toast({ title: 'PDF generado', description: 'Recibo descargado correctamente' });
         } catch (error) {
-            toast({ title: 'Error', description: 'No se pudo generar el recibo', variant: 'destructive' });
+            console.error('Error generating receipt PDF:', error);
+            toast({ title: 'Error', description: 'No se pudo generar el recibo PDF', variant: 'destructive' });
         }
     };
 

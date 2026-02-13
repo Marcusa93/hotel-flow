@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { Badge } from '@/components/ui/badge';
+import { statusColors, chartTooltip } from '@/lib/chartTheme';
 
 interface OccupancyWidgetProps {
     stats: {
@@ -13,10 +13,10 @@ interface OccupancyWidgetProps {
 
 export function OccupancyWidget({ stats }: OccupancyWidgetProps) {
     const data = [
-        { name: 'Ocupadas', value: stats.occupied, color: '#f43f5e' }, // Rose-500
-        { name: 'Disponibles', value: stats.clean, color: '#10b981' }, // Emerald-500
-        { name: 'Sucias', value: stats.dirty, color: '#f59e0b' },     // Amber-500
-        { name: 'Mant.', value: stats.maintenance, color: '#64748b' } // Slate-500
+        { name: 'Ocupadas', value: stats.occupied, color: statusColors.occupied },
+        { name: 'Disponibles', value: stats.clean, color: statusColors.available },
+        { name: 'Sucias', value: stats.dirty, color: statusColors.dirty },
+        { name: 'Mant.', value: stats.maintenance, color: statusColors.maintenance },
     ].filter(d => d.value > 0);
 
     return (
@@ -43,9 +43,7 @@ export function OccupancyWidget({ stats }: OccupancyWidgetProps) {
                                     <Cell key={`cell-${index}`} fill={entry.color} />
                                 ))}
                             </Pie>
-                            <Tooltip
-                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                            />
+                            <Tooltip contentStyle={chartTooltip.contentStyle} />
                         </PieChart>
                     </ResponsiveContainer>
 

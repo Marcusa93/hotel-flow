@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { PageHeader } from '@/components/shared';
+import { PageHeader, TableSkeleton } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -240,9 +240,7 @@ export default function Expenses() {
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
-                        <div className="py-8 text-center text-muted-foreground">
-                            Cargando gastos...
-                        </div>
+                        <TableSkeleton rows={5} columns={5} showHeader={false} />
                     ) : expenses.length === 0 ? (
                         <div className="py-12 text-center">
                             <Receipt className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />

@@ -21,7 +21,8 @@ import {
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { useHotel } from '@/context/HotelContext';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { toast } from '@/hooks/use-toast';
 
 interface QuickCheckInDialogProps {
@@ -53,7 +54,8 @@ export function QuickCheckInDialog({
     adults,
     children,
 }: QuickCheckInDialogProps) {
-    const { updateBookingStatus, updateRoomStatus } = useHotel();
+    const { updateBookingStatus } = useBookingOperations();
+    const { updateRoomStatus } = useRoomOperations();
     const [isProcessing, setIsProcessing] = useState(false);
 
     const nights = differenceInDays(checkOutDate, checkInDate);

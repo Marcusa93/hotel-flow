@@ -1,8 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useHotel } from '@/context/HotelContext';
+import { useDashboardStats } from '@/hooks/domain/useDashboardStats';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { PageHeader, AvailabilityTimeline, AvailabilityFilters } from '@/components/shared';
-import { KPICardModern } from '@/components/shared/KPICardModern';
+import { KPICard } from '@/components/shared/KPICard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { BedDouble, Calendar, AlertTriangle, CheckCircle2, LogIn, LogOut, Users } from 'lucide-react';
@@ -12,10 +15,10 @@ import { motion } from 'framer-motion';
 
 export default function Availability() {
   const navigate = useNavigate();
-  const { getDashboardStats, getOccupancyByType, rooms, bookings, roomTypes, guests } = useHotel();
-
-  const stats = getDashboardStats();
-  const occupancyByType = getOccupancyByType();
+  const { stats, occupancyByType } = useDashboardStats();
+  const { rooms, roomTypes } = useRoomOperations();
+  const { bookings } = useBookingOperations();
+  const { guests } = useGuestOperations();
 
   // Filter State
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -91,7 +94,7 @@ export default function Availability() {
           onClick={handleOccupancyClick}
           className="cursor-pointer"
         >
-          <KPICardModern
+          <KPICard
             title="Ocupación Total"
             value={`${stats.occupancyRate.toFixed(0)}%`}
             subtitle={`${stats.occupiedRooms} de ${stats.totalRooms} habitaciones`}
@@ -108,7 +111,7 @@ export default function Availability() {
           onClick={handleAvailableClick}
           className="cursor-pointer"
         >
-          <KPICardModern
+          <KPICard
             title="Disponibles"
             value={stats.availableRooms}
             subtitle="Listas para venta"
@@ -123,7 +126,7 @@ export default function Availability() {
           onClick={handleMaintenanceClick}
           className="cursor-pointer"
         >
-          <KPICardModern
+          <KPICard
             title="Mantenimiento"
             value={stats.maintenanceRooms}
             subtitle="Fuera de servicio"
@@ -138,7 +141,7 @@ export default function Availability() {
           onClick={handleCheckInsClick}
           className="cursor-pointer"
         >
-          <KPICardModern
+          <KPICard
             title="Check-ins Hoy"
             value={checkInsToday.length}
             subtitle="Llegadas esperadas"
@@ -153,7 +156,7 @@ export default function Availability() {
           onClick={handleCheckOutsClick}
           className="cursor-pointer"
         >
-          <KPICardModern
+          <KPICard
             title="Check-outs Hoy"
             value={checkOutsToday.length}
             subtitle="Salidas programadas"

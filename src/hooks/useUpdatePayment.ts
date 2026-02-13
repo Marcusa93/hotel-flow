@@ -2,6 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Payment } from '@/types/hotel';
+import { logAuditEvent } from './useCreateAuditLog';
 
 interface UpdatePaymentParams {
     id: string;
@@ -27,9 +28,18 @@ export const useUpdatePayment = () => {
 
             if (error) throw error;
         },
-        onSuccess: () => {
+        onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['payments'] });
             queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+
+            // Audit log
+            logAuditEvent({
+                entityType: 'payment',
+                entityId: variables.id,
+                action: 'UPDATE',
+                description: `Pago actualizado${variables.data.status ? `: estado → ${variables.data.status}` : ''}`,
+                newValues: variables.data,
+            });
         }
     });
 };

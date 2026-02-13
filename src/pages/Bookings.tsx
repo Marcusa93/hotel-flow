@@ -1,7 +1,9 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useHotel } from '@/context/HotelContext';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { BookingStatus } from '@/types/hotel';
 import {
   ReservationsHeader,
@@ -12,7 +14,9 @@ import {
 import { NewBookingDialog } from '@/components/bookings/NewBookingDialog';
 
 export default function Bookings() {
-  const { bookings, guests, rooms, roomTypes, updateBookingStatus } = useHotel();
+  const { bookings, updateBookingStatus } = useBookingOperations();
+  const { guests } = useGuestOperations();
+  const { rooms, roomTypes } = useRoomOperations();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // UI State

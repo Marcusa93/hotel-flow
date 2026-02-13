@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Payment } from '@/types/hotel';
 import { createNotification } from './useCreateNotification';
+import { logAuditEvent } from './useCreateAuditLog';
 
 type CreatePaymentParams = Omit<Payment, 'id'>;
 
@@ -62,6 +63,15 @@ export const useCreatePayment = () => {
                 title: '💰 Pago registrado',
                 message: `Pago de $${payment.amount.toLocaleString('es-AR')} recibido por ${methodLabels[payment.method] || payment.method}`,
                 metadata: { paymentId: payment.id, bookingId: payment.bookingId }
+            });
+
+            // Audit log
+            logAuditEvent({
+                entityType: 'payment',
+                entityId: payment.id,
+                action: 'CREATE',
+                description: `Pago registrado: $${payment.amount.toLocaleString('es-AR')} por ${methodLabels[payment.method] || payment.method}`,
+                newValues: { amount: payment.amount, method: payment.method, status: payment.status, bookingId: payment.bookingId },
             });
         }
     });

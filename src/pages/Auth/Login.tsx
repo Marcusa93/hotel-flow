@@ -50,9 +50,9 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen bg-[#003366] flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="min-h-screen bg-sidebar-background flex items-center justify-center p-4 relative overflow-hidden">
             {/* Background Effects */}
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/40 via-[#003366] to-[#003366] pointer-events-none" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/40 via-transparent to-transparent pointer-events-none" />
 
             {/* Golden glow effect top right */}
             <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-yellow-500/10 rounded-full blur-[100px] pointer-events-none" />

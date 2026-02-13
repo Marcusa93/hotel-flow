@@ -5,7 +5,9 @@ import { z } from 'zod';
 import { format, differenceInDays, isWithinInterval, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarIcon, AlertTriangle, Users, Tag, Percent, Sparkles, UserPlus, ArrowLeft, Check, Loader2 } from 'lucide-react';
-import { useHotel } from '@/context/HotelContext';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useRates } from '@/hooks/useRates';
 import { useCheckAvailability } from '@/hooks/useCheckAvailability';
 import {
@@ -99,7 +101,9 @@ interface NewBookingDialogProps {
 }
 
 export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) {
-  const { guests, rooms, roomTypes, addBooking, addGuest, checkRoomAvailability } = useHotel();
+  const { bookings, addBooking, checkRoomAvailability } = useBookingOperations();
+  const { guests, addGuest } = useGuestOperations();
+  const { rooms, roomTypes } = useRoomOperations();
   const { data: rates = [] } = useRates();
   const checkAvailability = useCheckAvailability();
   const [isSubmitting, setIsSubmitting] = useState(false);

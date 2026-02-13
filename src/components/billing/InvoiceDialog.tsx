@@ -5,7 +5,9 @@ import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Plus, Trash2, Search, FileText } from 'lucide-react';
-import { useHotel } from '@/context/HotelContext';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useCreateInvoice } from '@/hooks/useCreateInvoice';
 import {
     Dialog,
@@ -66,7 +68,9 @@ interface InvoiceDialogProps {
 }
 
 export function InvoiceDialog({ open, onOpenChange, preselectedBookingId }: InvoiceDialogProps) {
-    const { bookings, guests, rooms, roomTypes } = useHotel();
+    const { bookings } = useBookingOperations();
+    const { guests } = useGuestOperations();
+    const { rooms, roomTypes } = useRoomOperations();
     const createInvoiceMutation = useCreateInvoice();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');

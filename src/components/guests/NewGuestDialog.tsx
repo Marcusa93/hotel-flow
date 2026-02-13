@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { User, Mail, Phone, CreditCard } from 'lucide-react';
-import { useHotel } from '@/context/HotelContext';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import {
     Dialog,
     DialogContent,
@@ -41,7 +41,7 @@ interface NewGuestDialogProps {
 }
 
 export function NewGuestDialog({ open, onOpenChange }: NewGuestDialogProps) {
-    const { addGuest } = useHotel();
+    const { addGuest } = useGuestOperations();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const form = useForm<GuestFormData>({

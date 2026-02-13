@@ -147,7 +147,7 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
 
     return (
         <Sheet open={isOpen} onOpenChange={onClose}>
-            <SheetContent className="w-full sm:max-w-xl p-0 bg-white/95 backdrop-blur-xl border-l border-white/20 shadow-2xl">
+            <SheetContent className="w-full sm:max-w-xl p-0 bg-background/95 backdrop-blur-xl border-l border-border shadow-2xl">
                 {/* Header */}
                 <div className="relative h-48 bg-gradient-to-br from-indigo-600 to-violet-700 text-white p-8 flex flex-col justify-end overflow-hidden">
                     {/* Abstract BG */}
@@ -206,7 +206,7 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                         <section>
                             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">Información Personal</h3>
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="p-4 rounded-xl border bg-slate-50/50">
+                                <div className="p-4 rounded-xl border bg-muted/30">
                                     <Label className="text-xs text-muted-foreground mb-1 block">Documento</Label>
                                     {isEditing ? (
                                         <Input
@@ -218,7 +218,7 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                                         <p className="font-medium">{guest.documentId || 'No registrado'}</p>
                                     )}
                                 </div>
-                                <div className="p-4 rounded-xl border bg-slate-50/50">
+                                <div className="p-4 rounded-xl border bg-muted/30">
                                     <Label className="text-xs text-muted-foreground mb-1 block">Teléfono</Label>
                                     {isEditing ? (
                                         <Input
@@ -230,7 +230,7 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                                         <p className="font-medium">{guest.phone}</p>
                                     )}
                                 </div>
-                                <div className="p-4 rounded-xl border bg-slate-50/50">
+                                <div className="p-4 rounded-xl border bg-muted/30">
                                     <Label className="text-xs text-muted-foreground mb-1 block">Email</Label>
                                     {isEditing ? (
                                         <Input
@@ -242,7 +242,7 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                                         <p className="font-medium truncate">{guest.email}</p>
                                     )}
                                 </div>
-                                <div className="p-4 rounded-xl border bg-slate-50/50">
+                                <div className="p-4 rounded-xl border bg-muted/30">
                                     <Label className="text-xs text-muted-foreground mb-1 block">Nacionalidad</Label>
                                     {isEditing ? (
                                         <Input
@@ -254,7 +254,7 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                                         <p className="font-medium">{guest.country || 'No registrada'}</p>
                                     )}
                                 </div>
-                                <div className="p-4 rounded-xl border bg-slate-50/50 col-span-2">
+                                <div className="p-4 rounded-xl border bg-muted/30 col-span-2">
                                     <Label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1">
                                         <Calendar className="w-3 h-3" /> Cliente Desde
                                     </Label>
@@ -281,8 +281,8 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                                 <div className={cn(
                                     "p-4 rounded-xl border text-sm leading-relaxed",
                                     guest.notes
-                                        ? "border-amber-200 bg-amber-50 text-amber-900"
-                                        : "border-slate-200 bg-slate-50 text-slate-500 italic"
+                                        ? "border-amber-200 dark:border-amber-800/30 bg-amber-50 dark:bg-amber-900/20 text-amber-900 dark:text-amber-200"
+                                        : "border-border bg-muted/30 text-muted-foreground italic"
                                 )}>
                                     {guest.notes || "Sin notas adicionales para este huésped. Haz clic en 'Editar' para añadir."}
                                 </div>
@@ -305,7 +305,7 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                                 <Button
                                     onClick={handleEmail}
                                     variant="outline"
-                                    className="w-full hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
+                                    className="w-full hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 hover:border-blue-200 dark:hover:border-blue-800/30"
                                 >
                                     <Mail className="w-4 h-4 mr-2" />
                                     Enviar Email
@@ -420,19 +420,19 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                             {!showDeleteConfirm ? (
                                 <Button
                                     variant="outline"
-                                    className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                                    className="w-full border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300"
                                     onClick={() => setShowDeleteConfirm(true)}
                                 >
                                     <Trash2 className="w-4 h-4 mr-2" />
                                     Eliminar Huésped
                                 </Button>
                             ) : (
-                                <div className="p-4 rounded-xl border-2 border-red-200 bg-red-50 space-y-3">
+                                <div className="p-4 rounded-xl border-2 border-red-200 dark:border-red-800/30 bg-red-50 dark:bg-red-900/20 space-y-3">
                                     <div className="flex items-start gap-2">
                                         <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                                         <div>
-                                            <p className="font-semibold text-red-700 text-sm">¿Eliminar a {guest.fullName}?</p>
-                                            <p className="text-xs text-red-600 mt-1">
+                                            <p className="font-semibold text-red-700 dark:text-red-400 text-sm">¿Eliminar a {guest.fullName}?</p>
+                                            <p className="text-xs text-red-600 dark:text-red-400/80 mt-1">
                                                 Esta acción no se puede deshacer. Si el huésped tiene reservas asociadas, la eliminación podría fallar.
                                             </p>
                                         </div>

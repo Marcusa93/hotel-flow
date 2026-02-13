@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
-import { useHotel } from '@/context/HotelContext';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { Room, RoomStatus } from '@/types/hotel';
 import {
   RoomsHeader,
@@ -7,16 +9,20 @@ import {
   RoomGrid,
   RoomDetailsDrawer
 } from '@/components/rooms';
+import { AddRoomDialog } from '@/components/rooms/AddRoomDialog';
 import { EmptyState } from '@/components/shared';
 import { BedDouble } from 'lucide-react';
 
 export default function Rooms() {
-  const { rooms, roomTypes, guests, bookings, updateRoomStatus } = useHotel();
+  const { rooms, roomTypes, updateRoomStatus } = useRoomOperations();
+  const { guests } = useGuestOperations();
+  const { bookings } = useBookingOperations();
 
   // UI State
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [floorFilter, setFloorFilter] = useState<string>('ALL');
   const [selectedRoom, setSelectedRoom] = useState<Room | undefined>(undefined);
+  const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
 
   // Derived Data
   const floors = useMemo(() => Array.from(new Set(rooms.map(r => r.floor.toString()))).sort(), [rooms]);
@@ -71,7 +77,7 @@ export default function Rooms() {
           totalRooms={stats.total}
           occupiedCount={stats.occupied}
           dirtyCount={stats.dirty}
-          onAddRoom={() => { }}
+          onAddRoom={() => setIsAddRoomOpen(true)}
         />
         <RoomsFilters
           statusFilter={statusFilter}
@@ -106,6 +112,9 @@ export default function Rooms() {
           />
         )}
       </div>
+
+      {/* Add Room Dialog */}
+      <AddRoomDialog open={isAddRoomOpen} onOpenChange={setIsAddRoomOpen} />
 
       {/* Details Drawer */}
       <RoomDetailsDrawer

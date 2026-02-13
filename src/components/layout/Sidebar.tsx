@@ -16,9 +16,10 @@ import {
   ChevronLeft,
   ChevronRight,
   PieChart,
-  Menu
+  Menu,
+  Shield,
 } from 'lucide-react';
-import { useHotel } from '@/context/HotelContext';
+import { useAppRole } from '@/context/AppRoleContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -60,6 +61,7 @@ const navItems: NavItem[] = [
 
   // Reportes
   { title: 'Estadísticas', href: '/statistics', icon: BarChart3, roles: ['admin', 'auditor'], readOnly: true },
+  { title: 'Auditoría', href: '/audit-log', icon: Shield, roles: ['admin', 'auditor'], readOnly: true },
 
   // Sistema
   { title: 'Notificaciones', href: '/notifications', icon: Bell, roles: ['admin'] },
@@ -74,12 +76,12 @@ interface SidebarContentProps {
 
 function SidebarContent({ collapsed = false, onCollapse, isMobile = false }: SidebarContentProps) {
   const location = useLocation();
-  const { currentRole } = useHotel();
+  const { currentRole } = useAppRole();
   const filteredItems = navItems.filter(item => item.roles.includes(currentRole));
   const isAuditor = currentRole === 'auditor';
 
   return (
-    <div className="flex flex-col h-full bg-[#003366] text-white">
+    <div className="flex flex-col h-full bg-sidebar-background text-sidebar-foreground">
       {/* Logo */}
       <div className={cn(
         "flex items-center h-20 px-4 border-b border-white/10",
@@ -91,8 +93,8 @@ function SidebarContent({ collapsed = false, onCollapse, isMobile = false }: Sid
           </div>
           {(!collapsed || isMobile) && (
             <div className="flex flex-col animate-fade-in">
-              <span className="font-bold text-lg tracking-tight text-white">HoMe</span>
-              <span className="text-[10px] uppercase tracking-wider font-semibold text-white/70">Panel de Control</span>
+              <span className="font-bold text-lg tracking-tight text-sidebar-foreground">HoMe</span>
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-sidebar-foreground/70">Panel de Control</span>
             </div>
           )}
         </Link>
@@ -111,8 +113,8 @@ function SidebarContent({ collapsed = false, onCollapse, isMobile = false }: Sid
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden",
                   isActive
-                    ? "bg-[rgba(255,255,255,0.12)] text-white shadow-none"
-                    : "text-white/70 hover:text-white hover:bg-white/10",
+                    ? "bg-[rgba(255,255,255,0.12)] text-sidebar-foreground shadow-none"
+                    : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-white/10",
                   collapsed && !isMobile && "justify-center px-2"
                 )}
               >
@@ -169,7 +171,7 @@ function SidebarContent({ collapsed = false, onCollapse, isMobile = false }: Sid
             size="sm"
             onClick={onCollapse}
             className={cn(
-              "w-full text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-white/5 data-[state=open]:bg-transparent",
+              "w-full text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-white/10 data-[state=open]:bg-transparent",
               collapsed && "px-2 justify-center"
             )}
           >
@@ -194,8 +196,8 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "hidden md:flex flex-col border-r border-[#003366] transition-all duration-300 h-screen sticky top-0",
-        "bg-[#003366]",
+        "hidden md:flex flex-col border-r border-sidebar-border transition-all duration-300 h-screen sticky top-0",
+        "bg-sidebar-background",
         collapsed ? "w-16" : "w-64"
       )}
     >
@@ -208,11 +210,11 @@ export function MobileSidebar() {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden text-white hover:bg-white/10">
+        <Button variant="ghost" size="icon" className="md:hidden text-sidebar-foreground hover:bg-white/10">
           <Menu className="w-6 h-6" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="p-0 border-r-0 w-72 bg-[#003366] text-white">
+      <SheetContent side="left" className="p-0 border-r-0 w-72 bg-sidebar-background text-sidebar-foreground">
         <SidebarContent isMobile={true} />
       </SheetContent>
     </Sheet>

@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useMemo } from 'react';
+import { chartColors, chartGrid, chartAxis, chartTooltip } from '@/lib/chartTheme';
 
 interface OccupancyChartProps {
     data: Array<{
@@ -13,8 +14,11 @@ export function OccupancyChart({ data }: OccupancyChartProps) {
     const chartData = useMemo(() => {
         return data.map(item => ({
             ...item,
-            // Dynamic color based on occupancy level
-            fill: item.value > 80 ? '#10b981' : item.value > 50 ? '#3b82f6' : '#64748b'
+            fill: item.value > 80
+                ? chartColors.emerald
+                : item.value > 50
+                    ? chartColors.blue
+                    : chartColors.muted
         }));
     }, [data]);
 
@@ -29,7 +33,7 @@ export function OccupancyChart({ data }: OccupancyChartProps) {
                 <div className="h-[250px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={chartData} layout="vertical">
-                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" opacity={0.5} />
+                            <CartesianGrid strokeDasharray={chartGrid.strokeDasharray} horizontal={false} stroke={chartGrid.stroke} opacity={0.5} />
                             <XAxis
                                 type="number"
                                 domain={[0, 100]}
@@ -40,20 +44,13 @@ export function OccupancyChart({ data }: OccupancyChartProps) {
                                 dataKey="name"
                                 type="category"
                                 width={100}
-                                tick={{ fontSize: 12, fill: '#64748b' }}
+                                tick={chartAxis.tick}
                                 axisLine={false}
                                 tickLine={false}
                             />
                             <Tooltip
                                 cursor={{ fill: 'transparent' }}
-                                contentStyle={{
-                                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                                    backdropFilter: 'blur(8px)',
-                                    border: '1px solid rgba(255,255,255,0.5)',
-                                    borderRadius: '12px',
-                                    fontWeight: 'bold',
-                                    color: '#0f172a'
-                                }}
+                                contentStyle={chartTooltip.contentStyle}
                                 formatter={(value: number) => [`${value}%`, 'Ocupación']}
                             />
                             <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={32}>

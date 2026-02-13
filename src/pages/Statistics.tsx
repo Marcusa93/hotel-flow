@@ -1,7 +1,20 @@
-import { useHotel } from '@/context/HotelContext';
+import { useState } from 'react';
+import { useDashboardStats } from '@/hooks/domain/useDashboardStats';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
+import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { PageHeader, KPICard } from '@/components/shared';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { OccupancyChart, RevenueRadarChart } from '@/components/statistics';
+import { Button } from '@/components/ui/button';
+import { OccupancyChart, RevenueRadarChart, SummaryInsights, DateRangeSelector } from '@/components/statistics';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   BarChart,
   Bar,
@@ -11,15 +24,23 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
-import { TrendingUp, DollarSign, BedDouble, Users, Calendar, Activity } from 'lucide-react';
-import { format, subDays } from 'date-fns';
+import { chartColors, chartGrid, chartAxis, chartTooltip } from '@/lib/chartTheme';
+import { useToast } from '@/hooks/use-toast';
+import { DollarSign, BedDouble, Users, Calendar, Activity, Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { format, subDays, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export default function Statistics() {
-  const { getDashboardStats, getOccupancyByType, bookings, payments } = useHotel();
+  const { stats, occupancyByType } = useDashboardStats();
+  const { bookings } = useBookingOperations();
+  const { payments } = usePaymentOperations();
+  const { data: hotelSettings } = useHotelSettings();
+  const { toast } = useToast();
 
-  const stats = getDashboardStats();
-  const occupancyByType = getOccupancyByType();
+  const [dateRange, setDateRange] = useState({
+    from: startOfMonth(new Date()),
+    to: new Date(),
+  });
 
   // Revenue by day (last 7 days)
   const last7Days = Array.from({ length: 7 }, (_, i) => subDays(new Date(), 6 - i));
@@ -40,15 +61,60 @@ export default function Statistics() {
     value: type.rate,
   }));
 
+  const hotelName = hotelSettings?.hotelName || 'Hotel';
+
+  const handleExportExcel = async () => {
+    try {
+      const { exportToExcel } = await import('@/lib/exportUtils');
+      exportToExcel({ bookings, payments, stats, occupancyByType, dateRange, hotelName });
+      toast({ title: 'Exportado', description: 'Archivo Excel descargado correctamente' });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo exportar a Excel', variant: 'destructive' });
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      const { exportToPDF } = await import('@/lib/exportUtils');
+      exportToPDF({ stats, occupancyByType, revenueByDay, dateRange, hotelName });
+      toast({ title: 'Reporte generado', description: 'Ventana de impresión abierta' });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo generar el reporte', variant: 'destructive' });
+    }
+  };
+
   return (
     <div className="space-y-8">
       <PageHeader
         title="Estadísticas Avanzadas"
         description="Business Intelligence del Hotel"
         actions={
-          <div className="flex items-center gap-2 px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full text-xs font-medium">
-            <Activity className="w-3 h-3" />
-            Live Data
+          <div className="flex items-center gap-2">
+            <DateRangeSelector dateRange={dateRange} onDateRangeChange={setDateRange} />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Exportar</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Formato de Exportación</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleExportExcel}>
+                  <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-600" />
+                  Excel (.xlsx)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportPDF}>
+                  <FileText className="w-4 h-4 mr-2 text-blue-600" />
+                  PDF (Imprimir)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full text-xs font-medium">
+              <Activity className="w-3 h-3" />
+              Live
+            </div>
           </div>
         }
       />
@@ -90,34 +156,27 @@ export default function Statistics() {
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={revenueByDay} barSize={40}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" opacity={0.5} />
+                    <CartesianGrid strokeDasharray={chartGrid.strokeDasharray} vertical={false} stroke={chartGrid.stroke} opacity={0.5} />
                     <XAxis
                       dataKey="date"
                       tickLine={false}
                       axisLine={false}
-                      tick={{ fill: '#94a3b8', fontSize: 12 }}
+                      tick={chartAxis.tick}
                     />
                     <YAxis
                       tickLine={false}
                       axisLine={false}
                       tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
-                      tick={{ fill: '#94a3b8', fontSize: 12 }}
+                      tick={chartAxis.tick}
                     />
                     <Tooltip
                       cursor={{ fill: 'transparent' }}
                       formatter={(value: number) => [`$${value.toLocaleString('es-AR')}`, 'Ingresos']}
-                      contentStyle={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                        backdropFilter: 'blur(8px)',
-                        border: '1px solid rgba(255,255,255,0.5)',
-                        borderRadius: '12px',
-                        fontWeight: 'bold',
-                        color: '#0f172a'
-                      }}
+                      contentStyle={chartTooltip.contentStyle}
                     />
                     <Bar
                       dataKey="revenue"
-                      fill="#3b82f6"
+                      fill={chartColors.blue}
                       radius={[6, 6, 0, 0]}
                     />
                   </BarChart>
@@ -136,18 +195,7 @@ export default function Statistics() {
         <div className="lg:col-span-1">
           <OccupancyChart data={occupancyPieData} />
         </div>
-        {/* You can add more detailed tables or text specific insights here in the future */}
-        <Card className="lg:col-span-2 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border-dashed border-indigo-200 dark:border-indigo-800 flex items-center justify-center min-h-[250px]">
-          <div className="text-center p-6">
-            <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-600">
-              <TrendingUp className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-medium text-indigo-900 dark:text-indigo-100">IA Insights (Próximamente)</h3>
-            <p className="text-sm text-indigo-600/70 dark:text-indigo-300/70 mt-2 max-w-sm mx-auto">
-              Nuestro motor de análisis predictivo te sugerirá cambios de tarifas basados en las tendencias de ocupación detectadas.
-            </p>
-          </div>
-        </Card>
+        <SummaryInsights bookings={bookings} payments={payments} />
       </div>
     </div>
   );

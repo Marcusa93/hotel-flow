@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ClipboardList, Filter, Smartphone, Monitor } from 'lucide-react';
-import { useHotel } from '@/context/HotelContext';
-import { useUpdateHousekeepingTask } from '@/hooks/useUpdateHousekeepingTask';
+import { useHousekeepingOperations } from '@/hooks/domain/useHousekeepingOperations';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { PageHeader, EmptyState } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,8 +22,8 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 export default function Housekeeping() {
-  const { housekeepingTasks, rooms, updateHousekeepingTask, refetchHousekeepingTasks } = useHotel();
-  const updateTaskMutation = useUpdateHousekeepingTask();
+  const { housekeepingTasks, updateHousekeepingTask, refetchHousekeepingTasks } = useHousekeepingOperations();
+  const { rooms } = useRoomOperations();
 
   const [floorFilter, setFloorFilter] = useState<'ALL' | string>('ALL');
   const [isMobileView, setIsMobileView] = useState(false);
@@ -68,15 +68,7 @@ export default function Housekeeping() {
     completedAt?: Date
   ) => {
     try {
-      await updateTaskMutation.mutateAsync({
-        id: taskId,
-        data: { status: newStatus },
-        startedAt,
-        completedAt,
-      });
-
-      // Also update local context
-      updateHousekeepingTask(taskId, { status: newStatus });
+      await updateHousekeepingTask(taskId, { status: newStatus }, rooms, startedAt, completedAt);
 
       const statusMessages: Record<HousekeepingStatus, string> = {
         TODO: 'Tarea pendiente',
@@ -95,7 +87,7 @@ export default function Housekeeping() {
         variant: 'destructive',
       });
     }
-  }, [updateTaskMutation, updateHousekeepingTask]);
+  }, [updateHousekeepingTask, rooms]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);

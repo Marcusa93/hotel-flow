@@ -121,6 +121,18 @@
     --sidebar-accent-foreground: 43 80% 46%;
     --sidebar-border: 210 50% 25%;
     --sidebar-ring: 43 80% 46%;
+
+    /* Chart colors - Dark Mode */
+    --chart-1: 43 80% 56%;
+    /* Gold brighter */
+    --chart-2: 207 100% 50%;
+    /* Blue brighter */
+    --chart-3: 160 84% 50%;
+    /* Emerald brighter */
+    --chart-4: 270 70% 65%;
+    /* Purple/Violet brighter */
+    --chart-5: 24 95% 60%;
+    /* Amber/Orange brighter */
   }
 }
 
@@ -276,11 +288,11 @@
 
   /* New Gradient Text Utility */
   .text-gradient-gold {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-[hsl(43, 80%, 46%)] to-[hsl(43, 80%, 46%)];
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-accent to-accent/80;
   }
 
   /* Official Brand Gradient for Card Headers */
   .card-header-gradient {
-    background: linear-gradient(90deg, #003366 0%, #005599 40%, #D4A017 100%);
+    background: linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 40%, hsl(var(--accent)) 100%);
   }
 }

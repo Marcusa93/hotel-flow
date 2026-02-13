@@ -1,0 +1,229 @@
+import type {
+  RoomType,
+  Room,
+  Guest,
+  Booking,
+  Payment,
+  HousekeepingTask,
+  Rate,
+  Expense,
+  Invoice,
+  InvoiceItem,
+  HotelSettings,
+  AuditLog,
+} from '@/types/hotel';
+
+// --- Row to Model mappers (snake_case DB → camelCase frontend) ---
+
+export const mapRoomType = (row: any): RoomType => ({
+  id: row.id,
+  name: row.name,
+  basePrice: row.base_price,
+  maxGuests: row.max_guests,
+  description: row.description,
+});
+
+export const mapRoom = (row: any): Room => ({
+  id: row.id,
+  roomNumber: row.room_number,
+  roomTypeId: row.room_type_id,
+  floor: row.floor,
+  status: row.status,
+  notes: row.notes,
+});
+
+export const mapGuest = (row: any): Guest => ({
+  id: row.id,
+  fullName: row.full_name,
+  documentId: row.document_id,
+  phone: row.phone,
+  email: row.email,
+  notes: row.notes,
+  country: row.country,
+  createdAt: new Date(row.created_at || new Date()),
+});
+
+export const mapBooking = (row: any): Booking => ({
+  id: row.id,
+  guestId: row.guest_id,
+  roomId: row.room_id,
+  checkInDate: new Date(row.check_in_date),
+  checkOutDate: new Date(row.check_out_date),
+  adults: row.adults,
+  children: row.children,
+  status: row.status,
+  totalAmount: row.total_amount,
+  notes: row.notes,
+  needsReview: row.needs_review,
+  createdAt: new Date(row.created_at || new Date()),
+  updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+});
+
+export const mapPayment = (row: any): Payment => ({
+  id: row.id,
+  bookingId: row.booking_id,
+  amount: Number(row.amount),
+  method: row.method,
+  status: row.status,
+  date: new Date(row.date),
+  reference: row.reference,
+  comment: row.comment,
+});
+
+export const mapHousekeepingTask = (row: any): HousekeepingTask => ({
+  id: row.id,
+  roomId: row.room_id,
+  date: new Date(row.date),
+  assignedTo: row.assigned_to,
+  status: row.status,
+  notes: row.notes,
+  priority: row.priority || 'NORMAL',
+  startedAt: row.started_at ? new Date(row.started_at) : undefined,
+  completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
+  durationMinutes: row.duration_minutes,
+  checkoutTriggered: row.checkout_triggered,
+});
+
+export const mapRate = (row: any): Rate => ({
+  id: row.id,
+  roomTypeId: row.room_type_id,
+  startDate: new Date(row.start_date),
+  endDate: new Date(row.end_date),
+  price: row.price,
+  label: row.label,
+  isActive: row.is_active,
+  discountType: row.discount_type,
+  discountPercent: row.discount_percent,
+  discountAmount: row.discount_amount,
+  minNights: row.min_nights,
+  promoCode: row.promo_code,
+});
+
+export const mapExpense = (row: any): Expense => ({
+  id: row.id,
+  date: new Date(row.date),
+  expenseType: row.expense_type,
+  amount: Number(row.amount),
+  description: row.description,
+  createdAt: new Date(row.created_at || new Date()),
+});
+
+export const mapInvoiceItem = (row: any): InvoiceItem => ({
+  id: row.id,
+  invoiceId: row.invoice_id,
+  description: row.description,
+  quantity: row.quantity,
+  unitPrice: row.unit_price,
+  total: row.total,
+  itemType: row.item_type,
+});
+
+export const mapInvoice = (row: any): Invoice => ({
+  id: row.id,
+  invoiceNumber: row.invoice_number,
+  bookingId: row.booking_id,
+  guestId: row.guest_id,
+  issueDate: new Date(row.issue_date),
+  dueDate: row.due_date ? new Date(row.due_date) : undefined,
+  status: row.status,
+  subtotal: Number(row.subtotal),
+  taxRate: Number(row.tax_rate),
+  taxAmount: Number(row.tax_amount),
+  total: Number(row.total),
+  notes: row.notes,
+  signatureData: row.signature_data,
+  items: row.invoice_items?.map(mapInvoiceItem),
+});
+
+// --- Model to Row mappers (camelCase frontend → snake_case DB) ---
+
+export const guestToRow = (guest: Partial<Guest>): Record<string, any> => {
+  const row: Record<string, any> = {};
+  if (guest.fullName !== undefined) row.full_name = guest.fullName;
+  if (guest.documentId !== undefined) row.document_id = guest.documentId;
+  if (guest.email !== undefined) row.email = guest.email;
+  if (guest.phone !== undefined) row.phone = guest.phone;
+  if (guest.notes !== undefined) row.notes = guest.notes;
+  if (guest.country !== undefined) row.country = guest.country;
+  return row;
+};
+
+export const bookingToRow = (booking: Partial<Booking>): Record<string, any> => {
+  const row: Record<string, any> = {};
+  if (booking.guestId !== undefined) row.guest_id = booking.guestId;
+  if (booking.roomId !== undefined) row.room_id = booking.roomId;
+  if (booking.checkInDate !== undefined) row.check_in_date = booking.checkInDate instanceof Date ? booking.checkInDate.toISOString() : booking.checkInDate;
+  if (booking.checkOutDate !== undefined) row.check_out_date = booking.checkOutDate instanceof Date ? booking.checkOutDate.toISOString() : booking.checkOutDate;
+  if (booking.adults !== undefined) row.adults = booking.adults;
+  if (booking.children !== undefined) row.children = booking.children;
+  if (booking.status !== undefined) row.status = booking.status;
+  if (booking.totalAmount !== undefined) row.total_amount = booking.totalAmount;
+  if (booking.notes !== undefined) row.notes = booking.notes;
+  return row;
+};
+
+export const mapHotelSettings = (row: any): HotelSettings => ({
+  id: row.id,
+  hotelName: row.hotel_name,
+  address: row.address || '',
+  phone: row.phone || '',
+  email: row.email || '',
+  logoUrl: row.logo_url || '',
+  currency: row.currency,
+  timezone: row.timezone,
+  notificationEmailEnabled: row.notification_email_enabled,
+  notificationWhatsappEnabled: row.notification_whatsapp_enabled,
+  notificationSendOnBooking: row.notification_send_on_booking,
+  notificationSendOnPayment: row.notification_send_on_payment,
+  notificationSendOnCheckIn: row.notification_send_on_check_in,
+  notificationSendOnCheckOut: row.notification_send_on_check_out,
+  createdAt: new Date(row.created_at),
+  updatedAt: new Date(row.updated_at),
+});
+
+export const hotelSettingsToRow = (settings: Partial<HotelSettings>): Record<string, any> => {
+  const row: Record<string, any> = {};
+  if (settings.hotelName !== undefined) row.hotel_name = settings.hotelName;
+  if (settings.address !== undefined) row.address = settings.address;
+  if (settings.phone !== undefined) row.phone = settings.phone;
+  if (settings.email !== undefined) row.email = settings.email;
+  if (settings.logoUrl !== undefined) row.logo_url = settings.logoUrl;
+  if (settings.currency !== undefined) row.currency = settings.currency;
+  if (settings.timezone !== undefined) row.timezone = settings.timezone;
+  if (settings.notificationEmailEnabled !== undefined) row.notification_email_enabled = settings.notificationEmailEnabled;
+  if (settings.notificationWhatsappEnabled !== undefined) row.notification_whatsapp_enabled = settings.notificationWhatsappEnabled;
+  if (settings.notificationSendOnBooking !== undefined) row.notification_send_on_booking = settings.notificationSendOnBooking;
+  if (settings.notificationSendOnPayment !== undefined) row.notification_send_on_payment = settings.notificationSendOnPayment;
+  if (settings.notificationSendOnCheckIn !== undefined) row.notification_send_on_check_in = settings.notificationSendOnCheckIn;
+  if (settings.notificationSendOnCheckOut !== undefined) row.notification_send_on_check_out = settings.notificationSendOnCheckOut;
+  row.updated_at = new Date().toISOString();
+  return row;
+};
+
+export const mapAuditLog = (row: any): AuditLog => ({
+  id: row.id,
+  entityType: row.entity_type,
+  entityId: row.entity_id,
+  action: row.action,
+  userId: row.user_id,
+  userEmail: row.user_email,
+  userRole: row.user_role,
+  description: row.description,
+  oldValues: row.old_values || {},
+  newValues: row.new_values || {},
+  metadata: row.metadata || {},
+  createdAt: new Date(row.created_at),
+  ipAddress: row.ip_address,
+});
+
+export const paymentToRow = (payment: Partial<Payment>): Record<string, any> => {
+  const row: Record<string, any> = {};
+  if (payment.bookingId !== undefined) row.booking_id = payment.bookingId;
+  if (payment.amount !== undefined) row.amount = payment.amount;
+  if (payment.method !== undefined) row.method = payment.method;
+  if (payment.status !== undefined) row.status = payment.status;
+  if (payment.date !== undefined) row.date = payment.date instanceof Date ? payment.date.toISOString() : payment.date;
+  if (payment.reference !== undefined) row.reference = payment.reference;
+  if (payment.comment !== undefined) row.comment = payment.comment;
+  return row;
+};

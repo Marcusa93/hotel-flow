@@ -4,6 +4,7 @@ import { Rate } from '@/types/hotel';
 import { useMemo } from 'react';
 import { format, eachMonthOfInterval, startOfYear, endOfYear } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { chartColors, chartGrid, chartAxis, chartTooltip } from '@/lib/chartTheme';
 
 interface SeasonalityChartProps {
     rates: Rate[];
@@ -11,15 +12,12 @@ interface SeasonalityChartProps {
 
 export function SeasonalityChart({ rates }: SeasonalityChartProps) {
     const data = useMemo(() => {
-        // Normalize rates to a monthly average or trend
-        // For visual purposes, we'll project the "Standard" rate or average active rate behavior
         const yearMonths = eachMonthOfInterval({
             start: startOfYear(new Date()),
             end: endOfYear(new Date())
         });
 
         return yearMonths.map(month => {
-            // Mock logic: Seasonality curve (High seasons: Jan/Feb + Jul, Low: May/Jun)
             const monthIdx = month.getMonth();
             let multiplier = 1.0;
 
@@ -30,7 +28,6 @@ export function SeasonalityChart({ rates }: SeasonalityChartProps) {
             // Winter Break
             if (monthIdx === 6) multiplier = 1.3; // July
 
-            // Base price reference (e.g. $100 or avg of rates)
             const basePrice = 120;
 
             return {
@@ -53,38 +50,31 @@ export function SeasonalityChart({ rates }: SeasonalityChartProps) {
                         <AreaChart data={data}>
                             <defs>
                                 <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                                    <stop offset="5%" stopColor={chartColors.gold} stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor={chartColors.gold} stopOpacity={0} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" opacity={0.5} />
+                            <CartesianGrid strokeDasharray={chartGrid.strokeDasharray} vertical={false} stroke={chartGrid.stroke} opacity={0.5} />
                             <XAxis
                                 dataKey="month"
                                 tickLine={false}
                                 axisLine={false}
-                                tick={{ fontSize: 12, fill: '#94a3b8' }}
+                                tick={chartAxis.tick}
                             />
                             <YAxis
                                 tickLine={false}
                                 axisLine={false}
                                 tickFormatter={(value) => `$${value}`}
-                                tick={{ fontSize: 12, fill: '#94a3b8' }}
+                                tick={chartAxis.tick}
                             />
                             <Tooltip
-                                contentStyle={{
-                                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                                    backdropFilter: 'blur(8px)',
-                                    border: '1px solid rgba(255,255,255,0.5)',
-                                    borderRadius: '12px',
-                                    fontWeight: 'bold',
-                                    color: '#0f172a'
-                                }}
+                                contentStyle={chartTooltip.contentStyle}
                                 formatter={(value: number) => [`$${value}`, 'Precio Promedio']}
                             />
                             <Area
                                 type="monotone"
                                 dataKey="price"
-                                stroke="#8b5cf6"
+                                stroke={chartColors.gold}
                                 strokeWidth={3}
                                 fillOpacity={1}
                                 fill="url(#colorPrice)"

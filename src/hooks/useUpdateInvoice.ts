@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Invoice, InvoiceStatus } from '@/types/hotel';
+import { logAuditEvent } from './useCreateAuditLog';
 
 interface UpdateInvoiceParams {
     id: string;
@@ -34,9 +35,20 @@ export const useUpdateInvoice = () => {
                 throw error;
             }
         },
-        onSuccess: () => {
+        onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['invoices'] });
             queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+
+            // Audit log
+            logAuditEvent({
+                entityType: 'invoice',
+                entityId: variables.id,
+                action: variables.data.status ? 'STATUS_CHANGE' : 'UPDATE',
+                description: variables.data.status
+                    ? `Factura actualizada: estado → ${variables.data.status}`
+                    : 'Factura actualizada',
+                newValues: variables.data,
+            });
         },
     });
 };

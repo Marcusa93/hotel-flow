@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
-import { useHotel } from '@/context/HotelContext';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import {
   CalendarHeader,
   CalendarControls,
@@ -25,7 +27,9 @@ type CalendarViewMode = 'month' | 'week' | 'timeline';
 type HeatmapMode = 'none' | 'occupancy' | 'revenue';
 
 export default function Calendar() {
-  const { bookings, guests, rooms, roomTypes } = useHotel();
+  const { bookings } = useBookingOperations();
+  const { guests } = useGuestOperations();
+  const { rooms, roomTypes } = useRoomOperations();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarViewMode>('timeline'); // Default to Timeline for the WOW factor
   const [heatmapMode, setHeatmapMode] = useState<HeatmapMode>('none');

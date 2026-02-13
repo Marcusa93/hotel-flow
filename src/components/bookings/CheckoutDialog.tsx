@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useHotel } from '@/context/HotelContext';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useCreateInvoice } from '@/hooks/useCreateInvoice';
 import { BookingWithDetails } from '@/types/hotel';
 import { format } from 'date-fns';
@@ -44,7 +45,8 @@ export function CheckoutDialog({
     bookingPayments,
     onCheckoutComplete
 }: CheckoutDialogProps) {
-    const { updateBookingStatus, updateRoomStatus } = useHotel();
+    const { updateBookingStatus } = useBookingOperations();
+    const { updateRoomStatus } = useRoomOperations();
     const createInvoice = useCreateInvoice();
 
     const [generateInvoice, setGenerateInvoice] = useState(true);

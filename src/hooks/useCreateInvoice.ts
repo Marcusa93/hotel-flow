@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Invoice, InvoiceItem, InvoiceItemType } from '@/types/hotel';
+import { logAuditEvent } from './useCreateAuditLog';
 
 interface CreateInvoiceParams {
     bookingId: string;
@@ -105,9 +106,18 @@ export const useCreateInvoice = () => {
                 })),
             } as Invoice;
         },
-        onSuccess: () => {
+        onSuccess: (invoice) => {
             queryClient.invalidateQueries({ queryKey: ['invoices'] });
             queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+
+            // Audit log
+            logAuditEvent({
+                entityType: 'invoice',
+                entityId: invoice.id,
+                action: 'CREATE',
+                description: `Factura ${invoice.invoiceNumber} creada por $${invoice.total.toLocaleString('es-AR')}`,
+                newValues: { invoiceNumber: invoice.invoiceNumber, total: invoice.total, status: 'DRAFT' },
+            });
         },
     });
 };

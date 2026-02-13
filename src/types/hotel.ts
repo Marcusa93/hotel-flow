@@ -9,6 +9,8 @@ export type TaskPriority = 'LOW' | 'NORMAL' | 'URGENT' | 'CHECKOUT';
 export type UserRole = 'admin' | 'reception' | 'housekeeping' | 'auditor';
 export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'CANCELLED' | 'OVERDUE';
 export type InvoiceItemType = 'ACCOMMODATION' | 'SERVICE' | 'EXTRA' | 'OTHER';
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'STATUS_CHANGE';
+export type AuditEntityType = 'booking' | 'guest' | 'room' | 'payment' | 'invoice' | 'housekeeping_task' | 'rate' | 'expense' | 'hotel_settings';
 
 export interface RoomType {
   id: string;
@@ -197,4 +199,39 @@ export interface Expense {
   amount: number;
   description?: string;
   createdAt: Date;
+}
+
+export interface HotelSettings {
+  id: string;
+  hotelName: string;
+  address: string;
+  phone: string;
+  email: string;
+  logoUrl: string;
+  currency: string;
+  timezone: string;
+  notificationEmailEnabled: boolean;
+  notificationWhatsappEnabled: boolean;
+  notificationSendOnBooking: boolean;
+  notificationSendOnPayment: boolean;
+  notificationSendOnCheckIn: boolean;
+  notificationSendOnCheckOut: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AuditLog {
+  id: string;
+  entityType: AuditEntityType;
+  entityId: string;
+  action: AuditAction;
+  userId?: string;
+  userEmail?: string;
+  userRole?: UserRole;
+  description: string;
+  oldValues: Record<string, any>;
+  newValues: Record<string, any>;
+  metadata: Record<string, any>;
+  createdAt: Date;
+  ipAddress?: string;
 }

@@ -19,8 +19,11 @@ import {
   ShieldCheck,
   MoreVertical
 } from 'lucide-react';
-import { useHotel } from '@/context/HotelContext';
-import { StatusBadge } from '@/components/shared';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
+import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
+import { StatusBadge, PageSkeleton } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -54,20 +57,19 @@ import { motion } from 'framer-motion';
 export default function BookingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getBookingWithDetails, updateBookingStatus, payments, isLoading } = useHotel();
+  const { getBookingWithDetails, updateBookingStatus, isLoading: bookingsLoading } = useBookingOperations();
+  const { guests } = useGuestOperations();
+  const { rooms, roomTypes } = useRoomOperations();
+  const { payments } = usePaymentOperations();
+  const isLoading = bookingsLoading;
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
 
-  const booking = id ? getBookingWithDetails(id) : undefined;
+  const booking = id ? getBookingWithDetails(id, guests, rooms, roomTypes, payments) : undefined;
 
   // Show loading while data is being fetched
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[50vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
-        <p className="text-muted-foreground">Cargando reserva...</p>
-      </div>
-    );
+    return <PageSkeleton kpiCount={3} tableRows={4} />;
   }
 
   if (!booking) {

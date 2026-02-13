@@ -4,7 +4,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { HotelProvider } from "@/context/HotelContext";
+import { ThemeProvider } from "next-themes";
+import { AppRoleProvider } from "@/context/AppRoleContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { MainLayout } from "@/components/layout";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -27,6 +28,7 @@ const Housekeeping = lazy(() => import("./pages/Housekeeping"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Expenses = lazy(() => import("./pages/Expenses"));
+const AuditLog = lazy(() => import("./pages/AuditLog"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -64,6 +66,7 @@ const AnimatedRoutes = () => {
         <Route path="/notifications" element={<PageWrapper><Notifications /></PageWrapper>} />
         <Route path="/expenses" element={<PageWrapper><Expenses /></PageWrapper>} />
         <Route path="/settings" element={<PageWrapper><Settings /></PageWrapper>} />
+        <Route path="/audit-log" element={<PageWrapper><AuditLog /></PageWrapper>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AnimatePresence>
@@ -78,32 +81,34 @@ const LoadingFallback = () => (
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <HotelProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<Login />} />
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+      <AuthProvider>
+        <AppRoleProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<Login />} />
 
-              <Route
-                path="/*"
-                element={
-                  <ProtectedRoute>
-                    <MainLayout>
-                      <Suspense fallback={<LoadingFallback />}>
-                        <AnimatedRoutes />
-                      </Suspense>
-                    </MainLayout>
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </HotelProvider>
-    </AuthProvider>
+                <Route
+                  path="/*"
+                  element={
+                    <ProtectedRoute>
+                      <MainLayout>
+                        <Suspense fallback={<LoadingFallback />}>
+                          <AnimatedRoutes />
+                        </Suspense>
+                      </MainLayout>
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </AppRoleProvider>
+      </AuthProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

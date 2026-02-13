@@ -85,7 +85,7 @@ export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, 
     return (
         <>
             <Sheet open={isOpen} onOpenChange={onClose}>
-                <SheetContent className="w-full sm:max-w-md p-0 bg-white/95 backdrop-blur-xl border-l border-white/20 shadow-2xl">
+                <SheetContent className="w-full sm:max-w-md p-0 bg-background/95 backdrop-blur-xl border-l border-border shadow-2xl">
                     <div className="h-full flex flex-col">
                         {/* Header */}
                         <div className="flex-none p-6 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
@@ -118,7 +118,7 @@ export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, 
                                 <section className="grid grid-cols-2 gap-3">
                                     <Button
                                         variant="outline"
-                                        className={cn("h-auto py-4 flex flex-col gap-2 rounded-xl", room.status === 'AVAILABLE' && "border-emerald-500 bg-emerald-50 text-emerald-900")}
+                                        className={cn("h-auto py-4 flex flex-col gap-2 rounded-xl", room.status === 'AVAILABLE' && "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-900 dark:text-emerald-100")}
                                         onClick={() => onStatusChange('AVAILABLE')}
                                     >
                                         <CheckCircle className="w-5 h-5 mb-1" />
@@ -126,7 +126,7 @@ export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, 
                                     </Button>
                                     <Button
                                         variant="outline"
-                                        className={cn("h-auto py-4 flex flex-col gap-2 rounded-xl", room.status === 'DIRTY' && "border-amber-500 bg-amber-50 text-amber-900")}
+                                        className={cn("h-auto py-4 flex flex-col gap-2 rounded-xl", room.status === 'DIRTY' && "border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-900 dark:text-amber-100")}
                                         onClick={() => onStatusChange('DIRTY')}
                                     >
                                         <PaintBucket className="w-5 h-5 mb-1" />
@@ -134,7 +134,7 @@ export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, 
                                     </Button>
                                     <Button
                                         variant="outline"
-                                        className={cn("h-auto py-4 flex flex-col gap-2 rounded-xl", room.status === 'MAINTENANCE' && "border-slate-500 bg-slate-50 text-slate-900")}
+                                        className={cn("h-auto py-4 flex flex-col gap-2 rounded-xl", room.status === 'MAINTENANCE' && "border-slate-500 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100")}
                                         onClick={() => setMaintenanceDialogOpen(true)}
                                     >
                                         <Wrench className="w-5 h-5 mb-1" />
@@ -166,7 +166,7 @@ export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, 
                                 {room.status === 'DIRTY' && (
                                     <Button
                                         variant="outline"
-                                        className="w-full border-amber-500 text-amber-700 hover:bg-amber-50"
+                                        className="w-full border-amber-500 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
                                         onClick={() => {
                                             onClose();
                                             navigate('/housekeeping');

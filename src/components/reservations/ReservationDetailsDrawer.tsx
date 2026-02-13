@@ -39,7 +39,7 @@ export function ReservationDetailsDrawer({
 
     return (
         <Sheet open={isOpen} onOpenChange={onClose}>
-            <SheetContent className="w-full sm:max-w-xl p-0 overflow-hidden bg-white/95 backdrop-blur-xl border-l border-white/20 shadow-2xl">
+            <SheetContent className="w-full sm:max-w-xl p-0 overflow-hidden bg-background/95 backdrop-blur-xl border-l border-border shadow-2xl">
                 {/* Header with Cover Image Effect */}
                 <div className="relative h-40 bg-gradient-to-br from-indigo-500/20 via-blue-500/20 to-purple-500/20">
                     <div className="absolute top-4 right-4 z-20">
@@ -48,7 +48,7 @@ export function ReservationDetailsDrawer({
                         </Button>
                     </div>
                     <div className="absolute -bottom-10 left-8 z-10">
-                        <Avatar className="h-24 w-24 border-4 border-white shadow-xl">
+                        <Avatar className="h-24 w-24 border-4 border-background shadow-xl">
                             <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${guest?.email}`} />
                             <AvatarFallback className="text-xl bg-primary/10 text-primary font-bold">
                                 {guest?.fullName.slice(0, 2).toUpperCase()}
@@ -113,20 +113,20 @@ export function ReservationDetailsDrawer({
                                 </Badge>
                             </div>
 
-                            <div className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-white/50 relative overflow-hidden">
+                            <div className="flex items-center justify-between p-4 rounded-2xl border border-border bg-muted/30 relative overflow-hidden">
                                 <div className="relative z-10 text-center flex-1">
                                     <p className="text-xs text-muted-foreground mb-1">Entrada</p>
-                                    <p className="font-bold text-lg">{format(new Date(booking.checkInDate), 'd MMM')}</p>
-                                    <p className="text-xs text-slate-400">14:00</p>
+                                    <p className="font-bold text-lg text-foreground">{format(new Date(booking.checkInDate), 'd MMM')}</p>
+                                    <p className="text-xs text-muted-foreground">14:00</p>
                                 </div>
                                 <div className="relative z-10 flex-none px-4 flex flex-col items-center">
-                                    <span className="text-xs font-medium text-slate-400 mb-1">2 Noches</span>
-                                    <div className="w-24 h-0.5 bg-slate-200"></div>
+                                    <span className="text-xs font-medium text-muted-foreground mb-1">2 Noches</span>
+                                    <div className="w-24 h-0.5 bg-border"></div>
                                 </div>
                                 <div className="relative z-10 text-center flex-1">
                                     <p className="text-xs text-muted-foreground mb-1">Salida</p>
-                                    <p className="font-bold text-lg">{format(new Date(booking.checkOutDate), 'd MMM')}</p>
-                                    <p className="text-xs text-slate-400">11:00</p>
+                                    <p className="font-bold text-lg text-foreground">{format(new Date(booking.checkOutDate), 'd MMM')}</p>
+                                    <p className="text-xs text-muted-foreground">11:00</p>
                                 </div>
                             </div>
 

@@ -2,17 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Payment } from '@/types/hotel';
 import { useMemo } from 'react';
+import { paymentMethodColors, chartTooltip } from '@/lib/chartTheme';
 
 interface PaymentMethodChartProps {
     payments: Payment[];
 }
-
-const COLORS = {
-    CARD: '#8b5cf6', // Violet
-    CASH: '#10b981', // Emerald
-    TRANSFER: '#3b82f6', // Blue
-    OTHER: '#94a3b8', // Slate
-};
 
 const METHOD_LABELS = {
     CARD: 'Tarjeta',
@@ -24,7 +18,7 @@ const METHOD_LABELS = {
 export function PaymentMethodChart({ payments }: PaymentMethodChartProps) {
     const data = useMemo(() => {
         const counts = payments.reduce((acc, p) => {
-            const method = p.method as keyof typeof COLORS;
+            const method = p.method as keyof typeof paymentMethodColors;
             acc[method] = (acc[method] || 0) + p.amount;
             return acc;
         }, {} as Record<string, number>);
@@ -33,7 +27,7 @@ export function PaymentMethodChart({ payments }: PaymentMethodChartProps) {
             .map(([method, value]) => ({
                 name: METHOD_LABELS[method as keyof typeof METHOD_LABELS],
                 value,
-                color: COLORS[method as keyof typeof COLORS] || COLORS.OTHER
+                color: paymentMethodColors[method as keyof typeof paymentMethodColors] || paymentMethodColors.OTHER
             }))
             .filter(item => item.value > 0);
     }, [payments]);
@@ -63,14 +57,7 @@ export function PaymentMethodChart({ payments }: PaymentMethodChartProps) {
                                 ))}
                             </Pie>
                             <Tooltip
-                                contentStyle={{
-                                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                                    backdropFilter: 'blur(8px)',
-                                    border: '1px solid rgba(255,255,255,0.5)',
-                                    borderRadius: '12px',
-                                    fontWeight: 'bold',
-                                    color: '#0f172a'
-                                }}
+                                contentStyle={chartTooltip.contentStyle}
                                 formatter={(value: number) => [`$${value.toLocaleString()}`, 'Total']}
                             />
                             <Legend verticalAlign="bottom" height={36} iconType="circle" />

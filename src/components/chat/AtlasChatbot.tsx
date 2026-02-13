@@ -33,7 +33,7 @@ export function AtlasChatbot() {
                 isOpen ? "w-[350px] h-[500px] opacity-100 scale-100" : "w-0 h-0 opacity-0 scale-50"
             )}>
                 {/* Header */}
-                <div className="bg-[#003366] p-4 flex items-center justify-between shrink-0">
+                <div className="bg-sidebar-background p-4 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-3">
                         {/* Atlas Avatar Small */}
                         <div className="relative w-8 h-8 rounded-full border border-yellow-500 overflow-hidden shadow-[0_0_10px_rgba(255,215,0,0.5)]">
@@ -60,7 +60,7 @@ export function AtlasChatbot() {
                                 <div className={cn(
                                     "max-w-[80%] rounded-2xl px-4 py-2 text-sm",
                                     msg.role === 'user'
-                                        ? "bg-[#003366] text-white rounded-br-none"
+                                        ? "bg-sidebar-background text-white rounded-br-none"
                                         : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-bl-none shadow-sm"
                                 )}>
                                     {msg.content}
@@ -79,7 +79,7 @@ export function AtlasChatbot() {
                             onChange={e => setInput(e.target.value)}
                             className="flex-1"
                         />
-                        <Button type="submit" size="icon" className="bg-[#003366] hover:bg-[#002244]">
+                        <Button type="submit" size="icon" className="bg-sidebar-background hover:bg-sidebar-background/80">
                             <Send className="w-4 h-4" />
                         </Button>
                     </form>
@@ -95,7 +95,7 @@ export function AtlasChatbot() {
                 <div className="absolute inset-0 rounded-full bg-yellow-500/30 blur-xl animate-pulse group-hover:bg-yellow-400/50 transition-colors" />
 
                 {/* Main Circle container with Pillars Concept */}
-                <div className="relative w-16 h-16 rounded-full bg-[#003366] border-2 border-yellow-500 shadow-[0_0_20px_rgba(255,215,0,0.4)] flex items-center justify-center overflow-hidden">
+                <div className="relative w-16 h-16 rounded-full bg-sidebar-background border-2 border-yellow-500 shadow-[0_0_20px_rgba(255,215,0,0.4)] flex items-center justify-center overflow-hidden">
 
                     {/* "Pillars" simulated by vertical borders/gradients on the sides inside the circle */}
                     <div className="absolute left-1 top-0 bottom-0 w-1 bg-gradient-to-b from-yellow-600 via-yellow-300 to-yellow-600 opacity-80" />

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Booking } from '@/types/hotel';
 import { createNotification } from './useCreateNotification';
+import { logAuditEvent } from './useCreateAuditLog';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -59,6 +60,15 @@ export const useCreateBooking = () => {
                 title: '📅 Nueva reserva creada',
                 message: `Reserva del ${format(booking.checkInDate, 'dd MMM', { locale: es })} al ${format(booking.checkOutDate, 'dd MMM', { locale: es })} - Total: $${booking.totalAmount.toLocaleString('es-AR')}`,
                 metadata: { bookingId: booking.id }
+            });
+
+            // Audit log
+            logAuditEvent({
+                entityType: 'booking',
+                entityId: booking.id,
+                action: 'CREATE',
+                description: `Reserva creada: ${format(booking.checkInDate, 'dd/MM', { locale: es })} - ${format(booking.checkOutDate, 'dd/MM', { locale: es })} por $${booking.totalAmount.toLocaleString('es-AR')}`,
+                newValues: { guestId: booking.guestId, roomId: booking.roomId, status: booking.status, totalAmount: booking.totalAmount },
             });
         }
     });

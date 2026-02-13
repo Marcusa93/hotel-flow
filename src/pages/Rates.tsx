@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Plus, Edit, Trash2, Tag, Percent, Calendar, Check, X, Copy, Zap } from 'lucide-react';
-import { useHotel } from '@/context/HotelContext';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { PageHeader } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -45,7 +45,9 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Rates() {
-  const { roomTypes, updateRoomType } = useHotel();
+  const { roomTypes } = useRoomOperations();
+  // TODO: implement updateRoomType via Supabase mutation
+  const updateRoomType = (_id: string, _data: any) => { console.warn('updateRoomType not yet connected to Supabase'); };
   const { data: rates = [], isLoading } = useRates();
   const createRateMutation = useCreateRate();
   const updateRateMutation = useUpdateRate();

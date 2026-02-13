@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { format, startOfDay, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarIcon, Tag, Percent, Sparkles, X } from 'lucide-react';
-import { useHotel } from '@/context/HotelContext';
+import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import { useRates } from '@/hooks/useRates';
 import {
   Dialog,
@@ -68,7 +68,7 @@ export function RegisterPaymentDialog({
   bookingId,
   pendingAmount
 }: RegisterPaymentDialogProps) {
-  const { addPayment } = useHotel();
+  const { addPayment } = usePaymentOperations();
   const { data: rates = [] } = useRates();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [promoCodeInput, setPromoCodeInput] = useState('');

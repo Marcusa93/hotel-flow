@@ -5,7 +5,10 @@ import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarIcon, Search } from 'lucide-react';
-import { useHotel } from '@/context/HotelContext';
+import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import {
     Dialog,
     DialogContent,
@@ -60,7 +63,10 @@ interface NewPaymentDialogProps {
 }
 
 export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) {
-    const { addPayment, bookings, guests, rooms, payments } = useHotel();
+    const { addPayment, payments } = usePaymentOperations();
+    const { bookings } = useBookingOperations();
+    const { guests } = useGuestOperations();
+    const { rooms } = useRoomOperations();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
 

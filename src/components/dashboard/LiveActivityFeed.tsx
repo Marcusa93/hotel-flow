@@ -2,12 +2,16 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Activity, LogIn, LogOut, CalendarCheck, Clock } from 'lucide-react';
-import { useHotel } from '@/context/HotelContext';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export function LiveActivityFeed() {
-    const { bookings, guests, rooms } = useHotel();
+    const { bookings } = useBookingOperations();
+    const { guests } = useGuestOperations();
+    const { rooms } = useRoomOperations();
 
     // Derive generic activities from bookings
     // In a real app, you might have a dedicated 'ActivityLog' table.

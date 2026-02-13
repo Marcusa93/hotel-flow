@@ -1,7 +1,7 @@
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
 import { Skeleton } from '@/components/ui/skeleton';
+import { chartColors, chartGrid, chartAxis, chartTooltip } from '@/lib/chartTheme';
 
 interface RevenueChartProps {
     data: { name: string; value: number }[];
@@ -23,41 +23,35 @@ export function RevenueChart({ data, isLoading }: RevenueChartProps) {
                     <AreaChart data={data}>
                         <defs>
                             <linearGradient id="colorRevenueGraph" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                                <stop offset="5%" stopColor={chartColors.revenue} stopOpacity={0.3} />
+                                <stop offset="95%" stopColor={chartColors.revenue} stopOpacity={0} />
                             </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.4} />
+                        <CartesianGrid strokeDasharray={chartGrid.strokeDasharray} vertical={false} stroke={chartGrid.stroke} opacity={0.4} />
                         <XAxis
                             dataKey="name"
-                            stroke="hsl(var(--muted-foreground))"
-                            fontSize={12}
+                            stroke={chartAxis.tick.fill}
+                            fontSize={chartAxis.tick.fontSize}
                             tickLine={false}
                             axisLine={false}
                             dy={10}
                         />
                         <YAxis
-                            stroke="hsl(var(--muted-foreground))"
-                            fontSize={12}
+                            stroke={chartAxis.tick.fill}
+                            fontSize={chartAxis.tick.fontSize}
                             tickLine={false}
                             axisLine={false}
                             tickFormatter={(value) => `$${value}`}
                             dx={-10}
                         />
                         <Tooltip
-                            contentStyle={{
-                                backgroundColor: 'hsl(var(--card))',
-                                borderColor: 'hsl(var(--border))',
-                                borderRadius: '0.75rem',
-                                boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                                padding: '12px'
-                            }}
-                            cursor={{ stroke: '#8b5cf6', strokeWidth: 1, strokeDasharray: '4 4' }}
+                            contentStyle={chartTooltip.contentStyle}
+                            cursor={{ stroke: chartColors.revenue, strokeWidth: 1, strokeDasharray: '4 4' }}
                         />
                         <Area
                             type="monotone"
                             dataKey="value"
-                            stroke="#8b5cf6"
+                            stroke={chartColors.revenue}
                             strokeWidth={3}
                             fillOpacity={1}
                             fill="url(#colorRevenueGraph)"

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Send, Settings2, Check, CheckCheck, Trash2, Filter, Bell, RefreshCw } from 'lucide-react';
-import { PageHeader } from '@/components/shared';
+import { PageHeader, ListSkeleton } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { NotificationChannelCard } from '@/components/notifications';
@@ -18,7 +18,7 @@ import {
 import { useNotifications, useUnreadCount, Notification, NotificationCategory } from '@/hooks/useNotifications';
 import { useCreateNotification } from '@/hooks/useCreateNotification';
 import { useMarkNotificationRead, useMarkAllNotificationsRead, useDeleteNotification, useClearAllNotifications } from '@/hooks/useMarkNotificationRead';
-import { useHotel } from '@/context/HotelContext';
+import { useAppRole } from '@/context/AppRoleContext';
 import { toast } from '@/hooks/use-toast';
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -65,7 +65,7 @@ const categoryColors: Record<NotificationCategory, string> = {
 };
 
 export default function Notifications() {
-  const { notificationSettings, updateNotificationSettings } = useHotel();
+  const { notificationSettings, updateNotificationSettings } = useAppRole();
   const [categoryFilter, setCategoryFilter] = useState<NotificationCategory | 'all'>('all');
   const [tab, setTab] = useState<'all' | 'unread'>('all');
 
@@ -372,11 +372,7 @@ interface NotificationsListProps {
 
 function NotificationsList({ notifications, isLoading, onMarkRead, onDelete }: NotificationsListProps) {
   if (isLoading) {
-    return (
-      <div className="p-8 text-center text-muted-foreground">
-        Cargando notificaciones...
-      </div>
-    );
+    return <ListSkeleton items={5} showAvatar />;
   }
 
   if (notifications.length === 0) {

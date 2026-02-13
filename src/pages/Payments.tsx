@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react';
 import { Search, Filter } from 'lucide-react';
-import { useHotel } from '@/context/HotelContext';
+import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { PageHeader, EmptyState } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +18,10 @@ import { Payment, PaymentStatus, PaymentMethod } from '@/types/hotel';
 import { PaymentStats, TransactionTable, NewPaymentDialog, PaymentReceipt } from '@/components/payments';
 
 export default function Payments() {
-  const { payments, bookings, guests, rooms, updatePayment } = useHotel();
+  const { payments, updatePayment } = usePaymentOperations();
+  const { bookings } = useBookingOperations();
+  const { guests } = useGuestOperations();
+  const { rooms } = useRoomOperations();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'ALL'>('ALL');
   const [methodFilter, setMethodFilter] = useState<PaymentMethod | 'ALL'>('ALL');

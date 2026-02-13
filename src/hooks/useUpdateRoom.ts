@@ -2,6 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { RoomStatus } from '@/types/hotel';
+import { logAuditEvent } from './useCreateAuditLog';
 
 interface UpdateRoomParams {
     id: string;
@@ -33,9 +34,18 @@ export const useUpdateRoom = () => {
             if (error) throw error;
             return data;
         },
-        onSuccess: () => {
+        onSuccess: (data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['rooms'] });
             queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+
+            // Audit log
+            logAuditEvent({
+                entityType: 'room',
+                entityId: variables.id,
+                action: 'STATUS_CHANGE',
+                description: `Habitación ${data?.room_number || ''} → ${variables.status}`,
+                newValues: { status: variables.status, notes: variables.notes },
+            });
         }
     });
 };

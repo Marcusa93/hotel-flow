@@ -4,6 +4,7 @@ import { es } from 'date-fns/locale';
 import { X, Download, Send, Edit, CheckCircle, Printer, QrCode } from 'lucide-react';
 import { Invoice, Guest, Booking, Room, RoomType } from '@/types/hotel';
 import { useUpdateInvoice } from '@/hooks/useUpdateInvoice';
+import { useHotelSettings } from '@/hooks/useHotelSettings';
 import {
     Sheet,
     SheetContent,
@@ -51,6 +52,7 @@ export function InvoicePreview({
     roomType,
 }: InvoicePreviewProps) {
     const updateInvoiceMutation = useUpdateInvoice();
+    const { data: hotelSettings } = useHotelSettings();
     const printRef = useRef<HTMLDivElement>(null);
     const [isUpdating, setIsUpdating] = useState(false);
 
@@ -312,7 +314,34 @@ export function InvoicePreview({
                             <Printer className="w-4 h-4 mr-2" />
                             Imprimir
                         </Button>
-                        <Button variant="outline" className="flex-1" onClick={handlePrint}>
+                        <Button
+                            variant="outline"
+                            className="flex-1"
+                            onClick={async () => {
+                                try {
+                                    const { generateInvoicePDF } = await import('@/lib/pdfUtils');
+                                    await generateInvoicePDF({
+                                        invoice,
+                                        guest,
+                                        booking,
+                                        room,
+                                        roomType,
+                                        hotelSettings: hotelSettings ?? undefined,
+                                    });
+                                    toast({
+                                        title: 'PDF generado',
+                                        description: `Factura ${invoice.invoiceNumber} descargada`,
+                                    });
+                                } catch (error) {
+                                    console.error('Error generating PDF:', error);
+                                    toast({
+                                        title: 'Error',
+                                        description: 'No se pudo generar el PDF',
+                                        variant: 'destructive',
+                                    });
+                                }
+                            }}
+                        >
                             <Download className="w-4 h-4 mr-2" />
                             PDF
                         </Button>

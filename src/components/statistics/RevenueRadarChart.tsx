@@ -1,8 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { chartColors, chartGrid, chartAxis, chartTooltip } from '@/lib/chartTheme';
 
 export function RevenueRadarChart() {
-    // Mock data for sources breakdown
     const data = [
         { subject: 'Habitaciones', A: 120, fullMark: 150 },
         { subject: 'Mini-Bar', A: 98, fullMark: 150 },
@@ -23,29 +23,21 @@ export function RevenueRadarChart() {
                 <div className="h-[280px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data}>
-                            <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
+                            <PolarGrid stroke={chartGrid.stroke} strokeDasharray={chartGrid.strokeDasharray} />
                             <PolarAngleAxis
                                 dataKey="subject"
-                                tick={{ fontSize: 11, fill: '#64748b' }}
+                                tick={{ fontSize: 11, fill: chartAxis.tick.fill }}
                             />
                             <PolarRadiusAxis angle={30} domain={[0, 150]} hide />
                             <Radar
                                 name="Revenue"
                                 dataKey="A"
-                                stroke="#8b5cf6"
+                                stroke={chartColors.primary}
                                 strokeWidth={2}
-                                fill="#8b5cf6"
+                                fill={chartColors.primary}
                                 fillOpacity={0.3}
                             />
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                                    backdropFilter: 'blur(8px)',
-                                    border: '1px solid rgba(255,255,255,0.5)',
-                                    borderRadius: '12px',
-                                    color: '#0f172a'
-                                }}
-                            />
+                            <Tooltip contentStyle={chartTooltip.contentStyle} />
                         </RadarChart>
                     </ResponsiveContainer>
                 </div>

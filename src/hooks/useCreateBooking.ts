@@ -2,7 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Booking } from '@/types/hotel';
-import { createNotification } from './useCreateNotification';
+import { createNotificationIfEnabled } from './useCreateNotification';
 import { logAuditEvent } from './useCreateAuditLog';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -54,7 +54,7 @@ export const useCreateBooking = () => {
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
 
             // Create notification for new booking
-            createNotification({
+            createNotificationIfEnabled({
                 type: 'success',
                 category: 'booking',
                 title: '📅 Nueva reserva creada',

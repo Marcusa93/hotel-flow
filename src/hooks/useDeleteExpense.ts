@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { logAuditEvent } from './useCreateAuditLog';
 
 export const useDeleteExpense = () => {
     const queryClient = useQueryClient();
@@ -13,8 +14,14 @@ export const useDeleteExpense = () => {
 
             if (error) throw error;
         },
-        onSuccess: () => {
+        onSuccess: (_data, id) => {
             queryClient.invalidateQueries({ queryKey: ['expenses'] });
+            logAuditEvent({
+                entityType: 'expense',
+                entityId: id,
+                action: 'DELETE',
+                description: `Gasto eliminado`,
+            });
         }
     });
 };

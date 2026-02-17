@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Send, Settings2, Check, CheckCheck, Trash2, Filter, Bell, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Send, Settings2, Check, CheckCheck, Trash2, Filter, Bell, RefreshCw, ArrowRight } from 'lucide-react';
 import { PageHeader, ListSkeleton } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -349,10 +350,10 @@ export default function Notifications() {
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-900 text-white border-0">
+          <Card className="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-white border-slate-200 dark:border-0">
             <CardContent className="p-6">
               <h4 className="font-bold mb-2">💡 Consejo Pro</h4>
-              <p className="text-sm text-slate-300">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
                 Las notificaciones se actualizan en tiempo real. Los eventos importantes como nuevas reservas y pagos generarán alertas automáticamente.
               </p>
             </CardContent>
@@ -363,6 +364,22 @@ export default function Notifications() {
   );
 }
 
+/** Resolve navigation route from notification category + metadata */
+function getNotificationRoute(notification: Notification): string {
+  const { category, metadata } = notification;
+  if (metadata?.bookingId) return `/bookings/${metadata.bookingId}`;
+  const categoryRoutes: Record<NotificationCategory, string> = {
+    booking: '/bookings',
+    payment: '/payments',
+    housekeeping: '/housekeeping',
+    checkin: '/bookings',
+    checkout: '/bookings',
+    promotion: '/notifications',
+    system: '/audit-log',
+  };
+  return categoryRoutes[category] || '/notifications';
+}
+
 interface NotificationsListProps {
   notifications: Notification[];
   isLoading: boolean;
@@ -371,6 +388,16 @@ interface NotificationsListProps {
 }
 
 function NotificationsList({ notifications, isLoading, onMarkRead, onDelete }: NotificationsListProps) {
+  const navigate = useNavigate();
+
+  const handleNavigate = (notification: Notification) => {
+    if (!notification.isRead) {
+      onMarkRead(notification.id);
+    }
+    const route = getNotificationRoute(notification);
+    navigate(route);
+  };
+
   if (isLoading) {
     return <ListSkeleton items={5} showAvatar />;
   }
@@ -395,11 +422,12 @@ function NotificationsList({ notifications, isLoading, onMarkRead, onDelete }: N
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, x: -10 }}
               className={cn(
-                "p-4 rounded-xl border transition-all hover:shadow-md group",
+                "p-4 rounded-xl border transition-all hover:shadow-md group cursor-pointer",
                 !notification.isRead
                   ? "bg-primary/5 border-primary/20"
                   : "bg-background hover:bg-muted/50"
               )}
+              onClick={() => handleNavigate(notification)}
             >
               <div className="flex gap-4">
                 {/* Icon */}
@@ -424,35 +452,53 @@ function NotificationsList({ notifications, isLoading, onMarkRead, onDelete }: N
                         <div className="w-2 h-2 rounded-full bg-primary" />
                       )}
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {!notification.isRead && (
+                    <div className="flex items-center gap-1">
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                        {!notification.isRead && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={(e) => { e.stopPropagation(); onMarkRead(notification.id); }}
+                          >
+                            <Check className="w-4 h-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7"
-                          onClick={() => onMarkRead(notification.id)}
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); onDelete(notification.id); }}
                         >
-                          <Check className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" />
                         </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
-                        onClick={() => onDelete(notification.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
                     </div>
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
                     {notification.message}
                   </p>
-                  <div className="flex items-center gap-3 mt-2">
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <Badge variant="outline" className="text-xs">
                       {categoryLabels[notification.category]}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">
+                    {notification.metadata?.amount && (
+                      <Badge variant="secondary" className="text-xs">
+                        ${Number(notification.metadata.amount).toLocaleString('es-AR')}
+                      </Badge>
+                    )}
+                    {notification.metadata?.guestName && (
+                      <Badge variant="secondary" className="text-xs">
+                        {notification.metadata.guestName}
+                      </Badge>
+                    )}
+                    {notification.metadata?.status && (
+                      <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-700">
+                        {notification.metadata.status}
+                      </Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground" title={format(notification.createdAt, 'dd/MM/yyyy HH:mm:ss', { locale: es })}>
                       {formatDistanceToNow(notification.createdAt, { addSuffix: true, locale: es })}
                     </span>
                   </div>

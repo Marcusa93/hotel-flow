@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Invoice, InvoiceItem, InvoiceItemType } from '@/types/hotel';
 import { logAuditEvent } from './useCreateAuditLog';
+import { createNotificationIfEnabled } from './useCreateNotification';
 
 interface CreateInvoiceParams {
     bookingId: string;
@@ -117,6 +118,14 @@ export const useCreateInvoice = () => {
                 action: 'CREATE',
                 description: `Factura ${invoice.invoiceNumber} creada por $${invoice.total.toLocaleString('es-AR')}`,
                 newValues: { invoiceNumber: invoice.invoiceNumber, total: invoice.total, status: 'DRAFT' },
+            });
+
+            createNotificationIfEnabled({
+                type: 'success',
+                category: 'payment',
+                title: 'Factura generada',
+                message: `Factura ${invoice.invoiceNumber} creada por $${invoice.total.toLocaleString('es-AR')}`,
+                metadata: { invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber, total: invoice.total },
             });
         },
     });

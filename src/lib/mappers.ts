@@ -70,10 +70,20 @@ export const mapPayment = (row: any): Payment => ({
   comment: row.comment,
 });
 
+/** Parse a date-only string (YYYY-MM-DD) as local midnight instead of UTC */
+function parseLocalDate(value: string | Date): Date {
+  if (value instanceof Date) return value;
+  // DATE columns come as "YYYY-MM-DD" — append T00:00:00 so JS treats it as local
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date(value + 'T00:00:00');
+  }
+  return new Date(value);
+}
+
 export const mapHousekeepingTask = (row: any): HousekeepingTask => ({
   id: row.id,
   roomId: row.room_id,
-  date: new Date(row.date),
+  date: parseLocalDate(row.date),
   assignedTo: row.assigned_to,
   status: row.status,
   notes: row.notes,

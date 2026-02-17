@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Rate, DiscountType } from '@/types/hotel';
+import { logAuditEvent } from './useCreateAuditLog';
 
 interface UpdateRateParams {
     id: string;
@@ -39,8 +40,15 @@ export const useUpdateRate = () => {
 
             if (error) throw error;
         },
-        onSuccess: () => {
+        onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['rates'] });
+            logAuditEvent({
+                entityType: 'rate',
+                entityId: variables.id,
+                action: 'UPDATE',
+                description: `Tarifa actualizada`,
+                newValues: variables.data,
+            });
         },
     });
 };

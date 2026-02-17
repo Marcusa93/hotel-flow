@@ -1,6 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { TaskPriority } from '@/types/hotel';
+import { logAuditEvent } from './useCreateAuditLog';
+import { createNotificationIfEnabled } from './useCreateNotification';
+
+/** Format a Date as YYYY-MM-DD in local timezone (safe for Postgres DATE columns) */
+function toLocalDateString(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
 
 interface CreateTaskParams {
     roomId: string;
@@ -17,19 +27,14 @@ export const useCreateHousekeepingTask = () => {
     return useMutation({
         mutationFn: async (params: CreateTaskParams) => {
             const taskDate = params.date || new Date();
+            const dateStr = toLocalDateString(taskDate);
 
             // Check if task already exists for this room today
-            const todayStart = new Date(taskDate);
-            todayStart.setHours(0, 0, 0, 0);
-            const todayEnd = new Date(taskDate);
-            todayEnd.setHours(23, 59, 59, 999);
-
             const { data: existingTasks } = await supabase
                 .from('housekeeping_tasks')
                 .select('id')
                 .eq('room_id', params.roomId)
-                .gte('date', todayStart.toISOString())
-                .lte('date', todayEnd.toISOString());
+                .eq('date', dateStr);
 
             if (existingTasks && existingTasks.length > 0) {
                 // Task already exists, update priority if checkout
@@ -51,7 +56,7 @@ export const useCreateHousekeepingTask = () => {
                 .from('housekeeping_tasks')
                 .insert({
                     room_id: params.roomId,
-                    date: taskDate.toISOString(),
+                    date: dateStr,
                     status: 'TODO',
                     priority: params.priority || 'NORMAL',
                     assigned_to: params.assignedTo,
@@ -64,8 +69,23 @@ export const useCreateHousekeepingTask = () => {
             if (error) throw error;
             return data;
         },
-        onSuccess: () => {
+        onSuccess: (data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['housekeepingTasks'] });
+            logAuditEvent({
+                entityType: 'housekeeping_task',
+                entityId: data.id,
+                action: 'CREATE',
+                description: `Tarea de limpieza creada (prioridad: ${variables.priority || 'NORMAL'})`,
+                newValues: { roomId: variables.roomId, priority: variables.priority || 'NORMAL', assignedTo: variables.assignedTo },
+            });
+
+            createNotificationIfEnabled({
+                type: 'info',
+                category: 'housekeeping',
+                title: 'Nueva tarea de limpieza',
+                message: `Tarea creada con prioridad ${variables.priority || 'NORMAL'}${variables.assignedTo ? ` asignada a ${variables.assignedTo}` : ''}`,
+                metadata: { taskId: data.id, roomId: variables.roomId, priority: variables.priority || 'NORMAL' },
+            });
         },
     });
 };
@@ -73,19 +93,14 @@ export const useCreateHousekeepingTask = () => {
 // Helper function to call when a booking is checked out
 export const createCheckoutTask = async (roomId: string, guestName?: string) => {
     const supabaseClient = supabase;
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    const todayStr = toLocalDateString(new Date());
 
     // Check existing
     const { data: existingTasks } = await supabaseClient
         .from('housekeeping_tasks')
         .select('id')
         .eq('room_id', roomId)
-        .gte('date', todayStart.toISOString())
-        .lte('date', todayEnd.toISOString());
+        .eq('date', todayStr);
 
     if (existingTasks && existingTasks.length > 0) {
         // Update to checkout priority
@@ -104,7 +119,7 @@ export const createCheckoutTask = async (roomId: string, guestName?: string) => 
         .from('housekeeping_tasks')
         .insert({
             room_id: roomId,
-            date: new Date().toISOString(),
+            date: todayStr,
             status: 'TODO',
             priority: 'CHECKOUT',
             checkout_triggered: true,

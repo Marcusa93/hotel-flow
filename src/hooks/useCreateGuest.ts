@@ -2,6 +2,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Guest } from '@/types/hotel';
+import { logAuditEvent } from './useCreateAuditLog';
+import { createNotificationIfEnabled } from './useCreateNotification';
 
 type CreateGuestParams = Omit<Guest, 'id' | 'createdAt'>;
 
@@ -34,8 +36,23 @@ export const useCreateGuest = () => {
                 createdAt: new Date(data.created_at)
             } as Guest;
         },
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['guests'] });
+            logAuditEvent({
+                entityType: 'guest',
+                entityId: data.id,
+                action: 'CREATE',
+                description: `Huésped creado: ${data.fullName}`,
+                newValues: { fullName: data.fullName, email: data.email, phone: data.phone, documentId: data.documentId },
+            });
+
+            createNotificationIfEnabled({
+                type: 'info',
+                category: 'booking',
+                title: 'Nuevo huésped registrado',
+                message: `${data.fullName} ha sido registrado en el sistema`,
+                metadata: { guestId: data.id, guestName: data.fullName },
+            });
         }
     });
 };

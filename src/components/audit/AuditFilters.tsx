@@ -1,6 +1,6 @@
-import { subDays, startOfMonth, endOfMonth, subMonths, startOfYear } from 'date-fns';
-import { Filter, X } from 'lucide-react';
+import { Filter, X, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -15,9 +15,11 @@ interface AuditFiltersProps {
   entityType?: AuditEntityType;
   action?: AuditAction;
   dateRange: { from: Date; to: Date };
+  searchQuery?: string;
   onEntityTypeChange: (value: AuditEntityType | undefined) => void;
   onActionChange: (value: AuditAction | undefined) => void;
   onDateRangeChange: (range: { from: Date; to: Date }) => void;
+  onSearchChange?: (value: string) => void;
   onClear: () => void;
 }
 
@@ -44,16 +46,30 @@ export function AuditFilters({
   entityType,
   action,
   dateRange,
+  searchQuery,
   onEntityTypeChange,
   onActionChange,
   onDateRangeChange,
+  onSearchChange,
   onClear,
 }: AuditFiltersProps) {
-  const hasFilters = entityType || action;
+  const hasFilters = entityType || action || searchQuery;
 
   return (
     <div className="flex flex-wrap items-center gap-3">
       <Filter className="w-4 h-4 text-muted-foreground hidden sm:block" />
+
+      {onSearchChange && (
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Buscar en descripción..."
+            value={searchQuery || ''}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="h-8 text-xs pl-7 w-[180px]"
+          />
+        </div>
+      )}
 
       <Select
         value={entityType || '_all'}

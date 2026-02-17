@@ -47,7 +47,7 @@ export function Topbar() {
   };
 
   return (
-    <header className="flex items-center justify-between h-16 px-4 md:px-6 bg-sidebar-background border-b border-sidebar-border/20 shadow-sm gap-4">
+    <header className="flex items-center justify-between h-16 px-4 md:px-6 bg-sidebar border-b border-sidebar-border/20 shadow-sm gap-4">
       {/* Mobile Menu Trigger */}
       <MobileSidebar />
 

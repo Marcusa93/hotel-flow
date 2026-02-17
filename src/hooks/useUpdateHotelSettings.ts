@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { hotelSettingsToRow } from '@/lib/mappers';
 import type { HotelSettings } from '@/types/hotel';
+import { logAuditEvent } from './useCreateAuditLog';
 
 export const useUpdateHotelSettings = () => {
   const queryClient = useQueryClient();
@@ -19,8 +20,15 @@ export const useUpdateHotelSettings = () => {
       if (error) throw error;
       return result;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['hotelSettings'] });
+      logAuditEvent({
+        entityType: 'hotel_settings',
+        entityId: variables.id,
+        action: 'UPDATE',
+        description: `Configuración del hotel actualizada`,
+        newValues: variables.data,
+      });
     },
   });
 };

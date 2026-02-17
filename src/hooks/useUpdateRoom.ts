@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { RoomStatus } from '@/types/hotel';
 import { logAuditEvent } from './useCreateAuditLog';
+import { createNotificationIfEnabled } from './useCreateNotification';
 
 interface UpdateRoomParams {
     id: string;
@@ -46,6 +47,25 @@ export const useUpdateRoom = () => {
                 description: `Habitación ${data?.room_number || ''} → ${variables.status}`,
                 newValues: { status: variables.status, notes: variables.notes },
             });
+
+            // Notification for relevant status changes
+            if (variables.status === 'MAINTENANCE') {
+                createNotificationIfEnabled({
+                    type: 'warning',
+                    category: 'system',
+                    title: 'Habitación en mantenimiento',
+                    message: `Habitación ${data?.room_number || ''} marcada en mantenimiento${variables.notes ? `: ${variables.notes}` : ''}`,
+                    metadata: { roomId: variables.id, status: variables.status },
+                });
+            } else if (variables.status === 'DIRTY') {
+                createNotificationIfEnabled({
+                    type: 'info',
+                    category: 'housekeeping',
+                    title: 'Limpieza requerida',
+                    message: `Habitación ${data?.room_number || ''} requiere limpieza`,
+                    metadata: { roomId: variables.id, status: variables.status },
+                });
+            }
         }
     });
 };

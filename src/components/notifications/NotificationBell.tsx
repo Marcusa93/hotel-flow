@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Bell, Check, CheckCheck, ExternalLink, Trash2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Bell, CheckCheck, ExternalLink, ArrowRight } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNotifications, useUnreadCount, Notification, NotificationCategory } from '@/hooks/useNotifications';
@@ -19,7 +19,6 @@ import {
     CreditCard,
     Sparkles,
     AlertTriangle,
-    Info,
     LogIn,
     LogOut,
     Brush
@@ -45,19 +44,48 @@ const categoryColors: Record<NotificationCategory, string> = {
     system: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
 };
 
+/** Resolve the best navigation route for a notification based on category + metadata */
+function getNotificationRoute(notification: Notification): string {
+    const { category, metadata } = notification;
+
+    // Try specific routes first using metadata IDs
+    if (metadata?.bookingId) return `/bookings/${metadata.bookingId}`;
+
+    // Fallback to category-based routes
+    const categoryRoutes: Record<NotificationCategory, string> = {
+        booking: '/bookings',
+        payment: '/payments',
+        housekeeping: '/housekeeping',
+        checkin: '/bookings',
+        checkout: '/bookings',
+        promotion: '/notifications',
+        system: '/audit-log',
+    };
+
+    return categoryRoutes[category] || '/notifications';
+}
+
 export function NotificationBell() {
     const [open, setOpen] = useState(false);
+    const navigate = useNavigate();
     const { data: notifications = [], isLoading } = useNotifications({ limit: 10 });
     const { data: unreadCount = 0 } = useUnreadCount();
     const markReadMutation = useMarkNotificationRead();
     const markAllReadMutation = useMarkAllNotificationsRead();
 
-    const handleMarkRead = (id: string) => {
-        markReadMutation.mutate(id);
-    };
-
     const handleMarkAllRead = () => {
         markAllReadMutation.mutate();
+    };
+
+    const handleNotificationClick = (notification: Notification) => {
+        // Mark as read if unread
+        if (!notification.isRead) {
+            markReadMutation.mutate(notification.id);
+        }
+        // Navigate to relevant page
+        const route = getNotificationRoute(notification);
+        setOpen(false);
+        navigate(route);
     };
 
     return (
@@ -128,7 +156,7 @@ export function NotificationBell() {
                                 <NotificationItem
                                     key={notification.id}
                                     notification={notification}
-                                    onMarkRead={handleMarkRead}
+                                    onClick={() => handleNotificationClick(notification)}
                                 />
                             ))}
                         </div>
@@ -153,17 +181,17 @@ export function NotificationBell() {
 
 interface NotificationItemProps {
     notification: Notification;
-    onMarkRead: (id: string) => void;
+    onClick: () => void;
 }
 
-function NotificationItem({ notification, onMarkRead }: NotificationItemProps) {
+function NotificationItem({ notification, onClick }: NotificationItemProps) {
     return (
         <div
             className={cn(
                 "p-4 hover:bg-muted/50 transition-colors cursor-pointer group",
                 !notification.isRead && "bg-primary/5"
             )}
-            onClick={() => !notification.isRead && onMarkRead(notification.id)}
+            onClick={onClick}
         >
             <div className="flex gap-3">
                 {/* Icon */}
@@ -183,16 +211,31 @@ function NotificationItem({ notification, onMarkRead }: NotificationItemProps) {
                         )}>
                             {notification.title}
                         </p>
-                        {!notification.isRead && (
-                            <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
-                        )}
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {!notification.isRead && (
+                                <div className="w-2 h-2 rounded-full bg-primary" />
+                            )}
+                            <ArrowRight className="w-3 h-3 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+                        </div>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                         {notification.message}
                     </p>
-                    <p className="text-[10px] text-muted-foreground/70 mt-2">
-                        {formatDistanceToNow(notification.createdAt, { addSuffix: true, locale: es })}
-                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                        <span className="text-[10px] text-muted-foreground/70">
+                            {formatDistanceToNow(notification.createdAt, { addSuffix: true, locale: es })}
+                        </span>
+                        {notification.metadata?.amount && (
+                            <Badge variant="outline" className="text-[9px] h-4 px-1">
+                                ${Number(notification.metadata.amount).toLocaleString('es-AR')}
+                            </Badge>
+                        )}
+                        {notification.metadata?.status && (
+                            <Badge variant="secondary" className="text-[9px] h-4 px-1">
+                                {notification.metadata.status}
+                            </Badge>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

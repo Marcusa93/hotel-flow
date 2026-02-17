@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { DiscountType } from '@/types/hotel';
+import { logAuditEvent } from './useCreateAuditLog';
 
 interface CreateRateParams {
     roomTypeId: string;
@@ -42,8 +43,15 @@ export const useCreateRate = () => {
             if (error) throw error;
             return data;
         },
-        onSuccess: () => {
+        onSuccess: (data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['rates'] });
+            logAuditEvent({
+                entityType: 'rate',
+                entityId: data.id,
+                action: 'CREATE',
+                description: `Tarifa creada: ${variables.label} ($${variables.price || 0})`,
+                newValues: { label: variables.label, price: variables.price, discountType: variables.discountType, discountPercent: variables.discountPercent },
+            });
         },
     });
 };

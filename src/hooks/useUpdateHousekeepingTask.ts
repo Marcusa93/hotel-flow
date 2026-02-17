@@ -2,6 +2,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { HousekeepingTask, HousekeepingStatus } from '@/types/hotel';
+import { logAuditEvent } from './useCreateAuditLog';
+import { createNotificationIfEnabled } from './useCreateNotification';
 
 interface UpdateTaskParams {
     id: string;
@@ -53,9 +55,38 @@ export const useUpdateHousekeepingTask = () => {
 
             if (error) throw error;
         },
-        onSuccess: () => {
+        onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['housekeepingTasks'] });
             queryClient.invalidateQueries({ queryKey: ['rooms'] });
+            const action = variables.data.status ? 'STATUS_CHANGE' as const : 'UPDATE' as const;
+            logAuditEvent({
+                entityType: 'housekeeping_task',
+                entityId: variables.id,
+                action,
+                description: variables.data.status
+                    ? `Tarea de limpieza → ${variables.data.status}`
+                    : `Tarea de limpieza actualizada`,
+                newValues: { ...variables.data, startedAt: variables.startedAt?.toISOString(), completedAt: variables.completedAt?.toISOString() },
+            });
+
+            // Notifications for status changes
+            if (variables.data.status === 'DONE') {
+                createNotificationIfEnabled({
+                    type: 'success',
+                    category: 'housekeeping',
+                    title: 'Limpieza completada',
+                    message: `Tarea de limpieza finalizada correctamente`,
+                    metadata: { taskId: variables.id },
+                });
+            } else if (variables.data.status === 'IN_PROGRESS') {
+                createNotificationIfEnabled({
+                    type: 'info',
+                    category: 'housekeeping',
+                    title: 'Limpieza en progreso',
+                    message: `Tarea de limpieza iniciada`,
+                    metadata: { taskId: variables.id },
+                });
+            }
         }
     });
 };

@@ -35,7 +35,14 @@ export function useHousekeepingOperations() {
 
   const addHousekeepingTask = useCallback(
     async (taskData: Omit<HousekeepingTask, 'id'>) => {
-      return await createTaskMutation.mutateAsync(taskData);
+      return await createTaskMutation.mutateAsync({
+        roomId: taskData.roomId,
+        date: taskData.date instanceof Date ? taskData.date : undefined,
+        assignedTo: taskData.assignedTo,
+        priority: taskData.priority,
+        notes: taskData.notes,
+        checkoutTriggered: taskData.checkoutTriggered,
+      });
     },
     [createTaskMutation]
   );

@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { logAuditEvent } from './useCreateAuditLog';
 
 interface CreateRoomParams {
     roomNumber: string;
@@ -29,9 +30,16 @@ export const useCreateRoom = () => {
             if (error) throw error;
             return data;
         },
-        onSuccess: () => {
+        onSuccess: (data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['rooms'] });
             queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+            logAuditEvent({
+                entityType: 'room',
+                entityId: data.id,
+                action: 'CREATE',
+                description: `Habitación ${variables.roomNumber} creada (piso ${variables.floor})`,
+                newValues: { roomNumber: variables.roomNumber, floor: variables.floor, status: variables.status || 'AVAILABLE' },
+            });
         },
     });
 };

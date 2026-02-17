@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,6 +15,9 @@ import {
   ChevronDown,
   ChevronRight,
   Activity,
+  DollarSign,
+  ExternalLink,
+  ArrowRight,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,6 +29,8 @@ interface AuditTimelineProps {
   logs: AuditLog[];
   isLoading?: boolean;
   maxItems?: number;
+  showLoadMore?: boolean;
+  onLoadMore?: () => void;
 }
 
 const entityIcons: Record<AuditEntityType, any> = {
@@ -35,7 +41,7 @@ const entityIcons: Record<AuditEntityType, any> = {
   invoice: Receipt,
   housekeeping_task: ClipboardList,
   rate: Percent,
-  expense: Receipt,
+  expense: DollarSign,
   hotel_settings: Settings,
 };
 
@@ -49,6 +55,17 @@ const entityLabels: Record<AuditEntityType, string> = {
   rate: 'Tarifa',
   expense: 'Gasto',
   hotel_settings: 'Config.',
+};
+
+const entityRoutes: Partial<Record<AuditEntityType, string>> = {
+  booking: '/bookings',
+  guest: '/guests',
+  room: '/rooms',
+  payment: '/payments',
+  invoice: '/billing',
+  housekeeping_task: '/housekeeping',
+  rate: '/rates',
+  expense: '/expenses',
 };
 
 const actionColors: Record<AuditAction, string> = {
@@ -72,10 +89,73 @@ const actionLabels: Record<AuditAction, string> = {
   STATUS_CHANGE: 'Cambio Estado',
 };
 
+function formatValue(value: any): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'boolean') return value ? 'Sí' : 'No';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function DiffViewer({ oldValues, newValues }: { oldValues: Record<string, any>; newValues: Record<string, any> }) {
+  const hasOld = Object.keys(oldValues).length > 0;
+  const hasNew = Object.keys(newValues).length > 0;
+
+  if (!hasOld && !hasNew) return null;
+
+  // Only new values — compact list
+  if (!hasOld && hasNew) {
+    return (
+      <div className="mt-2 p-3 rounded-lg bg-muted/50 text-xs space-y-1">
+        <span className="text-muted-foreground font-sans font-medium text-[11px]">Valores:</span>
+        <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 mt-1">
+          {Object.entries(newValues).map(([key, value]) => (
+            <div key={key} className="contents">
+              <span className="text-muted-foreground font-mono">{key}</span>
+              <span className="text-foreground/80 truncate font-mono">{formatValue(value)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Side-by-side diff
+  const allKeys = [...new Set([...Object.keys(oldValues), ...Object.keys(newValues)])];
+
+  return (
+    <div className="mt-2 p-3 rounded-lg bg-muted/50 text-xs space-y-1 overflow-x-auto">
+      <div className="grid grid-cols-[1fr_auto_1fr] gap-x-2 gap-y-1 min-w-0">
+        <span className="text-muted-foreground font-sans font-medium text-[11px] pb-1 border-b border-border/50">Anterior</span>
+        <span className="border-b border-border/50" />
+        <span className="text-muted-foreground font-sans font-medium text-[11px] pb-1 border-b border-border/50">Nuevo</span>
+        {allKeys.map(key => {
+          const oldVal = oldValues[key];
+          const newVal = newValues[key];
+          const changed = JSON.stringify(oldVal) !== JSON.stringify(newVal);
+          return (
+            <div key={key} className="contents">
+              <div className={`truncate font-mono ${changed ? 'text-rose-600 dark:text-rose-400 line-through' : 'text-foreground/60'}`}>
+                <span className="text-muted-foreground mr-1">{key}:</span>
+                {oldVal !== undefined ? formatValue(oldVal) : '—'}
+              </div>
+              <ArrowRight className={`w-3 h-3 mt-0.5 flex-shrink-0 ${changed ? 'text-amber-500' : 'text-muted-foreground/40'}`} />
+              <div className={`truncate font-mono ${changed ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-foreground/60'}`}>
+                {newVal !== undefined ? formatValue(newVal) : '—'}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function AuditLogEntry({ log, index }: { log: AuditLog; index: number }) {
   const [expanded, setExpanded] = useState(false);
+  const navigate = useNavigate();
   const Icon = entityIcons[log.entityType] || Activity;
   const hasDetails = Object.keys(log.oldValues).length > 0 || Object.keys(log.newValues).length > 0;
+  const route = entityRoutes[log.entityType];
 
   return (
     <motion.div
@@ -99,8 +179,13 @@ function AuditLogEntry({ log, index }: { log: AuditLog; index: number }) {
             <Badge variant="outline" className={`text-[10px] font-medium px-1.5 py-0 ${actionBadgeVariants[log.action]}`}>
               {actionLabels[log.action]}
             </Badge>
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+            <Badge
+              variant="secondary"
+              className={`text-[10px] px-1.5 py-0 gap-1 ${route ? 'cursor-pointer hover:bg-accent transition-colors' : ''}`}
+              onClick={route ? () => navigate(route) : undefined}
+            >
               {entityLabels[log.entityType]}
+              {route && <ExternalLink className="w-2.5 h-2.5" />}
             </Badge>
           </div>
           <span className="text-[11px] text-muted-foreground whitespace-nowrap flex-shrink-0">
@@ -124,7 +209,7 @@ function AuditLogEntry({ log, index }: { log: AuditLog; index: number }) {
             onClick={() => setExpanded(!expanded)}
           >
             {expanded ? <ChevronDown className="w-3 h-3 mr-1" /> : <ChevronRight className="w-3 h-3 mr-1" />}
-            {expanded ? 'Ocultar detalles' : 'Ver detalles'}
+            {expanded ? 'Ocultar cambios' : 'Ver cambios'}
           </Button>
         )}
 
@@ -137,24 +222,7 @@ function AuditLogEntry({ log, index }: { log: AuditLog; index: number }) {
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="mt-2 p-3 rounded-lg bg-muted/50 text-xs font-mono space-y-2">
-                {Object.keys(log.newValues).length > 0 && (
-                  <div>
-                    <span className="text-muted-foreground font-sans font-medium">Nuevos valores:</span>
-                    <pre className="mt-1 whitespace-pre-wrap text-foreground/80">
-                      {JSON.stringify(log.newValues, null, 2)}
-                    </pre>
-                  </div>
-                )}
-                {Object.keys(log.oldValues).length > 0 && (
-                  <div>
-                    <span className="text-muted-foreground font-sans font-medium">Valores anteriores:</span>
-                    <pre className="mt-1 whitespace-pre-wrap text-foreground/80">
-                      {JSON.stringify(log.oldValues, null, 2)}
-                    </pre>
-                  </div>
-                )}
-              </div>
+              <DiffViewer oldValues={log.oldValues} newValues={log.newValues} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -183,7 +251,7 @@ function TimelineSkeleton() {
   );
 }
 
-export function AuditTimeline({ logs, isLoading, maxItems }: AuditTimelineProps) {
+export function AuditTimeline({ logs, isLoading, maxItems, showLoadMore, onLoadMore }: AuditTimelineProps) {
   const displayLogs = maxItems ? logs.slice(0, maxItems) : logs;
 
   if (isLoading) return <TimelineSkeleton />;
@@ -203,6 +271,13 @@ export function AuditTimeline({ logs, isLoading, maxItems }: AuditTimelineProps)
       {displayLogs.map((log, index) => (
         <AuditLogEntry key={log.id} log={log} index={index} />
       ))}
+      {showLoadMore && (
+        <div className="pt-4 flex justify-center">
+          <Button variant="outline" size="sm" onClick={onLoadMore}>
+            Cargar más registros
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

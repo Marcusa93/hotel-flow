@@ -2,6 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Guest } from '@/types/hotel';
+import { logAuditEvent } from './useCreateAuditLog';
 
 interface UpdateGuestParams {
     id: string;
@@ -29,8 +30,15 @@ export const useUpdateGuest = () => {
 
             if (error) throw error;
         },
-        onSuccess: () => {
+        onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['guests'] });
+            logAuditEvent({
+                entityType: 'guest',
+                entityId: variables.id,
+                action: 'UPDATE',
+                description: `Huésped actualizado`,
+                newValues: variables.data,
+            });
         }
     });
 };

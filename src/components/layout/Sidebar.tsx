@@ -20,6 +20,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { useAppRole } from '@/context/AppRoleContext';
+import { useUnreadCount } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -77,11 +78,12 @@ interface SidebarContentProps {
 function SidebarContent({ collapsed = false, onCollapse, isMobile = false }: SidebarContentProps) {
   const location = useLocation();
   const { currentRole } = useAppRole();
+  const { data: unreadCount = 0 } = useUnreadCount();
   const filteredItems = navItems.filter(item => item.roles.includes(currentRole));
   const isAuditor = currentRole === 'auditor';
 
   return (
-    <div className="flex flex-col h-full bg-sidebar-background text-sidebar-foreground">
+    <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
       {/* Logo */}
       <div className={cn(
         "flex items-center h-20 px-4 border-b border-white/10",
@@ -125,10 +127,20 @@ function SidebarContent({ collapsed = false, onCollapse, isMobile = false }: Sid
                 {(!collapsed || isMobile) && (
                   <>
                     <span className="flex-1 text-sm font-medium tracking-wide">{item.title}</span>
+                    {item.href === '/notifications' && unreadCount > 0 && (
+                      <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold bg-rose-500 text-white rounded-full">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
                     {showReadOnly && (
                       <span className="read-only-badge bg-black/5 dark:bg-white/10">Solo lectura</span>
                     )}
                   </>
+                )}
+                {collapsed && !isMobile && item.href === '/notifications' && unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-bold bg-rose-500 text-white rounded-full">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
                 )}
                 {isActive && !collapsed && !isMobile && (
                   <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white/20 rounded-l-full" />
@@ -197,7 +209,7 @@ export function Sidebar() {
     <aside
       className={cn(
         "hidden md:flex flex-col border-r border-sidebar-border transition-all duration-300 h-screen sticky top-0",
-        "bg-sidebar-background",
+        "bg-sidebar",
         collapsed ? "w-16" : "w-64"
       )}
     >
@@ -214,7 +226,7 @@ export function MobileSidebar() {
           <Menu className="w-6 h-6" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="p-0 border-r-0 w-72 bg-sidebar-background text-sidebar-foreground">
+      <SheetContent side="left" className="p-0 border-r-0 w-72 bg-sidebar text-sidebar-foreground">
         <SidebarContent isMobile={true} />
       </SheetContent>
     </Sheet>

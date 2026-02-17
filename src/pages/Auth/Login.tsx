@@ -50,7 +50,7 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen bg-sidebar-background flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="min-h-screen bg-sidebar flex items-center justify-center p-4 relative overflow-hidden">
             {/* Background Effects */}
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/40 via-transparent to-transparent pointer-events-none" />
 

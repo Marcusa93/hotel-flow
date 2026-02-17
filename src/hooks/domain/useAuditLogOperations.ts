@@ -3,7 +3,7 @@ import { useAuditLogs, type UseAuditLogsOptions } from '@/hooks/useAuditLogs';
 import type { AuditLog, AuditAction, AuditEntityType } from '@/types/hotel';
 
 export function useAuditLogOperations(filters: UseAuditLogsOptions = {}) {
-  const { data: auditLogs = [], isLoading, refetch } = useAuditLogs(filters);
+  const { data: auditLogs = [], isLoading, refetch, isFetching } = useAuditLogs(filters);
 
   const logsByEntity = useMemo(() => {
     const map = new Map<string, AuditLog[]>();
@@ -46,6 +46,7 @@ export function useAuditLogOperations(filters: UseAuditLogsOptions = {}) {
   return {
     auditLogs,
     isLoading,
+    isFetching,
     refetch,
     getLogsForEntity,
     actionCounts,

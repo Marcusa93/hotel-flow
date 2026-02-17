@@ -2,7 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Payment } from '@/types/hotel';
-import { createNotification } from './useCreateNotification';
+import { createNotificationIfEnabled } from './useCreateNotification';
 import { logAuditEvent } from './useCreateAuditLog';
 
 type CreatePaymentParams = Omit<Payment, 'id'>;
@@ -57,7 +57,7 @@ export const useCreatePayment = () => {
                 other: 'otro medio'
             };
 
-            createNotification({
+            createNotificationIfEnabled({
                 type: 'success',
                 category: 'payment',
                 title: '💰 Pago registrado',

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ClipboardList, Filter, Smartphone, Monitor } from 'lucide-react';
 import { useHousekeepingOperations } from '@/hooks/domain/useHousekeepingOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
@@ -8,9 +8,10 @@ import {
   HousekeepingBoard,
   StaffPerformanceCard,
   MobileTaskList,
-  TaskAlertBanner
+  TaskAlertBanner,
+  CreateTaskDialog
 } from '@/components/housekeeping';
-import { HousekeepingTask, HousekeepingStatus } from '@/types/hotel';
+import { HousekeepingTask, HousekeepingStatus, TaskPriority } from '@/types/hotel';
 import {
   Select,
   SelectContent,
@@ -22,7 +23,7 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 export default function Housekeeping() {
-  const { housekeepingTasks, updateHousekeepingTask, refetchHousekeepingTasks } = useHousekeepingOperations();
+  const { housekeepingTasks, addHousekeepingTask, updateHousekeepingTask, refetchHousekeepingTasks, isCreating } = useHousekeepingOperations();
   const { rooms } = useRoomOperations();
 
   const [floorFilter, setFloorFilter] = useState<'ALL' | string>('ALL');
@@ -30,6 +31,12 @@ export default function Housekeeping() {
   const [newAlertTasks, setNewAlertTasks] = useState<HousekeepingTask[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
+
+  // Dynamically get available floors from rooms
+  const availableFloors = useMemo(() => {
+    const floors = [...new Set(rooms.map(r => r.floor))].sort((a, b) => a - b);
+    return floors;
+  }, [rooms]);
 
   // Detect mobile viewport
   useEffect(() => {
@@ -42,24 +49,27 @@ export default function Housekeeping() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Track new checkout/urgent tasks for alerts
+  // Compare dates using local YYYY-MM-DD strings to avoid UTC/timezone mismatches
+  const toLocalDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const todaysTasks = useMemo(() => {
+    const todayStr = toLocalDate(new Date());
+    return housekeepingTasks.filter(task => {
+      const d = task.date instanceof Date ? task.date : new Date(task.date);
+      return toLocalDate(d) === todayStr;
+    });
+  }, [housekeepingTasks]);
+
+  // Track new checkout/urgent tasks for alerts (only today's tasks)
   useEffect(() => {
-    const urgentTasks = housekeepingTasks.filter(t =>
+    const urgentTasks = todaysTasks.filter(t =>
       (t.priority === 'CHECKOUT' || t.priority === 'URGENT') &&
       t.status === 'TODO' &&
       !dismissedAlerts.has(t.id)
     );
     setNewAlertTasks(urgentTasks);
-  }, [housekeepingTasks, dismissedAlerts]);
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const todaysTasks = housekeepingTasks.filter(task => {
-    const taskDate = new Date(task.date);
-    taskDate.setHours(0, 0, 0, 0);
-    return taskDate.getTime() === today.getTime();
-  });
+  }, [todaysTasks, dismissedAlerts]);
 
   const handleStatusChange = useCallback(async (
     taskId: string,
@@ -89,6 +99,35 @@ export default function Housekeeping() {
     }
   }, [updateHousekeepingTask, rooms]);
 
+  const handleCreateTask = useCallback(async (data: {
+    roomId: string;
+    priority: TaskPriority;
+    assignedTo?: string;
+    notes?: string;
+  }) => {
+    try {
+      await addHousekeepingTask({
+        roomId: data.roomId,
+        date: new Date(),
+        status: 'TODO',
+        priority: data.priority,
+        assignedTo: data.assignedTo,
+        notes: data.notes,
+      });
+      toast({
+        title: '✅ Tarea creada',
+        description: 'Nueva tarea de limpieza agregada',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo crear la tarea',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  }, [addHousekeepingTask]);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -104,13 +143,24 @@ export default function Housekeeping() {
   };
 
   const handleViewTask = (task: HousekeepingTask) => {
-    // Scroll to task or open detail - for now just dismiss
+    // Dismiss the alert and scroll to tasks section
     handleDismissAlerts();
+    const el = document.getElementById('housekeeping-board');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
   const filteredRooms = floorFilter === 'ALL'
     ? rooms
     : rooms.filter(r => r.floor.toString() === floorFilter);
+
+  // Dynamically get unique staff from today's tasks
+  const staffMembers = useMemo(() => {
+    const names = new Set<string>();
+    todaysTasks.forEach(t => {
+      if (t.assignedTo) names.add(t.assignedTo);
+    });
+    return Array.from(names);
+  }, [todaysTasks]);
 
   const completedToday = todaysTasks.filter(t => t.status === 'DONE').length;
   const inProgressCount = todaysTasks.filter(t => t.status === 'IN_PROGRESS').length;
@@ -132,12 +182,19 @@ export default function Housekeeping() {
         description={isMobileView ? "Tu lista de tareas" : "Tablero visual de estado de habitaciones"}
         actions={
           <div className="flex gap-2">
+            {/* Create Task Button */}
+            <CreateTaskDialog
+              rooms={rooms}
+              onCreateTask={handleCreateTask}
+              isCreating={isCreating}
+            />
+
             {/* View Toggle */}
-            <div className="hidden md:flex bg-white/50 backdrop-blur-sm rounded-lg p-1">
+            <div className="hidden md:flex bg-card/80 backdrop-blur-sm rounded-lg p-1 border">
               <Button
                 variant="ghost"
                 size="sm"
-                className={cn(!isMobileView && "bg-white shadow-sm")}
+                className={cn(!isMobileView && "bg-background shadow-sm")}
                 onClick={() => setIsMobileView(false)}
               >
                 <Monitor className="w-4 h-4" />
@@ -145,7 +202,7 @@ export default function Housekeeping() {
               <Button
                 variant="ghost"
                 size="sm"
-                className={cn(isMobileView && "bg-white shadow-sm")}
+                className={cn(isMobileView && "bg-background shadow-sm")}
                 onClick={() => setIsMobileView(true)}
               >
                 <Smartphone className="w-4 h-4" />
@@ -153,22 +210,19 @@ export default function Housekeeping() {
             </div>
 
             {!isMobileView && (
-              <>
-                <Select value={floorFilter} onValueChange={setFloorFilter}>
-                  <SelectTrigger className="w-[140px] bg-white/50 backdrop-blur-sm border-white/20">
-                    <SelectValue placeholder="Piso" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">Todos los pisos</SelectItem>
-                    <SelectItem value="1">Piso 1</SelectItem>
-                    <SelectItem value="2">Piso 2</SelectItem>
-                    <SelectItem value="3">Piso 3</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="icon" className="bg-white/50 backdrop-blur-sm">
-                  <Filter className="w-4 h-4 text-slate-600" />
-                </Button>
-              </>
+              <Select value={floorFilter} onValueChange={setFloorFilter}>
+                <SelectTrigger className="w-[140px] bg-card/80 backdrop-blur-sm border">
+                  <SelectValue placeholder="Piso" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todos los pisos</SelectItem>
+                  {availableFloors.map((floor) => (
+                    <SelectItem key={floor} value={floor.toString()}>
+                      Piso {floor}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </div>
         }
@@ -176,17 +230,17 @@ export default function Housekeeping() {
 
       {/* Quick Stats (visible in both views) */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-rose-50 dark:bg-rose-950/20 rounded-xl p-3 text-center">
+        <div className="bg-rose-50 dark:bg-rose-950/20 rounded-xl p-3 text-center border border-rose-200/50 dark:border-rose-800/30">
           <p className="text-2xl font-bold text-rose-600">{pendingCount}</p>
-          <p className="text-xs text-rose-600/70">Pendientes</p>
+          <p className="text-xs text-rose-600/70 font-medium">Pendientes</p>
         </div>
-        <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-3 text-center">
+        <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-3 text-center border border-amber-200/50 dark:border-amber-800/30">
           <p className="text-2xl font-bold text-amber-600">{inProgressCount}</p>
-          <p className="text-xs text-amber-600/70">En progreso</p>
+          <p className="text-xs text-amber-600/70 font-medium">En progreso</p>
         </div>
-        <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-3 text-center">
+        <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-3 text-center border border-emerald-200/50 dark:border-emerald-800/30">
           <p className="text-2xl font-bold text-emerald-600">{completedToday}</p>
-          <p className="text-xs text-emerald-600/70">Listas hoy</p>
+          <p className="text-xs text-emerald-600/70 font-medium">Listas hoy</p>
         </div>
       </div>
 
@@ -203,25 +257,25 @@ export default function Housekeeping() {
         /* Desktop View */
         <>
           {/* Staff Stats Row */}
-          <div className="grid gap-4 md:grid-cols-3 mb-8">
-            <StaffPerformanceCard
-              name="Maria Gonzalez"
-              completed={todaysTasks.filter(t => t.assignedTo?.includes("Maria") && t.status === 'DONE').length}
-              total={Math.max(1, todaysTasks.filter(t => t.assignedTo?.includes("Maria")).length)}
-            />
-            <StaffPerformanceCard
-              name="Carlos Ruiz"
-              completed={todaysTasks.filter(t => t.assignedTo?.includes("Carlos") && t.status === 'DONE').length}
-              total={Math.max(1, todaysTasks.filter(t => t.assignedTo?.includes("Carlos")).length)}
-            />
-            <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4 flex items-center justify-center">
-              <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
-                {Math.round((completedToday / Math.max(1, todaysTasks.length)) * 100)}% Completado Hoy
-              </p>
+          {staffMembers.length > 0 && (
+            <div className="grid gap-4 md:grid-cols-3 mb-8">
+              {staffMembers.slice(0, 2).map(name => (
+                <StaffPerformanceCard
+                  key={name}
+                  name={name}
+                  completed={todaysTasks.filter(t => t.assignedTo === name && t.status === 'DONE').length}
+                  total={Math.max(1, todaysTasks.filter(t => t.assignedTo === name).length)}
+                />
+              ))}
+              <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4 flex items-center justify-center">
+                <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+                  {Math.round((completedToday / Math.max(1, todaysTasks.length)) * 100)}% Completado Hoy
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="relative min-h-[500px] bg-slate-100/50 dark:bg-slate-900/50 rounded-3xl p-6 border border-slate-200/60 dark:border-slate-800/60 shadow-inner">
+          <div id="housekeeping-board" className="relative min-h-[500px] bg-slate-100/50 dark:bg-slate-900/50 rounded-3xl p-6 border border-slate-200/60 dark:border-slate-800/60 shadow-inner">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">
                 Tablero de Habitaciones

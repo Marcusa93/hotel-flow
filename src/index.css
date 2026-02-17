@@ -6,35 +6,32 @@
 
 @layer base {
   :root {
-    /* Base colors - Warm Luxury Theme */
-    /* Base colors - Brand Specific Theme */
-    /* Warm Cream Background #F5F2EB -> HSL(42, 33%, 94%) */
-    --background: 42 33% 94%;
+    /* ── Deep Blue & Gold – Light Mode ────────────────────── */
+    /* Background: cool neutral gray – distinct from white cards */
+    --background: 220 14% 95%;
+    /* Foreground: dark navy for strong readability */
+    --foreground: 210 50% 15%;
 
-    /* Deep Navy Foreground #003366 -> HSL(210, 100%, 20%) */
-    /* Keeping text slightly off-black for readability or matching Navy */
-    --foreground: 210 100% 20%;
-
-    /* Cards - White #FFFFFF */
+    /* Cards: crisp white */
     --card: 0 0% 100%;
-    --card-foreground: 210 100% 20%;
+    --card-foreground: 210 50% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 210 100% 20%;
+    --popover-foreground: 210 50% 15%;
 
-    /* Primary - Deep Navy #003366 -> HSL(210, 100%, 20%) */
+    /* Primary: Deep Navy #003366 */
     --primary: 210 100% 20%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Light Navy #005599 -> HSL(207, 100%, 30%) */
-    --secondary: 207 100% 30%;
-    --secondary-foreground: 0 0% 100%;
+    /* Secondary: light blue-gray for badges/chips */
+    --secondary: 214 32% 91%;
+    --secondary-foreground: 210 50% 15%;
 
-    /* Muted - Soft Gold/Beige */
-    --muted: 42 33% 90%;
-    --muted-foreground: 210 40% 40%;
+    /* Muted: clearly different from background (85% vs 95%) */
+    --muted: 220 14% 85%;
+    --muted-foreground: 215 16% 40%;
 
-    /* Accent - Gold #D4A017 -> HSL(43, 80%, 46%) */
+    /* Accent: Gold #D4A017 */
     --accent: 43 80% 46%;
     --accent-foreground: 0 0% 100%;
 
@@ -42,9 +39,9 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Borders - Gold tint for elegance */
-    --border: 43 80% 46%;
-    --input: 43 80% 46%;
+    /* Borders: subtle neutral gray – clean, not gold */
+    --border: 220 13% 82%;
+    --input: 220 13% 82%;
     --ring: 210 100% 20%;
 
     --radius: 0.5rem;
@@ -52,33 +49,25 @@
     /* Status Colors */
     --status-available: 142 76% 36%;
     --status-occupied: 207 100% 30%;
-    /* Lighter Navy */
     --status-dirty: 0 84% 60%;
     --status-maintenance: 43 80% 46%;
-    /* Gold */
     --status-out-of-order: 0 0% 45%;
 
-    /* Sidebar - Deep Navy #003366 */
+    /* Sidebar: Deep Navy stays dark for contrast */
     --sidebar-background: 210 100% 20%;
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 43 80% 46%;
-    /* Gold */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 255 255 255;
-    /* Using RGBA in component, but mapping here for consistency */
+    --sidebar-accent: 210 100% 26%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 43 80% 46%;
+    --sidebar-border: 210 60% 28%;
     --sidebar-ring: 43 80% 46%;
 
     /* Chart colors */
     --chart-1: 210 100% 20%;
-    /* Navy */
     --chart-2: 43 80% 46%;
-    /* Gold */
     --chart-3: 207 100% 30%;
-    /* Light Navy */
     --chart-4: 142 76% 36%;
-    /* Emerald */
     --chart-5: 0 84% 60%;
   }
 
@@ -151,13 +140,13 @@
 
 @layer utilities {
 
-  /* Glassmorphism updated for Warm/Gold theme */
+  /* Glassmorphism - Light & Dark */
   .glass {
-    background-color: hsla(36, 42%, 96%, 0.8);
+    background-color: rgba(255, 255, 255, 0.92);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid hsla(46, 65%, 52%, 0.2);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
   }
 
   .dark .glass {
@@ -166,11 +155,11 @@
   }
 
   .glass-panel {
-    background-color: hsla(36, 42%, 96%, 0.5);
+    background-color: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid hsla(46, 65%, 52%, 0.2);
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06);
   }
 
   .dark .glass-panel {
@@ -183,7 +172,7 @@
   }
 
   .glass-hover:hover {
-    background-color: hsla(46, 65%, 52%, 0.1);
+    background-color: rgba(0, 51, 102, 0.06);
   }
 
   .dark .glass-hover:hover {

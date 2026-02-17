@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Expense, ExpenseType } from '@/types/hotel';
+import { logAuditEvent } from './useCreateAuditLog';
+import { createNotificationIfEnabled } from './useCreateNotification';
 
 interface CreateExpenseInput {
     date: Date;
@@ -36,8 +38,23 @@ export const useCreateExpense = () => {
                 createdAt: new Date(data.created_at)
             };
         },
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['expenses'] });
+            logAuditEvent({
+                entityType: 'expense',
+                entityId: data.id,
+                action: 'CREATE',
+                description: `Gasto registrado: ${data.expenseType} $${data.amount}`,
+                newValues: { expenseType: data.expenseType, amount: data.amount, description: data.description },
+            });
+
+            createNotificationIfEnabled({
+                type: 'info',
+                category: 'system',
+                title: 'Gasto registrado',
+                message: `${data.expenseType}: $${data.amount.toLocaleString('es-AR')}${data.description ? ` — ${data.description}` : ''}`,
+                metadata: { expenseId: data.id, expenseType: data.expenseType, amount: data.amount },
+            });
         }
     });
 };

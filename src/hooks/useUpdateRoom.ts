@@ -16,13 +16,13 @@ export const useUpdateRoom = () => {
 
     return useMutation({
         mutationFn: async ({ id, status, notes }: UpdateRoomParams) => {
-            const updateData: { status: RoomStatus; notes?: string } = { status };
+            const updateData: { status: RoomStatus; notes?: string | null } = { status };
 
             // Include notes if provided, or clear them if status is not MAINTENANCE
             if (notes !== undefined) {
                 updateData.notes = notes;
             } else if (status !== 'MAINTENANCE') {
-                updateData.notes = null as any; // Clear notes when not in maintenance
+                updateData.notes = null;
             }
 
             const { data, error } = await supabase
@@ -37,7 +37,6 @@ export const useUpdateRoom = () => {
         },
         onSuccess: (data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['rooms'] });
-            queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
 
             // Audit log
             logAuditEvent({

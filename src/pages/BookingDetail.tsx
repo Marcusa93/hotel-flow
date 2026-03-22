@@ -17,7 +17,8 @@ import {
   MapPin,
   Clock,
   ShieldCheck,
-  MoreVertical
+  MoreVertical,
+  Car
 } from 'lucide-react';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
@@ -27,7 +28,7 @@ import { StatusBadge, PageSkeleton } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -48,10 +49,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { RegisterPaymentDialog } from '@/components/payments/RegisterPaymentDialog';
 import { CheckoutDialog } from '@/components/bookings/CheckoutDialog';
+import { BookingChargesSection } from '@/components/bookings/BookingChargesSection';
+import { useBookingCharges } from '@/hooks/useBookingCharges';
 import { motion } from 'framer-motion';
 
 export default function BookingDetail() {
@@ -64,6 +66,7 @@ export default function BookingDetail() {
   const isLoading = bookingsLoading;
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
+  const { data: bookingCharges = [] } = useBookingCharges(id);
 
   const booking = id ? getBookingWithDetails(id, guests, rooms, roomTypes, payments) : undefined;
 
@@ -86,8 +89,10 @@ export default function BookingDetail() {
 
   const bookingPayments = payments.filter(p => p.bookingId === booking.id);
   const totalPaid = bookingPayments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + p.amount, 0);
-  const pendingAmount = booking.totalAmount - totalPaid;
-  const paymentProgress = Math.min((totalPaid / booking.totalAmount) * 100, 100);
+  const totalCharges = bookingCharges.reduce((sum, c) => sum + c.amount * c.quantity, 0);
+  const totalAccount = booking.totalAmount + totalCharges;
+  const pendingAmount = totalAccount - totalPaid;
+  const paymentProgress = totalAccount > 0 ? Math.min((totalPaid / totalAccount) * 100, 100) : 0;
 
   const handleStatusChange = (newStatus: BookingStatus) => {
     updateBookingStatus(booking.id, newStatus);
@@ -111,7 +116,6 @@ export default function BookingDetail() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <Avatar className="h-16 w-16 border-2 border-primary/20 shadow-lg">
-            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${booking.guest.email}`} />
             <AvatarFallback className="text-lg bg-primary/10 text-primary">
               {booking.guest.fullName.slice(0, 2).toUpperCase()}
             </AvatarFallback>
@@ -269,14 +273,33 @@ export default function BookingDetail() {
                 <CreditCard className="w-4 h-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold mb-1">${booking.totalAmount.toLocaleString('es-AR')}</div>
-                <div className="flex items-center gap-2 text-sm mb-6">
+                <div className="text-3xl font-bold mb-1">${totalAccount.toLocaleString('es-AR')}</div>
+                <div className="flex items-center gap-2 text-sm mb-4">
                   <Badge variant={pendingAmount <= 0 ? "default" : "destructive"} className="rounded-full">
                     {pendingAmount <= 0 ? 'Pagado' : 'Pendiente'}
                   </Badge>
                   {pendingAmount > 0 && (
                     <span className="text-destructive font-medium">Restan ${pendingAmount.toLocaleString('es-AR')}</span>
                   )}
+                </div>
+
+                {/* Breakdown */}
+                <div className="space-y-1 text-sm mb-4 p-3 rounded-lg bg-muted/40">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Alojamiento</span>
+                    <span>${booking.totalAmount.toLocaleString('es-AR')}</span>
+                  </div>
+                  {totalCharges > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Consumos</span>
+                      <span>${totalCharges.toLocaleString('es-AR')}</span>
+                    </div>
+                  )}
+                  <Separator className="my-1" />
+                  <div className="flex justify-between font-semibold">
+                    <span>Total</span>
+                    <span>${totalAccount.toLocaleString('es-AR')}</span>
+                  </div>
                 </div>
 
                 <div className="space-y-2 mb-6">
@@ -313,6 +336,41 @@ export default function BookingDetail() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Vehicle Info */}
+          <Card className="glass border-none shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Car className="w-4 h-4 text-slate-500" />
+                Vehículo
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {booking.hasVehicle ? (
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-background/40 border">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                    <Car className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="font-medium text-sm">{booking.vehicleDescription || 'Vehículo sin descripción'}</p>
+                    {booking.licensePlate && (
+                      <p className="text-xs font-mono bg-muted px-2 py-0.5 rounded inline-block tracking-wider">
+                        {booking.licensePlate}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-6 text-muted-foreground/50">
+                  <Car className="w-8 h-8 mb-2 opacity-20" />
+                  <p className="text-sm">Sin vehículo</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Booking Charges */}
+          <BookingChargesSection bookingId={booking.id} />
 
           {/* Payments History */}
           <Card className="glass border-none shadow-sm">

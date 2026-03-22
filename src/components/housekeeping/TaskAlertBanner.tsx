@@ -56,7 +56,8 @@ export function TaskAlertBanner({ newTasks, rooms, onDismiss, onViewTask, enable
     const playNotificationSound = () => {
         // Create audio context for notification sound
         try {
-            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+            const audioContext = new AudioCtx();
 
             // Create a pleasant notification sound
             const oscillator = audioContext.createOscillator();
@@ -75,7 +76,7 @@ export function TaskAlertBanner({ newTasks, rooms, onDismiss, onViewTask, enable
             oscillator.start(audioContext.currentTime);
             oscillator.stop(audioContext.currentTime + 0.5);
         } catch (e) {
-            console.log('Audio notification not available');
+            console.warn('Audio notification not available:', e);
         }
     };
 

@@ -4,12 +4,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, differenceInDays, isWithinInterval, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, AlertTriangle, Users, Tag, Percent, Sparkles, UserPlus, ArrowLeft, Check, Loader2 } from 'lucide-react';
+import { CalendarIcon, AlertTriangle, Users, Tag, Percent, Sparkles, UserPlus, ArrowLeft, Check, Loader2, Car, Globe } from 'lucide-react';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useRates } from '@/hooks/useRates';
 import { useCheckAvailability } from '@/hooks/useCheckAvailability';
+import { COUNTRIES, DOCUMENT_TYPES } from '@/lib/constants';
+import type { DocumentType } from '@/types/hotel';
 import {
   Dialog,
   DialogContent,
@@ -58,10 +60,14 @@ const bookingSchema = z.object({
   notes: z.string().optional(),
   promoCode: z.string().optional(),
   confirmOverCapacity: z.boolean().optional(),
+  hasVehicle: z.boolean().optional(),
+  vehicleDescription: z.string().optional(),
+  licensePlate: z.string().optional(),
   // New guest fields (used when guestId is '__new__')
   newGuestName: z.string().optional(),
   newGuestEmail: z.string().optional(),
   newGuestPhone: z.string().optional(),
+  newGuestDocumentType: z.string().optional(),
   newGuestDocumentId: z.string().optional(),
   newGuestCountry: z.string().optional(),
 }).refine((data) => data.checkOutDate > data.checkInDate, {
@@ -76,8 +82,9 @@ const bookingSchema = z.object({
   message: 'Ingresa el nombre del huésped o selecciona uno existente',
   path: ['newGuestName'],
 }).refine((data) => {
-  if (data.guestId === '__new__') {
-    return !!data.newGuestEmail && data.newGuestEmail.includes('@');
+  // Email is optional, but if provided it must be valid
+  if (data.guestId === '__new__' && data.newGuestEmail && data.newGuestEmail.trim()) {
+    return data.newGuestEmail.includes('@');
   }
   return true;
 }, {
@@ -122,9 +129,13 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
       notes: '',
       promoCode: '',
       confirmOverCapacity: false,
+      hasVehicle: false,
+      vehicleDescription: '',
+      licensePlate: '',
       newGuestName: '',
       newGuestEmail: '',
       newGuestPhone: '',
+      newGuestDocumentType: 'DNI',
       newGuestDocumentId: '',
       newGuestCountry: '',
     },
@@ -135,6 +146,20 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
   const watchedChildren = form.watch('children');
   const watchedCheckIn = form.watch('checkInDate');
   const watchedCheckOut = form.watch('checkOutDate');
+  const watchedHasVehicle = form.watch('hasVehicle');
+  const watchedGuestId = form.watch('guestId');
+
+  // Auto-fill vehicle from guest profile
+  useEffect(() => {
+    if (watchedGuestId && watchedGuestId !== '__new__') {
+      const selectedGuest = guests.find(g => g.id === watchedGuestId);
+      if (selectedGuest?.hasVehicle) {
+        form.setValue('hasVehicle', true);
+        form.setValue('vehicleDescription', selectedGuest.vehicleDescription || '');
+        form.setValue('licensePlate', selectedGuest.licensePlate || '');
+      }
+    }
+  }, [watchedGuestId, guests, form]);
 
   const selectedRoom = rooms.find(r => r.id === watchedRoomId);
   const selectedRoomType = selectedRoom ? roomTypes.find(rt => rt.id === selectedRoom.roomTypeId) : null;
@@ -266,6 +291,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
     const name = form.getValues('newGuestName')?.trim();
     const email = form.getValues('newGuestEmail')?.trim();
     const phone = form.getValues('newGuestPhone')?.trim();
+    const documentType = form.getValues('newGuestDocumentType')?.trim();
     const documentId = form.getValues('newGuestDocumentId')?.trim();
     const country = form.getValues('newGuestCountry')?.trim();
 
@@ -273,7 +299,8 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
       form.setError('newGuestName', { message: 'Ingresa el nombre del huésped (mín. 2 caracteres)' });
       return;
     }
-    if (!email || !email.includes('@')) {
+    // Email is optional, but validate format if provided
+    if (email && !email.includes('@')) {
       form.setError('newGuestEmail', { message: 'Ingresa un email válido' });
       return;
     }
@@ -282,8 +309,9 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
     try {
       const newGuest = await addGuest({
         fullName: name,
-        email: email,
+        email: email || '',
         phone: phone || '',
+        documentType: (documentType as DocumentType) || undefined,
         documentId: documentId || undefined,
         country: country || undefined,
       });
@@ -293,6 +321,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
       form.setValue('newGuestName', '');
       form.setValue('newGuestEmail', '');
       form.setValue('newGuestPhone', '');
+      form.setValue('newGuestDocumentType', 'DNI');
       form.setValue('newGuestDocumentId', '');
       form.setValue('newGuestCountry', '');
       setIsNewGuest(false);
@@ -355,6 +384,9 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
           ? `${data.notes || ''}\n[Promoción: ${appliedPromo.label}${appliedPromo.promoCode ? ` (${appliedPromo.promoCode})` : ''}]`.trim()
           : data.notes,
         needsReview: isOverCapacity,
+        hasVehicle: data.hasVehicle ?? false,
+        vehicleDescription: data.hasVehicle ? data.vehicleDescription : undefined,
+        licensePlate: data.hasVehicle ? data.licensePlate?.toUpperCase() : undefined,
       });
 
       toast({
@@ -411,7 +443,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
                         <SelectContent>
                           {guests.map(guest => (
                             <SelectItem key={guest.id} value={guest.id}>
-                              {guest.fullName} ({guest.email})
+                              {guest.fullName} {guest.email ? `(${guest.email})` : guest.phone ? `(${guest.phone})` : ''}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -452,6 +484,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
                       form.setValue('newGuestName', '');
                       form.setValue('newGuestEmail', '');
                       form.setValue('newGuestPhone', '');
+                      form.setValue('newGuestDocumentType', 'DNI');
                       form.setValue('newGuestDocumentId', '');
                       form.setValue('newGuestCountry', '');
                     }}
@@ -461,12 +494,13 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
                   </Button>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-3">
+                  {/* Nombre completo */}
                   <FormField
                     control={form.control}
                     name="newGuestName"
                     render={({ field }) => (
-                      <FormItem className="sm:col-span-2">
+                      <FormItem>
                         <FormLabel>Nombre completo *</FormLabel>
                         <FormControl>
                           <Input placeholder="Juan Pérez" {...field} />
@@ -476,57 +510,101 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="newGuestEmail"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email *</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="juan@email.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {/* Tipo Doc + Nro Documento */}
+                  <div className="grid grid-cols-5 gap-2">
+                    <FormField
+                      control={form.control}
+                      name="newGuestDocumentType"
+                      render={({ field }) => (
+                        <FormItem className="col-span-2">
+                          <FormLabel>Tipo Doc</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || 'DNI'}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Tipo" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {DOCUMENT_TYPES.map(dt => (
+                                <SelectItem key={dt.value} value={dt.value}>
+                                  {dt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="newGuestDocumentId"
+                      render={({ field }) => (
+                        <FormItem className="col-span-3">
+                          <FormLabel>Nro. Documento</FormLabel>
+                          <FormControl>
+                            <Input placeholder="12345678" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-                  <FormField
-                    control={form.control}
-                    name="newGuestPhone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Teléfono</FormLabel>
-                        <FormControl>
-                          <Input placeholder="+54 11 1234-5678" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {/* Teléfono + Email */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <FormField
+                      control={form.control}
+                      name="newGuestPhone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Teléfono</FormLabel>
+                          <FormControl>
+                            <Input placeholder="+54 11 1234-5678" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="newGuestEmail"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-muted-foreground">Email (opcional)</FormLabel>
+                          <FormControl>
+                            <Input type="email" placeholder="juan@email.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-                  <FormField
-                    control={form.control}
-                    name="newGuestDocumentId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>DNI / Documento</FormLabel>
-                        <FormControl>
-                          <Input placeholder="12345678" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
+                  {/* País */}
                   <FormField
                     control={form.control}
                     name="newGuestCountry"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>País</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Argentina" {...field} />
-                        </FormControl>
+                        <FormLabel className="flex items-center gap-1.5">
+                          <Globe className="w-3.5 h-3.5" />
+                          País
+                        </FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar país" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {COUNTRIES.map(c => (
+                              <SelectItem key={c.value} value={c.value}>
+                                {c.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -813,6 +891,64 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
                 </FormItem>
               )}
             />
+
+            {/* Vehicle */}
+            <div className="space-y-3">
+              <FormField
+                control={form.control}
+                name="hasVehicle"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormLabel className="flex items-center gap-2 cursor-pointer">
+                      <Car className="w-4 h-4" />
+                      Viene con vehículo (cochera)
+                    </FormLabel>
+                  </FormItem>
+                )}
+              />
+
+              {watchedHasVehicle && (
+                <div className="grid gap-3 sm:grid-cols-2 p-4 rounded-xl border bg-muted/30">
+                  <FormField
+                    control={form.control}
+                    name="vehicleDescription"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Descripción del vehículo</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ej: Toyota Corolla Gris" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="licensePlate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Patente</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Ej: AB 123 CD"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                            className="font-mono uppercase"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+            </div>
 
             {/* Summary */}
             {nights > 0 && selectedRoomType && (

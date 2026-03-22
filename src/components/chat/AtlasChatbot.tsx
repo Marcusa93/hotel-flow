@@ -1,28 +1,95 @@
 
-import React, { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, X, Send } from 'lucide-react';
+import { MessageSquare, X, Send, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
+import { supabase } from '@/lib/supabase';
+import { useHotelSettings } from '@/hooks/useHotelSettings';
+import { ChatMarkdown } from './ChatMarkdown';
+
+interface ChatMessage {
+    role: 'user' | 'assistant';
+    content: string;
+}
+
+function getInitialGreeting(hotelName?: string) {
+    const name = hotelName || 'tu hotel';
+    return `¡Hola! Soy Atlas, tu asistente de ${name}. Tengo acceso a todos los datos del sistema en tiempo real. ¿En qué puedo ayudarte?`;
+}
 
 export function AtlasChatbot() {
+    const { data: hotelSettings } = useHotelSettings();
     const [isOpen, setIsOpen] = useState(false);
-    const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([
-        { role: 'assistant', content: 'Hola, soy Atlas. ¿En qué puedo ayudarte hoy?' }
+    const [messages, setMessages] = useState<ChatMessage[]>([
+        { role: 'assistant', content: getInitialGreeting() }
     ]);
+
+    // Update initial greeting when hotel settings load
+    useEffect(() => {
+        if (hotelSettings?.hotelName && messages.length === 1 && messages[0].role === 'assistant') {
+            setMessages([{ role: 'assistant', content: getInitialGreeting(hotelSettings.hotelName) }]);
+        }
+    }, [hotelSettings?.hotelName]);
     const [input, setInput] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    // Auto-scroll to bottom when new messages arrive
+    useEffect(() => {
+        if (scrollRef.current) {
+            const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+            if (scrollContainer) {
+                scrollContainer.scrollTop = scrollContainer.scrollHeight;
+            }
+        }
+    }, [messages, isLoading]);
+
+    // Focus input when chat opens
+    useEffect(() => {
+        if (isOpen && inputRef.current) {
+            setTimeout(() => inputRef.current?.focus(), 300);
+        }
+    }, [isOpen]);
 
     const toggleChat = () => setIsOpen(!isOpen);
 
-    const handleSend = () => {
-        if (!input.trim()) return;
-        setMessages(prev => [...prev, { role: 'user', content: input }]);
+    const handleSend = async () => {
+        const trimmed = input.trim();
+        if (!trimmed || isLoading) return;
+
+        const userMessage: ChatMessage = { role: 'user', content: trimmed };
+        setMessages(prev => [...prev, userMessage]);
         setInput('');
-        // Mock response for now
-        setTimeout(() => {
-            setMessages(prev => [...prev, { role: 'assistant', content: 'Estoy conectado a los sistemas del hotel. Pronto podré asistirte con IA real.' }]);
-        }, 1000);
+        setIsLoading(true);
+
+        try {
+            // Send to Edge Function with conversation history
+            const { data, error } = await supabase.functions.invoke('atlas-chat', {
+                body: {
+                    message: trimmed,
+                    history: messages.slice(-20), // Last 20 messages for context
+                },
+            });
+
+            if (error) throw error;
+
+            const reply = data?.reply || 'Lo siento, no pude procesar tu consulta.';
+            setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+        } catch (err) {
+            console.error('Atlas chat error:', err);
+            setMessages(prev => [
+                ...prev,
+                {
+                    role: 'assistant',
+                    content: 'Disculpá, tuve un problema de conexión. ¿Podés intentar de nuevo?',
+                },
+            ]);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -30,7 +97,7 @@ export function AtlasChatbot() {
             {/* Chat Window */}
             <div className={cn(
                 "pointer-events-auto bg-card border border-border rounded-xl shadow-2xl transition-all duration-300 origin-bottom-right overflow-hidden flex flex-col mb-4",
-                isOpen ? "w-[350px] h-[500px] opacity-100 scale-100" : "w-0 h-0 opacity-0 scale-50"
+                isOpen ? "w-[380px] h-[540px] opacity-100 scale-100" : "w-0 h-0 opacity-0 scale-50"
             )}>
                 {/* Header */}
                 <div className="bg-sidebar p-4 flex items-center justify-between shrink-0">
@@ -41,7 +108,9 @@ export function AtlasChatbot() {
                         </div>
                         <div>
                             <h3 className="text-white font-bold text-sm">Atlas</h3>
-                            <span className="text-[10px] text-yellow-500 font-medium">HoMe AI Assistant</span>
+                            <span className="text-[10px] text-yellow-500 font-medium">
+                                {isLoading ? 'Pensando...' : 'HoMe AI Assistant'}
+                            </span>
                         </div>
                     </div>
                     <Button variant="ghost" size="icon" onClick={toggleChat} className="text-white/70 hover:text-white h-8 w-8">
@@ -50,7 +119,7 @@ export function AtlasChatbot() {
                 </div>
 
                 {/* Messages */}
-                <ScrollArea className="flex-1 p-4 bg-slate-50 dark:bg-slate-900/50">
+                <ScrollArea className="flex-1 p-4 bg-slate-50 dark:bg-slate-900/50" ref={scrollRef}>
                     <div className="space-y-4">
                         {messages.map((msg, i) => (
                             <div key={i} className={cn(
@@ -58,15 +127,27 @@ export function AtlasChatbot() {
                                 msg.role === 'user' ? "justify-end" : "justify-start"
                             )}>
                                 <div className={cn(
-                                    "max-w-[80%] rounded-2xl px-4 py-2 text-sm",
+                                    "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
                                     msg.role === 'user'
                                         ? "bg-sidebar text-white rounded-br-none"
                                         : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-bl-none shadow-sm"
                                 )}>
-                                    {msg.content}
+                                    <ChatMarkdown content={msg.content} isUser={msg.role === 'user'} />
                                 </div>
                             </div>
                         ))}
+
+                        {/* Loading indicator */}
+                        {isLoading && (
+                            <div className="flex justify-start">
+                                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl rounded-bl-none shadow-sm px-4 py-3">
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        <span className="text-xs">Atlas está consultando los datos...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </ScrollArea>
 
@@ -74,13 +155,24 @@ export function AtlasChatbot() {
                 <div className="p-4 bg-background border-t border-border mt-auto">
                     <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex gap-2">
                         <Input
+                            ref={inputRef}
                             placeholder="Escribe un mensaje..."
                             value={input}
                             onChange={e => setInput(e.target.value)}
                             className="flex-1"
+                            disabled={isLoading}
                         />
-                        <Button type="submit" size="icon" className="bg-sidebar hover:bg-sidebar/80">
-                            <Send className="w-4 h-4" />
+                        <Button
+                            type="submit"
+                            size="icon"
+                            className="bg-sidebar hover:bg-sidebar/80"
+                            disabled={isLoading || !input.trim()}
+                        >
+                            {isLoading ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Send className="w-4 h-4" />
+                            )}
                         </Button>
                     </form>
                 </div>

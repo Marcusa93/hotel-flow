@@ -19,7 +19,7 @@ export const useUpdateInvoice = () => {
 
     return useMutation({
         mutationFn: async ({ id, data }: UpdateInvoiceParams) => {
-            const updates: any = {};
+            const updates: Record<string, string | number | null> = {};
 
             if (data.status !== undefined) updates.status = data.status;
             if (data.notes !== undefined) updates.notes = data.notes;
@@ -38,7 +38,6 @@ export const useUpdateInvoice = () => {
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['invoices'] });
-            queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
 
             // Audit log
             logAuditEvent({

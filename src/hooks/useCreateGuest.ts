@@ -16,10 +16,15 @@ export const useCreateGuest = () => {
                 .from('guests')
                 .insert({
                     full_name: guestData.fullName,
+                    document_type: guestData.documentType,
                     document_id: guestData.documentId,
                     phone: guestData.phone,
                     email: guestData.email,
-                    notes: guestData.notes
+                    notes: guestData.notes,
+                    country: guestData.country,
+                    has_vehicle: guestData.hasVehicle ?? false,
+                    vehicle_description: guestData.vehicleDescription,
+                    license_plate: guestData.licensePlate,
                 })
                 .select()
                 .single();
@@ -29,10 +34,15 @@ export const useCreateGuest = () => {
             return {
                 id: data.id,
                 fullName: data.full_name,
+                documentType: data.document_type,
                 documentId: data.document_id,
                 email: data.email,
                 phone: data.phone,
                 notes: data.notes,
+                country: data.country,
+                hasVehicle: data.has_vehicle ?? false,
+                vehicleDescription: data.vehicle_description,
+                licensePlate: data.license_plate,
                 createdAt: new Date(data.created_at)
             } as Guest;
         },

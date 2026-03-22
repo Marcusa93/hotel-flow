@@ -14,10 +14,15 @@ interface GenerateInvoicePDFParams {
 }
 
 export async function generateInvoicePDF(params: GenerateInvoicePDFParams): Promise<void> {
-  const element = InvoicePDF(params);
-  const blob = await pdf(element).toBlob();
-  const fileName = `factura_${params.invoice.invoiceNumber.replace(/\//g, '-')}.pdf`;
-  saveAs(blob, fileName);
+  try {
+    const element = InvoicePDF(params);
+    const blob = await pdf(element).toBlob();
+    const fileName = `factura_${params.invoice.invoiceNumber.replace(/\//g, '-')}.pdf`;
+    saveAs(blob, fileName);
+  } catch (error) {
+    console.error('Failed to generate invoice PDF:', error);
+    throw new Error('No se pudo generar el PDF de la factura');
+  }
 }
 
 interface GenerateReceiptPDFParams {
@@ -29,8 +34,13 @@ interface GenerateReceiptPDFParams {
 }
 
 export async function generateReceiptPDF(params: GenerateReceiptPDFParams): Promise<void> {
-  const element = PaymentReceiptPDF(params);
-  const blob = await pdf(element).toBlob();
-  const fileName = `recibo_${params.payment.id.slice(-8)}.pdf`;
-  saveAs(blob, fileName);
+  try {
+    const element = PaymentReceiptPDF(params);
+    const blob = await pdf(element).toBlob();
+    const fileName = `recibo_${params.payment.id.slice(-8)}.pdf`;
+    saveAs(blob, fileName);
+  } catch (error) {
+    console.error('Failed to generate receipt PDF:', error);
+    throw new Error('No se pudo generar el recibo PDF');
+  }
 }

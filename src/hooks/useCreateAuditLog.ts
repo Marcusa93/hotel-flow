@@ -46,30 +46,34 @@ export const useCreateAuditLog = () => {
   });
 };
 
-// Auto-resolve current user info from Supabase Auth + localStorage role
+// Auto-resolve current user info from Supabase Auth + profiles table
 async function resolveCurrentUser(params: CreateAuditLogParams) {
   let userId = params.userId;
   let userEmail = params.userEmail;
   let userRole = params.userRole;
 
-  // Auto-inject from Supabase Auth if not provided
-  if (!userId || !userEmail) {
+  if (!userId || !userEmail || !userRole) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         userId = userId || user.id;
         userEmail = userEmail || user.email || undefined;
+
+        // Resolve role from profiles table if not provided
+        if (!userRole && user.id) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+
+          if (profile?.role) {
+            userRole = profile.role as UserRole;
+          }
+        }
       }
     } catch {
       // Silently fail — don't block audit logging
-    }
-  }
-
-  // Auto-inject role from localStorage if not provided
-  if (!userRole) {
-    const savedRole = localStorage.getItem('home_app_role');
-    if (savedRole) {
-      userRole = savedRole as UserRole;
     }
   }
 

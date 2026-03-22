@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Search, Plus, FileText } from 'lucide-react';
+import { useState, useMemo, useCallback } from 'react';
+import { Search, Plus, FileText, Download } from 'lucide-react';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
@@ -116,6 +116,26 @@ export default function Billing() {
     }
   };
 
+  const handleExportExcel = useCallback(async () => {
+    try {
+      const { exportToExcel } = await import('@/lib/exportUtils');
+      const rows = filteredInvoices.map(inv => {
+        const guest = guests.find(g => g.id === inv.guestId);
+        return {
+          Número: inv.invoiceNumber,
+          Huésped: guest?.fullName ?? '-',
+          Fecha: new Date(inv.issueDate).toLocaleDateString('es-AR'),
+          Total: inv.totalAmount,
+          Estado: inv.status,
+        };
+      });
+      exportToExcel({ data: rows, fileName: 'facturas', sheetName: 'Facturas' });
+      toast({ title: 'Excel exportado', description: `${rows.length} facturas exportadas` });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo exportar', variant: 'destructive' });
+    }
+  }, [filteredInvoices, guests]);
+
   const selectedInfo = selectedInvoice ? getInvoiceInfo(selectedInvoice) : {};
 
   return (
@@ -125,7 +145,8 @@ export default function Billing() {
         description="Gestión de Facturas y Comprobantes Fiscales"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleExportExcel}>
+              <Download className="w-4 h-4 mr-1" />
               Exportar
             </Button>
             <Button

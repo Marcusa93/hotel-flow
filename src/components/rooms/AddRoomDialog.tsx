@@ -71,10 +71,10 @@ export function AddRoomDialog({ open, onOpenChange }: AddRoomDialogProps) {
 
             resetForm();
             onOpenChange(false);
-        } catch (error: any) {
+        } catch (error: unknown) {
             toast({
                 title: 'Error al crear habitación',
-                description: error?.message || 'No se pudo crear la habitación. Verificá que el número no esté duplicado.',
+                description: error instanceof Error ? error.message : 'No se pudo crear la habitación. Verificá que el número no esté duplicado.',
                 variant: 'destructive',
             });
         }

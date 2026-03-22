@@ -1,18 +1,17 @@
-import { format, isSameDay, isSameMonth, addDays } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { format, isSameDay, isSameMonth } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DayCell } from './DayCell';
-import { Guest } from '@/types/hotel';
+import { Booking, Guest } from '@/types/hotel';
 
 interface WeekViewProps {
-    days: Date[]; // Should be just the days of the week loop
+    days: Date[];
     today: Date;
     currentDate: Date;
-    bookings: any[];
+    bookings: Booking[];
     heatmapMode: 'none' | 'occupancy' | 'revenue';
     getHeatmapColor: (day: Date) => string | undefined;
     calculateDailyRevenue: (day: Date) => number;
-    getBookingsForDay: (day: Date) => any[];
+    getBookingsForDay: (day: Date) => Booking[];
     getGuest: (id: string) => Guest | undefined;
     getRoomNumber: (id: string) => string;
 }

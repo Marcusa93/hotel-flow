@@ -10,7 +10,7 @@ export interface DailyRevenue {
 
 export const useRevenueStats = (days = 7) => {
     return useQuery({
-        queryKey: ['revenueParams', days],
+        queryKey: ['revenueStats', days],
         queryFn: async () => {
             const today = new Date();
             const startDate = subDays(today, days);
@@ -28,7 +28,7 @@ export const useRevenueStats = (days = 7) => {
             // Aggregating data client-side
             const revenueMap = new Map<string, number>();
 
-            data?.forEach((payment: any) => {
+            data?.forEach((payment: { amount: number; date: string; status: string }) => {
                 const dateStr = format(new Date(payment.date), 'yyyy-MM-dd');
                 const current = revenueMap.get(dateStr) || 0;
                 revenueMap.set(dateStr, current + Number(payment.amount));
@@ -47,5 +47,6 @@ export const useRevenueStats = (days = 7) => {
 
             return filledData;
         },
+        staleTime: 60 * 1000,
     });
 };

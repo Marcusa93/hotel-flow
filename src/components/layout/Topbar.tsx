@@ -32,14 +32,14 @@ const roleColors = {
 };
 
 export function Topbar() {
-  const { currentRole } = useAppRole();
+  const { currentRole, profileName } = useAppRole();
   const { stats } = useDashboardStats();
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
 
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
 
-  const displayName = user?.email?.split('@')[0] || 'Usuario';
+  const displayName = profileName || user?.email?.split('@')[0] || 'Usuario';
   const displayEmail = user?.email || '';
 
   const handleSignOut = async () => {

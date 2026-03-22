@@ -17,14 +17,14 @@ export const useUpdateHousekeepingTask = () => {
 
     return useMutation({
         mutationFn: async ({ id, data, startedAt, completedAt }: UpdateTaskParams) => {
-            const updates: any = {};
+            const updates: Record<string, string | number | null> = {};
 
             if (data.status) updates.status = data.status;
             if (data.notes !== undefined) updates.notes = data.notes;
             if (data.roomId) updates.room_id = data.roomId;
-            if (data.date) updates.date = data.date.toISOString();
+            if (data.date) updates.date = data.date instanceof Date ? data.date.toISOString() : data.date;
             if (data.priority) updates.priority = data.priority;
-            if (data.assignedTo !== undefined) updates.assigned_to = data.assignedTo;
+            if (data.assignedTo !== undefined) updates.assigned_to = data.assignedTo ?? null;
 
             // Time tracking
             if (startedAt) {
@@ -45,6 +45,10 @@ export const useUpdateHousekeepingTask = () => {
                     const start = new Date(existingTask.started_at).getTime();
                     const end = completedAt.getTime();
                     updates.duration_minutes = Math.round((end - start) / 60000);
+                } else {
+                    // Task went directly TODO → DONE (skipping IN_PROGRESS)
+                    updates.started_at = completedAt.toISOString();
+                    updates.duration_minutes = 0;
                 }
             }
 

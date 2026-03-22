@@ -31,7 +31,6 @@ import {
     Wifi,
     Wind,
     Tv,
-    History,
     CalendarPlus,
     Sparkles
 } from 'lucide-react';
@@ -195,7 +194,7 @@ export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, 
 
                                 <Separator />
 
-                                {/* Amenities (Static Mock) */}
+                                {/* Amenities */}
                                 <section>
                                     <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">Amenidades</h3>
                                     <div className="grid grid-cols-2 gap-3">
@@ -208,32 +207,6 @@ export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, 
                                     </div>
                                 </section>
 
-                                <Separator />
-
-                                {/* History Log (Mock) */}
-                                <section>
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <History className="w-4 h-4 text-muted-foreground" />
-                                        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Historial Reciente</h3>
-                                    </div>
-                                    <div className="space-y-4 pl-2 border-l border-slate-200 ml-2">
-                                        <div className="relative pl-6">
-                                            <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-4 ring-white dark:ring-slate-900" />
-                                            <p className="text-xs font-medium">Limpieza completada</p>
-                                            <p className="text-[10px] text-muted-foreground">Hoy, 10:30 AM • María G.</p>
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-rose-400 ring-4 ring-white dark:ring-slate-900" />
-                                            <p className="text-xs font-medium">Check-out (Huésped: Juan P.)</p>
-                                            <p className="text-[10px] text-muted-foreground">Hoy, 10:00 AM</p>
-                                        </div>
-                                        <div className="relative pl-6">
-                                            <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-blue-400 ring-4 ring-white dark:ring-slate-900" />
-                                            <p className="text-xs font-medium">Check-in</p>
-                                            <p className="text-[10px] text-muted-foreground">Ayer, 02:15 PM</p>
-                                        </div>
-                                    </div>
-                                </section>
                             </div>
                         </ScrollArea>
                     </div>

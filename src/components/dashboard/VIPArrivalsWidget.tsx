@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CalendarCheck, ArrowRight, BedDouble, Users, AlertCircle } from 'lucide-react';
@@ -128,7 +128,6 @@ export function UpcomingArrivalsWidget() {
                                 `}
                             >
                                 <Avatar className="h-10 w-10 border-2 border-white dark:border-slate-700 shadow-sm">
-                                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${arrival.guestEmail}`} />
                                     <AvatarFallback className="bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 text-xs font-medium">
                                         {arrival.guestName.substring(0, 2).toUpperCase()}
                                     </AvatarFallback>

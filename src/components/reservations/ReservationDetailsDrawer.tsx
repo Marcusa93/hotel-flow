@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Mail, Phone, MapPin, Calendar, Clock, CreditCard, X, ExternalLink } from 'lucide-react';
@@ -49,7 +49,6 @@ export function ReservationDetailsDrawer({
                     </div>
                     <div className="absolute -bottom-10 left-8 z-10">
                         <Avatar className="h-24 w-24 border-4 border-background shadow-xl">
-                            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${guest?.email}`} />
                             <AvatarFallback className="text-xl bg-primary/10 text-primary font-bold">
                                 {guest?.fullName.slice(0, 2).toUpperCase()}
                             </AvatarFallback>

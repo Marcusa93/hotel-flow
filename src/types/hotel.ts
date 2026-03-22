@@ -10,7 +10,22 @@ export type UserRole = 'admin' | 'reception' | 'housekeeping' | 'auditor';
 export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'CANCELLED' | 'OVERDUE';
 export type InvoiceItemType = 'ACCOMMODATION' | 'SERVICE' | 'EXTRA' | 'OTHER';
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'STATUS_CHANGE';
-export type AuditEntityType = 'booking' | 'guest' | 'room' | 'payment' | 'invoice' | 'housekeeping_task' | 'rate' | 'expense' | 'hotel_settings';
+export type AuditEntityType = 'booking' | 'guest' | 'room' | 'payment' | 'invoice' | 'housekeeping_task' | 'rate' | 'expense' | 'hotel_settings' | 'booking_charge';
+
+export type ChargeCategory =
+  | 'MINIBAR' | 'LAVANDERIA' | 'ESTACIONAMIENTO' | 'ROOM_SERVICE'
+  | 'RESTAURANT' | 'SPA' | 'TELEFONO' | 'DANO' | 'OTRO';
+
+export interface BookingCharge {
+  id: string;
+  bookingId: string;
+  category: ChargeCategory;
+  description: string;
+  amount: number;
+  quantity: number;
+  createdAt: Date;
+  createdBy?: string;
+}
 
 export interface RoomType {
   id: string;
@@ -29,14 +44,20 @@ export interface Room {
   notes?: string;
 }
 
+export type DocumentType = 'DNI' | 'PASAPORTE' | 'CEDULA' | 'CUIT' | 'OTRO';
+
 export interface Guest {
   id: string;
   fullName: string;
+  documentType?: DocumentType;
   documentId?: string;
   phone: string;
   email: string;
   notes?: string;
   country?: string;
+  hasVehicle?: boolean;
+  vehicleDescription?: string;
+  licensePlate?: string;
   createdAt: Date;
 }
 
@@ -52,6 +73,9 @@ export interface Booking {
   totalAmount: number;
   notes?: string;
   needsReview?: boolean;
+  hasVehicle?: boolean;
+  vehicleDescription?: string;
+  licensePlate?: string;
   createdAt: Date;
   updatedAt?: Date;
 }

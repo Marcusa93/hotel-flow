@@ -3,6 +3,7 @@ import { useDashboardStats } from '@/hooks/domain/useDashboardStats';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useHotelSettings } from '@/hooks/useHotelSettings';
 import {
   DashboardHeader,
   StatsOverview,
@@ -15,7 +16,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useRevenueStats } from '@/hooks/useRevenueStats';
-import { format, isToday, parseISO, startOfDay } from 'date-fns';
+import { format, isToday, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export default function Dashboard() {
@@ -23,6 +24,7 @@ export default function Dashboard() {
   const { rooms } = useRoomOperations();
   const { guests } = useGuestOperations();
   const { bookings } = useBookingOperations();
+  const { data: hotelSettings } = useHotelSettings();
 
   const navigate = useNavigate();
 
@@ -90,6 +92,8 @@ export default function Dashboard() {
             onNewBooking={() => navigate('/bookings?new=true')}
             todayCheckIns={todayCheckIns}
             todayCheckOuts={todayCheckOuts}
+            hotelName={hotelSettings?.hotelName}
+            timezone={hotelSettings?.timezone}
           />
         </motion.div>
 

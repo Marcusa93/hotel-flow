@@ -43,11 +43,22 @@ import { useDeleteRate } from '@/hooks/useDeleteRate';
 import { Rate, DiscountType } from '@/types/hotel';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useUpdateRoomType } from '@/hooks/useUpdateRoomType';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 export default function Rates() {
   const { roomTypes } = useRoomOperations();
-  // TODO: implement updateRoomType via Supabase mutation
-  const updateRoomType = (_id: string, _data: any) => { console.warn('updateRoomType not yet connected to Supabase'); };
+  const updateRoomTypeMutation = useUpdateRoomType();
   const { data: rates = [], isLoading } = useRates();
   const createRateMutation = useCreateRate();
   const updateRateMutation = useUpdateRate();
@@ -196,12 +207,23 @@ export default function Rates() {
   };
 
   const handleSaveBasePrice = async (roomTypeId: string, newPrice: number) => {
-    updateRoomType(roomTypeId, { basePrice: newPrice });
-    setEditingBasePrice(null);
-    toast({
-      title: '💰 Precio base actualizado',
-      description: 'El cambio se aplicará a nuevas reservas',
-    });
+    try {
+      await updateRoomTypeMutation.mutateAsync({
+        id: roomTypeId,
+        data: { basePrice: newPrice },
+      });
+      setEditingBasePrice(null);
+      toast({
+        title: '💰 Precio base actualizado',
+        description: 'El cambio se aplicará a nuevas reservas',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo actualizar el precio base',
+        variant: 'destructive',
+      });
+    }
   };
 
   const copyPromoCode = (code: string) => {
@@ -402,13 +424,30 @@ export default function Rates() {
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(rate)}>
                             <Edit className="w-4 h-4 text-slate-500" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(rate.id)}
-                          >
-                            <Trash2 className="w-4 h-4 text-rose-500" />
-                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <Trash2 className="w-4 h-4 text-rose-500" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Eliminar promocion?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esta accion no se puede deshacer. La promocion "{rate.label}" sera eliminada permanentemente.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(rate.id)}
+                                  className="bg-destructive hover:bg-destructive/90"
+                                >
+                                  Eliminar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </TableCell>
                     </motion.tr>

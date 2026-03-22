@@ -3,14 +3,14 @@ import { cn } from '@/lib/utils';
 import { format, isSameDay, isSameMonth } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Link } from 'react-router-dom';
-import { Guest } from '@/types/hotel';
+import { Booking, Guest } from '@/types/hotel';
 
 interface DayCellProps {
     day: Date;
     today: Date;
     currentDate: Date;
     view: 'month' | 'week';
-    bookings: any[];
+    bookings: Booking[];
     heatmapColor?: string;
     heatmapMode: 'none' | 'occupancy' | 'revenue';
     dailyRevenue: number;

@@ -30,7 +30,7 @@ export const useRooms = () => {
             // Let's assume we map it to the Room interface manually if keys differ.
             // Based on schema: room_number (db) vs roomNumber (frontend)
 
-            return data.map((item: any) => ({
+            return data.map((item: Record<string, unknown> & { room_types?: Record<string, unknown> }) => ({
                 id: item.id,
                 roomNumber: item.room_number, // camelCase mapping
                 roomTypeId: item.room_type_id,

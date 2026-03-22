@@ -46,7 +46,6 @@ export const useCreatePayment = () => {
         },
         onSuccess: (payment) => {
             queryClient.invalidateQueries({ queryKey: ['payments'] });
-            queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
 
             // Create notification for new payment

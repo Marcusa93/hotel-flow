@@ -14,7 +14,7 @@ export const useRoomTypes = () => {
 
             if (error) throw error;
 
-            return data.map((item: any) => ({
+            return data.map((item: Record<string, unknown>) => ({
                 id: item.id,
                 name: item.name,
                 basePrice: item.base_price, // map snake_case to camelCase

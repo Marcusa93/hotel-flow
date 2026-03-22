@@ -38,10 +38,8 @@ export function StatsOverview({ occupancyRate, monthlyRevenue, totalGuests, adr,
                 icon={<DollarSign className="w-5 h-5" />}
                 iconColor="bg-emerald-100 dark:bg-emerald-900/30"
                 iconTextColor="text-emerald-600"
-                trend={{ value: 12, label: 'vs mes anterior', isPositive: true }}
                 variant="success"
                 delay={0}
-                chartData={[{ value: 30 }, { value: 45 }, { value: 35 }, { value: 50 }, { value: 65 }, { value: monthlyRevenue / 1000 }]}
             />
 
             <KPICard
@@ -49,31 +47,29 @@ export function StatsOverview({ occupancyRate, monthlyRevenue, totalGuests, adr,
                 value={`${occupancyRate.toFixed(1)}%`}
                 subtitle={`${availableRooms} Habitaciones Disp.`}
                 icon={<BedDouble className="w-5 h-5" />}
-                iconColor="bg-blue-100 dark:bg-blue-900/30"
-                iconTextColor="text-blue-600"
+                iconColor="bg-slate-100 dark:bg-slate-800/50"
+                iconTextColor="text-slate-700 dark:text-slate-300"
                 variant="primary"
                 delay={0.1}
-                chartData={[{ value: 60 }, { value: 55 }, { value: 70 }, { value: 65 }, { value: 75 }, { value: occupancyRate }]}
             />
 
             <KPICard
                 title="Tarifa Promedio (ADR)"
                 value={`$${adr.toLocaleString('es-AR')}`}
-                subtitle="Estable vs ayer"
+                subtitle="Por noche"
                 icon={<TrendingUp className="w-5 h-5" />}
-                iconColor="bg-purple-100 dark:bg-purple-900/30"
-                iconTextColor="text-purple-600"
+                iconColor="bg-amber-100 dark:bg-amber-900/30"
+                iconTextColor="text-amber-700 dark:text-amber-400"
                 delay={0.2}
             />
 
             <KPICard
                 title="Huéspedes Activos"
                 value={totalGuests}
-                subtitle="+3 últimos 7 días"
+                subtitle="En el hotel"
                 icon={<Users className="w-5 h-5" />}
-                iconColor="bg-orange-100 dark:bg-orange-900/30"
-                iconTextColor="text-orange-600"
-                trend={{ value: 8, label: 'vs semana anterior', isPositive: true }}
+                iconColor="bg-indigo-100 dark:bg-indigo-900/30"
+                iconTextColor="text-indigo-600 dark:text-indigo-400"
                 delay={0.3}
             />
         </div>

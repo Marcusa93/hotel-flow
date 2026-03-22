@@ -16,11 +16,11 @@ export const useUpdatePayment = () => {
     return useMutation({
         mutationFn: async ({ id, data }: UpdatePaymentParams) => {
             // Map camelCase to snake_case for DB
-            const updates: any = {};
+            const updates: Record<string, string | number | null> = {};
             if (data.amount !== undefined) updates.amount = data.amount;
             if (data.method !== undefined) updates.method = data.method;
             if (data.status !== undefined) updates.status = data.status;
-            if (data.date !== undefined) updates.date = data.date.toISOString();
+            if (data.date !== undefined) updates.date = data.date instanceof Date ? data.date.toISOString() : data.date;
 
             const { error } = await supabase
                 .from('payments')
@@ -31,7 +31,6 @@ export const useUpdatePayment = () => {
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['payments'] });
-            queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
 
             // Audit log
             logAuditEvent({

@@ -32,7 +32,6 @@ export const useCreateRoom = () => {
         },
         onSuccess: (data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['rooms'] });
-            queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
             logAuditEvent({
                 entityType: 'room',
                 entityId: data.id,

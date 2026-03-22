@@ -1,28 +1,25 @@
-import { useRef, useEffect } from 'react';
+import { useRef } from 'react';
 import {
     format,
     differenceInDays,
     startOfDay,
-    addDays,
     isSameDay
 } from 'date-fns';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { Room, Guest } from '@/types/hotel';
+import { Booking, Room, Guest } from '@/types/hotel';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface TimelineViewProps {
-    days: Date[]; // The days to render (e.g. 30 days)
+    days: Date[];
     rooms: Room[];
-    bookings: any[];
-    getBookingsForDay: (day: Date) => any[]; // Optional helper
+    bookings: Booking[];
+    getBookingsForDay: (day: Date) => Booking[];
     getGuest: (id: string) => Guest | undefined;
 }
 
 const DAY_WIDTH = 80;
-const HEADER_HEIGHT = 50;
-const ROW_HEIGHT = 60;
 
 export function TimelineView({
     days,
@@ -34,7 +31,7 @@ export function TimelineView({
     const startDate = days[0];
 
     // Helper to position bubbles
-    const getPositionStyle = (booking: any) => {
+    const getPositionStyle = (booking: Booking) => {
         const checkIn = new Date(booking.checkInDate);
         const checkOut = new Date(booking.checkOutDate);
 

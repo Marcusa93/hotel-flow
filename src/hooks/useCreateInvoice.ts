@@ -109,7 +109,6 @@ export const useCreateInvoice = () => {
         },
         onSuccess: (invoice) => {
             queryClient.invalidateQueries({ queryKey: ['invoices'] });
-            queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
 
             // Audit log
             logAuditEvent({

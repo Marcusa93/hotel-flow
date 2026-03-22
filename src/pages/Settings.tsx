@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -57,7 +57,7 @@ const roles: { value: UserRole; label: string; description: string; icon: React.
 ];
 
 export default function Settings() {
-  const { currentRole, setCurrentRole, notificationSettings, updateNotificationSettings } = useAppRole();
+  const { currentRole, notificationSettings, updateNotificationSettings } = useAppRole();
   const { data: settings, isLoading } = useHotelSettings();
   const updateMutation = useUpdateHotelSettings();
   const { theme, setTheme } = useTheme();
@@ -283,27 +283,23 @@ export default function Settings() {
         <TabsContent value="roles" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Simulación de Rol</CardTitle>
+              <CardTitle className="text-lg">Tu Rol</CardTitle>
               <CardDescription>
-                Cambia el rol para ver cómo se adapta la interfaz según los permisos.
+                Tu rol fue asignado por un administrador y determina los módulos a los que tenés acceso.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <RadioGroup
-                value={currentRole}
-                onValueChange={(value) => setCurrentRole(value as UserRole)}
-                className="grid gap-4 md:grid-cols-2"
-              >
-                {roles.map(role => (
-                  <div key={role.value}>
-                    <RadioGroupItem
-                      value={role.value}
-                      id={role.value}
-                      className="peer sr-only"
-                    />
-                    <Label
-                      htmlFor={role.value}
-                      className="flex items-start gap-4 rounded-lg border-2 p-4 cursor-pointer hover:bg-muted/50 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 transition-all"
+              <div className="grid gap-4 md:grid-cols-2">
+                {roles.map(role => {
+                  const isCurrentRole = currentRole === role.value;
+                  return (
+                    <div
+                      key={role.value}
+                      className={`flex items-start gap-4 rounded-lg border-2 p-4 transition-all ${
+                        isCurrentRole
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border opacity-40'
+                      }`}
                     >
                       <div className="p-2 rounded-lg bg-muted">
                         {role.icon}
@@ -311,16 +307,16 @@ export default function Settings() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-medium">{role.label}</span>
-                          {currentRole === role.value && (
-                            <Badge variant="default" className="text-xs">Activo</Badge>
+                          {isCurrentRole && (
+                            <Badge variant="default" className="text-xs">Tu rol</Badge>
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground">{role.description}</p>
                       </div>
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
+                    </div>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
 
@@ -521,25 +517,14 @@ export default function Settings() {
         </TabsContent>
       </Tabs>
 
-      {/* System Info */}
+      {/* Credits */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Información del Sistema</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="p-4 rounded-lg border">
-              <Label className="text-muted-foreground">Versión</Label>
-              <p className="font-medium">1.0.0 (MVP)</p>
-            </div>
-            <div className="p-4 rounded-lg border">
-              <Label className="text-muted-foreground">Ambiente</Label>
-              <p className="font-medium">Desarrollo</p>
-            </div>
-            <div className="p-4 rounded-lg border">
-              <Label className="text-muted-foreground">Backend</Label>
-              <p className="font-medium text-emerald-600 dark:text-emerald-400">Supabase (Conectado)</p>
-            </div>
+        <CardContent className="py-6">
+          <div className="text-center space-y-1">
+            <p className="text-sm text-muted-foreground">
+              Desarrollado por <span className="font-semibold text-foreground">Digital Amenities</span>
+            </p>
+            <p className="text-xs text-muted-foreground">v{__APP_VERSION__}</p>
           </div>
         </CardContent>
       </Card>

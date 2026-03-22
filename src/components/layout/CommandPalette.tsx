@@ -22,7 +22,6 @@ import {
   Settings,
   PieChart,
   Percent,
-  Search,
   Moon,
   Sun,
   LogOut,
@@ -39,8 +38,7 @@ import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 const navPages = [
   { title: 'Dashboard', href: '/', icon: LayoutDashboard, group: 'Navegación', keywords: ['inicio', 'panel', 'resumen'] },
   { title: 'Reservas', href: '/bookings', icon: CalendarDays, group: 'Operaciones', keywords: ['booking', 'reserva'] },
-  { title: 'Calendario', href: '/calendar', icon: CalendarDays, group: 'Operaciones', keywords: ['fecha', 'agenda', 'timeline'] },
-  { title: 'Disponibilidad', href: '/availability', icon: PieChart, group: 'Operaciones', keywords: ['ocupacion', 'libre'] },
+  { title: 'Disponibilidad', href: '/availability', icon: PieChart, group: 'Operaciones', keywords: ['ocupacion', 'libre', 'calendario', 'fecha', 'agenda', 'timeline'] },
   { title: 'Habitaciones', href: '/rooms', icon: BedDouble, group: 'Operaciones', keywords: ['room', 'cuarto', 'suite'] },
   { title: 'Huéspedes', href: '/guests', icon: Users, group: 'Operaciones', keywords: ['guest', 'cliente', 'pasajero'] },
   { title: 'Limpieza', href: '/housekeeping', icon: ClipboardList, group: 'Operaciones', keywords: ['housekeeping', 'limpio', 'sucio'] },
@@ -86,21 +84,20 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     const matchedBookings = bookings
       .filter(b => {
         const guest = guests.find(g => g.id === b.guestId);
-        const guestName = guest ? `${guest.firstName} ${guest.lastName}`.toLowerCase() : '';
+        const guestName = guest ? guest.fullName.toLowerCase() : '';
         return guestName.includes(q) || b.id.toLowerCase().includes(q) || b.status.toLowerCase().includes(q);
       })
       .slice(0, 5);
 
     const matchedGuests = guests
       .filter(g => {
-        const fullName = `${g.firstName} ${g.lastName}`.toLowerCase();
-        return fullName.includes(q) || (g.email || '').toLowerCase().includes(q) || (g.phone || '').includes(q);
+        return g.fullName.toLowerCase().includes(q) || (g.email || '').toLowerCase().includes(q) || (g.phone || '').includes(q);
       })
       .slice(0, 5);
 
     const matchedRooms = rooms
       .filter(r => {
-        return r.number.toLowerCase().includes(q) || r.status.toLowerCase().includes(q);
+        return r.roomNumber.toLowerCase().includes(q) || r.status.toLowerCase().includes(q);
       })
       .slice(0, 5);
 
@@ -160,7 +157,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                   >
                     <Users className="w-4 h-4 text-muted-foreground" />
                     <div className="flex flex-col">
-                      <span>{guest.firstName} {guest.lastName}</span>
+                      <span>{guest.fullName}</span>
                       <span className="text-xs text-muted-foreground">{guest.email || guest.phone || 'Sin contacto'}</span>
                     </div>
                   </CommandItem>
@@ -180,7 +177,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     >
                       <CalendarDays className="w-4 h-4 text-muted-foreground" />
                       <div className="flex flex-col">
-                        <span>{guest ? `${guest.firstName} ${guest.lastName}` : 'Reserva'}</span>
+                        <span>{guest ? guest.fullName : 'Reserva'}</span>
                         <span className="text-xs text-muted-foreground">
                           {booking.status} · {new Date(booking.checkInDate).toLocaleDateString('es-AR')}
                         </span>
@@ -201,7 +198,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                   >
                     <BedDouble className="w-4 h-4 text-muted-foreground" />
                     <div className="flex flex-col">
-                      <span>Hab. {room.number}</span>
+                      <span>Hab. {room.roomNumber}</span>
                       <span className="text-xs text-muted-foreground">
                         Piso {room.floor} · {room.status}
                       </span>

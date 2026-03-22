@@ -1,7 +1,7 @@
 
 import { Draggable } from '@hello-pangea/dnd';
 import { Booking, Guest, Room, RoomType } from '@/types/hotel';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, User, BedDouble, Moon, CreditCard } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
@@ -47,7 +47,6 @@ export function ReservationCard({ booking, guest, room, roomType, index, onClick
                         {/* Header: Avatar + Name */}
                         <div className="flex items-center gap-3 relative z-10 mb-3">
                             <Avatar className="h-9 w-9 border-2 border-white dark:border-slate-800 shadow-sm">
-                                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${guest?.email}`} />
                                 <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
                                     {guest?.fullName?.slice(0, 2).toUpperCase() || '??'}
                                 </AvatarFallback>

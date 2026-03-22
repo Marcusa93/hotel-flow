@@ -2,6 +2,7 @@ import { utils, writeFile } from 'xlsx';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { Booking, Payment, DashboardStats, OccupancyByType, AuditLog } from '@/types/hotel';
+import { escapeHtml } from '@/lib/utils';
 
 // ---------- Excel Export ----------
 
@@ -107,16 +108,17 @@ export function exportToPDF({
   const printWindow = window.open('', '', 'width=900,height=700');
   if (!printWindow) return;
 
+  const h = escapeHtml;
   const occupancyRows = occupancyByType
-    .map(o => `<tr><td>${o.roomTypeName}</td><td>${o.total}</td><td>${o.occupied}</td><td>${o.rate.toFixed(1)}%</td></tr>`)
+    .map(o => `<tr><td>${h(o.roomTypeName)}</td><td>${o.total}</td><td>${o.occupied}</td><td>${o.rate.toFixed(1)}%</td></tr>`)
     .join('');
 
   const revenueRows = revenueByDay
-    .map(r => `<tr><td>${r.date}</td><td>$${r.revenue.toLocaleString('es-AR')}</td></tr>`)
+    .map(r => `<tr><td>${h(r.date)}</td><td>$${r.revenue.toLocaleString('es-AR')}</td></tr>`)
     .join('');
 
   printWindow.document.write(`<!DOCTYPE html>
-<html><head><title>Reporte - ${hotelName}</title>
+<html><head><title>Reporte - ${h(hotelName)}</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 800px; margin: 0 auto; padding: 40px; color: #1e293b; }
   .header { text-align: center; margin-bottom: 32px; border-bottom: 2px solid #003366; padding-bottom: 20px; }
@@ -136,7 +138,7 @@ export function exportToPDF({
   @media print { body { padding: 20px; } }
 </style></head><body>
   <div class="header">
-    <div class="hotel-name">${hotelName}</div>
+    <div class="hotel-name">${h(hotelName)}</div>
     <div class="subtitle">Reporte de Estadísticas</div>
     <div class="date-range">${format(dateRange.from, 'dd/MM/yyyy')} - ${format(dateRange.to, 'dd/MM/yyyy')}</div>
   </div>
@@ -157,7 +159,7 @@ export function exportToPDF({
     <tbody>${revenueRows || '<tr><td colspan="2">Sin datos</td></tr>'}</tbody></table>
   </div>
   <div class="footer">
-    <p>Generado el ${format(new Date(), "d 'de' MMMM 'de' yyyy, HH:mm", { locale: es })} — ${hotelName}</p>
+    <p>Generado el ${format(new Date(), "d 'de' MMMM 'de' yyyy, HH:mm", { locale: es })} — ${h(hotelName)}</p>
   </div>
 </body></html>`);
 
@@ -178,6 +180,7 @@ const entityTypeLabels: Record<string, string> = {
   rate: 'Tarifa',
   expense: 'Gasto',
   hotel_settings: 'Configuración',
+  booking_charge: 'Cargo de Reserva',
 };
 
 const actionLabels: Record<string, string> = {

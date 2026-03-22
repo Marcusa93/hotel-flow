@@ -125,13 +125,11 @@ export default function Statistics() {
           title="Ocupación"
           value={`${stats.occupancyRate.toFixed(0)}%`}
           icon={<BedDouble className="w-5 h-5 text-indigo-500" />}
-          trend={{ value: 5, label: 'vs semana anterior', isPositive: true }}
         />
         <KPICard
           title="Ingresos (Mes)"
           value={`$${stats.monthlyRevenue.toLocaleString('es-AR')}`}
           icon={<DollarSign className="w-5 h-5 text-emerald-500" />}
-          trend={{ value: 12, label: 'vs mes anterior', isPositive: true }}
         />
         <KPICard
           title="Total Reservas"

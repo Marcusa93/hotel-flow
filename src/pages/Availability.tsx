@@ -30,11 +30,18 @@ export default function Availability() {
   }, [rooms]);
 
   const filteredRooms = useMemo(() => {
-    return rooms.filter(room => {
-      const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(room.roomTypeId);
-      const floorMatch = selectedFloors.length === 0 || selectedFloors.includes(room.floor);
-      return typeMatch && floorMatch;
-    });
+    return rooms
+      .filter(room => {
+        const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(room.roomTypeId);
+        const floorMatch = selectedFloors.length === 0 || selectedFloors.includes(room.floor);
+        return typeMatch && floorMatch;
+      })
+      .sort((a, b) => {
+        const numA = parseInt(a.roomNumber, 10);
+        const numB = parseInt(b.roomNumber, 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return a.roomNumber.localeCompare(b.roomNumber);
+      });
   }, [rooms, selectedTypes, selectedFloors]);
 
   // Today's bookings
@@ -86,30 +93,30 @@ export default function Availability() {
         />
       </motion.div>
 
-      {/* KPI Stats Grid - Now Clickable */}
+      {/* KPI Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <motion.div
+        <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handleOccupancyClick}
-          className="cursor-pointer"
+          className="cursor-pointer text-left"
+          aria-label="Ver habitaciones ocupadas"
         >
           <KPICard
             title="Ocupación Total"
             value={`${stats.occupancyRate.toFixed(0)}%`}
             subtitle={`${stats.occupiedRooms} de ${stats.totalRooms} habitaciones`}
             icon={<BedDouble className="w-5 h-5" />}
-            trend={{ value: 2, label: 'vs ayer', isPositive: true }}
             delay={0.1}
-            chartData={[{ value: 40 }, { value: 30 }, { value: 45 }, { value: 60 }, { value: 55 }, { value: stats.occupancyRate }]}
           />
-        </motion.div>
+        </motion.button>
 
-        <motion.div
+        <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handleAvailableClick}
-          className="cursor-pointer"
+          className="cursor-pointer text-left"
+          aria-label="Ver habitaciones disponibles"
         >
           <KPICard
             title="Disponibles"
@@ -118,13 +125,14 @@ export default function Availability() {
             icon={<CheckCircle2 className="w-5 h-5 text-emerald-500" />}
             delay={0.2}
           />
-        </motion.div>
+        </motion.button>
 
-        <motion.div
+        <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handleMaintenanceClick}
-          className="cursor-pointer"
+          className="cursor-pointer text-left"
+          aria-label="Ver habitaciones en mantenimiento"
         >
           <KPICard
             title="Mantenimiento"
@@ -133,13 +141,14 @@ export default function Availability() {
             icon={<AlertTriangle className="w-5 h-5 text-rose-500" />}
             delay={0.3}
           />
-        </motion.div>
+        </motion.button>
 
-        <motion.div
+        <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handleCheckInsClick}
-          className="cursor-pointer"
+          className="cursor-pointer text-left"
+          aria-label="Ver check-ins de hoy"
         >
           <KPICard
             title="Check-ins Hoy"
@@ -148,13 +157,14 @@ export default function Availability() {
             icon={<LogIn className="w-5 h-5 text-blue-500" />}
             delay={0.4}
           />
-        </motion.div>
+        </motion.button>
 
-        <motion.div
+        <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handleCheckOutsClick}
-          className="cursor-pointer"
+          className="cursor-pointer text-left"
+          aria-label="Ver check-outs de hoy"
         >
           <KPICard
             title="Check-outs Hoy"
@@ -163,7 +173,7 @@ export default function Availability() {
             icon={<LogOut className="w-5 h-5 text-amber-500" />}
             delay={0.5}
           />
-        </motion.div>
+        </motion.button>
       </div>
 
       {/* Current Guests Banner */}

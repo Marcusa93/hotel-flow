@@ -16,7 +16,7 @@ export const usePayments = () => {
                 throw error;
             }
 
-            return data.map((payment: any) => ({
+            return data.map((payment: Record<string, unknown>) => ({
                 id: payment.id,
                 bookingId: payment.booking_id,
                 amount: Number(payment.amount),

@@ -39,6 +39,7 @@ export const useExpenses = (options: UseExpensesOptions = {}) => {
                 description: row.description,
                 createdAt: new Date(row.created_at)
             }));
-        }
+        },
+        staleTime: 2 * 60 * 1000,
     });
 };

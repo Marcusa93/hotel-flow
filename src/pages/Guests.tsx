@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { Guest } from '@/types/hotel';
 import {
   GuestsHeader,
@@ -16,6 +17,8 @@ import { Search } from 'lucide-react';
 export default function Guests() {
   const { guests } = useGuestOperations();
   const { bookings } = useBookingOperations();
+  const { data: hotelSettings } = useHotelSettings();
+  const hotelName = hotelSettings?.hotelName || 'Hotel';
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('recent');
@@ -42,7 +45,7 @@ export default function Guests() {
       const searchLower = search.toLowerCase();
       return (
         guest.fullName.toLowerCase().includes(searchLower) ||
-        guest.email.toLowerCase().includes(searchLower) ||
+        (guest.email || '').toLowerCase().includes(searchLower) ||
         guest.phone.includes(search) ||
         (guest.documentId || '').toLowerCase().includes(searchLower)
       );
@@ -72,6 +75,7 @@ export default function Guests() {
         <GuestsHeader
           guestCount={guests.length}
           guests={guests}
+          hotelName={hotelName}
           onNewGuest={() => setIsNewGuestDialogOpen(true)}
         />
         <GuestsFilters
@@ -100,6 +104,7 @@ export default function Guests() {
             guests={filteredGuests}
             onGuestClick={setSelectedGuest}
             getGuestStats={getGuestStats}
+            hotelName={hotelName}
           />
         )}
       </div>
@@ -120,4 +125,3 @@ export default function Guests() {
     </div>
   );
 }
-

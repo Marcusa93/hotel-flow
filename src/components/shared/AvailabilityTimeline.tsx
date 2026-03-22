@@ -41,16 +41,19 @@ export function AvailabilityTimeline({ rooms, bookings, roomTypes, guests }: Ava
         return fullName.split(' ')[0];
     };
 
-    // Group rooms by type name using roomTypeId
-    const roomsByType = rooms.reduce((acc, room) => {
-        const type = roomTypes.find(rt => rt.id === room.roomTypeId);
-        const typeName = type ? type.name : 'Desconocido';
-        if (!acc[typeName]) {
-            acc[typeName] = [];
-        }
-        acc[typeName].push(room);
-        return acc;
-    }, {} as Record<string, Room[]>);
+    // Sort rooms numerically by room number (101, 102, 103...)
+    const sortedRooms = [...rooms].sort((a, b) => {
+        const numA = parseInt(a.roomNumber, 10);
+        const numB = parseInt(b.roomNumber, 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return a.roomNumber.localeCompare(b.roomNumber);
+    });
+
+    // Helper to get room type name
+    const getRoomTypeName = (roomTypeId: string): string => {
+        const type = roomTypes.find(rt => rt.id === roomTypeId);
+        return type?.name || '';
+    };
 
     const getBookingForRoomAndDate = (roomId: string, date: Date) => {
         return bookings.find(b => {
@@ -152,138 +155,129 @@ export function AvailabilityTimeline({ rooms, bookings, roomTypes, guests }: Ava
                             </div>
                         </div>
 
-                        {/* Rows */}
+                        {/* Rows — flat list sorted by room number */}
                         <div className="divide-y">
-                            {Object.entries(roomsByType).map(([type, typeRooms]) => (
-                                <div key={type} className="group">
-                                    {/* Type Header */}
-                                    <div className="px-4 py-2 bg-muted/20 text-xs font-semibold uppercase tracking-wider text-muted-foreground sticky left-0 flex items-center gap-2">
-                                        <Badge variant="outline" className="text-[10px] px-2">{typeRooms.length}</Badge>
-                                        {type}
+                            {sortedRooms.map(room => (
+                                <div key={room.id} className="grid grid-cols-[160px_1fr] hover:bg-muted/10 transition-colors">
+                                    <div className="p-3 border-r font-medium flex items-center justify-between bg-background/30 sticky left-0 z-10 backdrop-blur-sm">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold">{room.roomNumber}</span>
+                                            <span className="text-[10px] text-muted-foreground truncate max-w-[60px]">{getRoomTypeName(room.roomTypeId)}</span>
+                                            <span className="text-xs text-muted-foreground">P{room.floor}</span>
+                                        </div>
+                                        <div className={cn(
+                                            "w-2.5 h-2.5 rounded-full shrink-0",
+                                            room.status === 'AVAILABLE' ? "bg-green-500" :
+                                                room.status === 'DIRTY' ? "bg-amber-500" :
+                                                    room.status === 'MAINTENANCE' ? "bg-red-500" : "bg-gray-400"
+                                        )} />
                                     </div>
 
-                                    {typeRooms.map(room => (
-                                        <div key={room.id} className="grid grid-cols-[160px_1fr] hover:bg-muted/10 transition-colors">
-                                            <div className="p-3 border-r font-medium flex items-center justify-between bg-background/30 sticky left-0 z-10 backdrop-blur-sm">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-bold">{room.roomNumber}</span>
-                                                    <span className="text-xs text-muted-foreground">P{room.floor}</span>
-                                                </div>
-                                                <div className={cn(
-                                                    "w-2.5 h-2.5 rounded-full",
-                                                    room.status === 'AVAILABLE' ? "bg-green-500" :
-                                                        room.status === 'DIRTY' ? "bg-amber-500" :
-                                                            room.status === 'MAINTENANCE' ? "bg-red-500" : "bg-gray-400"
-                                                )} />
-                                            </div>
+                                    <div className="grid" style={{ gridTemplateColumns: `repeat(${daysToShow}, 1fr)` }}>
+                                        {dates.map((date) => {
+                                            const booking = getBookingForRoomAndDate(room.id, date);
+                                            const isStart = booking && isSameDay(date, new Date(booking.checkInDate));
+                                            const isEnd = booking && isSameDay(addDays(date, 1), new Date(booking.checkOutDate));
+                                            const guestName = booking ? getGuestFirstName(booking.guestId) : '';
+                                            const nights = booking ? differenceInDays(new Date(booking.checkOutDate), new Date(booking.checkInDate)) : 0;
 
-                                            <div className="grid" style={{ gridTemplateColumns: `repeat(${daysToShow}, 1fr)` }}>
-                                                {dates.map((date) => {
-                                                    const booking = getBookingForRoomAndDate(room.id, date);
-                                                    const isStart = booking && isSameDay(date, new Date(booking.checkInDate));
-                                                    const isEnd = booking && isSameDay(addDays(date, 1), new Date(booking.checkOutDate));
-                                                    const guestName = booking ? getGuestFirstName(booking.guestId) : '';
-                                                    const nights = booking ? differenceInDays(new Date(booking.checkOutDate), new Date(booking.checkInDate)) : 0;
-
-                                                    return (
-                                                        <div
-                                                            key={date.toISOString()}
-                                                            className={cn(
-                                                                "border-r last:border-r-0 relative h-14 p-1",
-                                                                isSameDay(date, new Date()) && "bg-primary/5"
-                                                            )}
-                                                        >
-                                                            {booking && (
-                                                                <TooltipProvider>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger asChild>
-                                                                            <motion.div
-                                                                                initial={{ opacity: 0, scale: 0.9 }}
-                                                                                animate={{ opacity: 1, scale: 1 }}
-                                                                                onClick={() => handleBookingClick(booking.id)}
-                                                                                className={cn(
-                                                                                    "h-full rounded-lg border text-[11px] font-medium p-1.5 flex items-center cursor-pointer shadow-sm overflow-hidden transition-all hover:scale-[1.02] hover:shadow-md",
-                                                                                    getBookingStatusColor(booking.status),
-                                                                                    isStart && "rounded-l-lg ml-0.5",
-                                                                                    isEnd && "rounded-r-lg mr-0.5",
-                                                                                    !isStart && !isEnd && "rounded-none border-x-0 mx-[-1px]"
-                                                                                )}
-                                                                            >
-                                                                                {isStart && (
-                                                                                    <div className="flex items-center gap-1.5 overflow-hidden w-full">
-                                                                                        <div className="w-6 h-6 rounded-full bg-white/30 flex items-center justify-center shrink-0">
-                                                                                            <User className="w-3 h-3" />
-                                                                                        </div>
-                                                                                        <div className="flex flex-col min-w-0">
-                                                                                            <span className="truncate font-semibold">{guestName}</span>
-                                                                                            <span className="text-[9px] opacity-70">{nights}N</span>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
-                                                                            </motion.div>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent side="top" className="bg-white dark:bg-slate-900 border shadow-xl p-0 overflow-hidden max-w-xs">
-                                                                            <div className="p-3 space-y-2">
-                                                                                <div className="flex items-center justify-between gap-4">
-                                                                                    <div className="flex items-center gap-2">
-                                                                                        <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
-                                                                                            <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                                                                        </div>
-                                                                                        <div>
-                                                                                            <p className="font-bold text-sm">{getGuestName(booking.guestId)}</p>
-                                                                                            <p className="text-xs text-muted-foreground">Hab. {room.roomNumber}</p>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                    <Badge variant={booking.status === 'CHECKED_IN' ? 'default' : 'secondary'} className="text-[10px]">
-                                                                                        {getBookingStatusLabel(booking.status)}
-                                                                                    </Badge>
+                                            return (
+                                                <div
+                                                    key={date.toISOString()}
+                                                    className={cn(
+                                                        "border-r last:border-r-0 relative h-14 p-1",
+                                                        isSameDay(date, new Date()) && "bg-primary/5"
+                                                    )}
+                                                >
+                                                    {booking && (
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <motion.div
+                                                                        initial={{ opacity: 0, scale: 0.9 }}
+                                                                        animate={{ opacity: 1, scale: 1 }}
+                                                                        onClick={() => handleBookingClick(booking.id)}
+                                                                        className={cn(
+                                                                            "h-full rounded-lg border text-[11px] font-medium p-1.5 flex items-center cursor-pointer shadow-sm overflow-hidden transition-all hover:scale-[1.02] hover:shadow-md",
+                                                                            getBookingStatusColor(booking.status),
+                                                                            isStart && "rounded-l-lg ml-0.5",
+                                                                            isEnd && "rounded-r-lg mr-0.5",
+                                                                            !isStart && !isEnd && "rounded-none border-x-0 mx-[-1px]"
+                                                                        )}
+                                                                    >
+                                                                        {isStart && (
+                                                                            <div className="flex items-center gap-1.5 overflow-hidden w-full">
+                                                                                <div className="w-6 h-6 rounded-full bg-white/30 flex items-center justify-center shrink-0">
+                                                                                    <User className="w-3 h-3" />
                                                                                 </div>
-
-                                                                                <div className="grid grid-cols-3 gap-2 pt-2 border-t">
-                                                                                    <div className="text-center">
-                                                                                        <p className="text-[10px] text-muted-foreground">Check-in</p>
-                                                                                        <p className="text-xs font-semibold">{format(new Date(booking.checkInDate), 'dd MMM')}</p>
-                                                                                    </div>
-                                                                                    <div className="text-center">
-                                                                                        <p className="text-[10px] text-muted-foreground">Noches</p>
-                                                                                        <p className="text-xs font-semibold">{nights}</p>
-                                                                                    </div>
-                                                                                    <div className="text-center">
-                                                                                        <p className="text-[10px] text-muted-foreground">Check-out</p>
-                                                                                        <p className="text-xs font-semibold">{format(new Date(booking.checkOutDate), 'dd MMM')}</p>
-                                                                                    </div>
+                                                                                <div className="flex flex-col min-w-0">
+                                                                                    <span className="truncate font-semibold">{guestName}</span>
+                                                                                    <span className="text-[9px] opacity-70">{nights}N</span>
                                                                                 </div>
-
-                                                                                <div className="flex items-center justify-between pt-2 border-t">
-                                                                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                                                                        <Users className="w-3 h-3" />
-                                                                                        <span>{booking.adults} adultos{booking.children > 0 ? `, ${booking.children} niños` : ''}</span>
-                                                                                    </div>
-                                                                                    <div className="flex items-center gap-1 text-xs font-bold text-emerald-600">
-                                                                                        <CreditCard className="w-3 h-3" />
-                                                                                        ${booking.totalAmount.toLocaleString()}
-                                                                                    </div>
-                                                                                </div>
-
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    variant="ghost"
-                                                                                    className="w-full text-xs h-7 mt-1"
-                                                                                    onClick={() => handleBookingClick(booking.id)}
-                                                                                >
-                                                                                    Ver reserva <ExternalLink className="w-3 h-3 ml-1" />
-                                                                                </Button>
                                                                             </div>
-                                                                        </TooltipContent>
-                                                                    </Tooltip>
-                                                                </TooltipProvider>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    ))}
+                                                                        )}
+                                                                    </motion.div>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="top" className="bg-white dark:bg-slate-900 border shadow-xl p-0 overflow-hidden max-w-xs">
+                                                                    <div className="p-3 space-y-2">
+                                                                        <div className="flex items-center justify-between gap-4">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
+                                                                                    <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                                                                                </div>
+                                                                                <div>
+                                                                                    <p className="font-bold text-sm">{getGuestName(booking.guestId)}</p>
+                                                                                    <p className="text-xs text-muted-foreground">Hab. {room.roomNumber}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                            <Badge variant={booking.status === 'CHECKED_IN' ? 'default' : 'secondary'} className="text-[10px]">
+                                                                                {getBookingStatusLabel(booking.status)}
+                                                                            </Badge>
+                                                                        </div>
+
+                                                                        <div className="grid grid-cols-3 gap-2 pt-2 border-t">
+                                                                            <div className="text-center">
+                                                                                <p className="text-[10px] text-muted-foreground">Check-in</p>
+                                                                                <p className="text-xs font-semibold">{format(new Date(booking.checkInDate), 'dd MMM')}</p>
+                                                                            </div>
+                                                                            <div className="text-center">
+                                                                                <p className="text-[10px] text-muted-foreground">Noches</p>
+                                                                                <p className="text-xs font-semibold">{nights}</p>
+                                                                            </div>
+                                                                            <div className="text-center">
+                                                                                <p className="text-[10px] text-muted-foreground">Check-out</p>
+                                                                                <p className="text-xs font-semibold">{format(new Date(booking.checkOutDate), 'dd MMM')}</p>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className="flex items-center justify-between pt-2 border-t">
+                                                                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                                                <Users className="w-3 h-3" />
+                                                                                <span>{booking.adults} adultos{booking.children > 0 ? `, ${booking.children} niños` : ''}</span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-1 text-xs font-bold text-emerald-600">
+                                                                                <CreditCard className="w-3 h-3" />
+                                                                                ${booking.totalAmount.toLocaleString()}
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="ghost"
+                                                                            className="w-full text-xs h-7 mt-1"
+                                                                            onClick={() => handleBookingClick(booking.id)}
+                                                                        >
+                                                                            Ver reserva <ExternalLink className="w-3 h-3 ml-1" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             ))}
                         </div>

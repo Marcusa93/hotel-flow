@@ -25,7 +25,10 @@ export const useCreateBooking = () => {
                     children: bookingData.children,
                     status: bookingData.status,
                     total_amount: bookingData.totalAmount,
-                    notes: bookingData.notes
+                    notes: bookingData.notes,
+                    has_vehicle: bookingData.hasVehicle ?? false,
+                    vehicle_description: bookingData.vehicleDescription,
+                    license_plate: bookingData.licensePlate,
                 })
                 .select()
                 .single();
@@ -44,13 +47,15 @@ export const useCreateBooking = () => {
                 status: data.status,
                 totalAmount: data.total_amount,
                 notes: data.notes,
+                hasVehicle: data.has_vehicle ?? false,
+                vehicleDescription: data.vehicle_description,
+                licensePlate: data.license_plate,
                 createdAt: new Date(data.created_at)
             } as Booking;
         },
         onSuccess: (booking) => {
             queryClient.invalidateQueries({ queryKey: ['bookings'] });
             queryClient.invalidateQueries({ queryKey: ['rooms'] }); // Availability changes
-            queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
 
             // Create notification for new booking

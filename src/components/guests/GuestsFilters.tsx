@@ -1,4 +1,4 @@
-import { Search, Filter, Star } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,14 +33,6 @@ export function GuestsFilters({
                     onChange={(e) => onSearchChange(e.target.value)}
                     className="pl-10 bg-transparent border-transparent hover:bg-white/50 focus:bg-white/80 transition-all rounded-xl h-10"
                 />
-            </div>
-
-            {/* Quick Filters (Mock) */}
-            <div className="flex items-center gap-2 hidden md:flex">
-                <Button variant="ghost" size="sm" className="bg-amber-100/50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400">
-                    <Star className="w-4 h-4 mr-2" />
-                    Solo VIPs
-                </Button>
             </div>
 
             {/* Sort/Status Filter */}

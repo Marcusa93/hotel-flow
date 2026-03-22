@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus, Loader2 } from 'lucide-react';
 import { Room, TaskPriority } from '@/types/hotel';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -32,13 +33,6 @@ interface CreateTaskDialogProps {
   isCreating?: boolean;
 }
 
-const STAFF_MEMBERS = [
-  'Maria Gonzalez',
-  'Carlos Ruiz',
-  'Ana Lopez',
-  'Pedro Martinez',
-];
-
 const priorityOptions: { value: TaskPriority; label: string; description: string }[] = [
   { value: 'LOW', label: 'Baja', description: 'Sin urgencia' },
   { value: 'NORMAL', label: 'Normal', description: 'Limpieza estándar' },
@@ -68,7 +62,7 @@ export function CreateTaskDialog({ rooms, onCreateTask, isCreating }: CreateTask
       await onCreateTask({
         roomId,
         priority,
-        assignedTo: (assignedTo && assignedTo !== 'unassigned') ? assignedTo : undefined,
+        assignedTo: assignedTo.trim() || undefined,
         notes: notes || undefined,
       });
       // Reset form
@@ -151,19 +145,12 @@ export function CreateTaskDialog({ rooms, onCreateTask, isCreating }: CreateTask
           {/* Assigned To */}
           <div className="space-y-2">
             <Label htmlFor="assignedTo">Asignar a</Label>
-            <Select value={assignedTo} onValueChange={setAssignedTo}>
-              <SelectTrigger id="assignedTo">
-                <SelectValue placeholder="Sin asignar" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unassigned">Sin asignar</SelectItem>
-                {STAFF_MEMBERS.map((name) => (
-                  <SelectItem key={name} value={name}>
-                    {name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              id="assignedTo"
+              placeholder="Nombre del responsable"
+              value={assignedTo}
+              onChange={(e) => setAssignedTo(e.target.value)}
+            />
           </div>
 
           {/* Notes */}

@@ -10,7 +10,7 @@ export function RateCalendarWidget() {
     });
 
     const getPriceLevel = (idx: number) => {
-        // Mock pattern: weekend higher
+        // Simple pattern: weekends = high demand
         const day = nextDays[idx].getDay();
         if (day === 0 || day === 6) return 'high'; // Weekend
         return 'low';

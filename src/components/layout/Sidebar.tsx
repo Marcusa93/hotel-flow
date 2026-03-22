@@ -25,8 +25,6 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { DevLogin } from '@/components/auth/DevLogin';
-import { Seeder } from '@/components/dev/Seeder';
 import {
   Sheet,
   SheetContent,
@@ -48,7 +46,6 @@ const navItems: NavItem[] = [
 
   // Operaciones diarias
   { title: 'Reservas', href: '/bookings', icon: CalendarDays, roles: ['admin', 'reception'] },
-  { title: 'Calendario', href: '/calendar', icon: CalendarDays, roles: ['admin', 'reception'] },
   { title: 'Disponibilidad', href: '/availability', icon: PieChart, roles: ['admin', 'reception'] },
   { title: 'Habitaciones', href: '/rooms', icon: BedDouble, roles: ['admin', 'reception', 'housekeeping'] },
   { title: 'Huéspedes', href: '/guests', icon: Users, roles: ['admin', 'reception'] },
@@ -56,7 +53,7 @@ const navItems: NavItem[] = [
 
   // Finanzas
   { title: 'Pagos', href: '/payments', icon: CreditCard, roles: ['admin', 'reception', 'auditor'], readOnly: true },
-  { title: 'Gastos', href: '/expenses', icon: Receipt, roles: ['admin', 'auditor'] },
+  { title: 'Gastos', href: '/expenses', icon: Receipt, roles: ['admin', 'reception', 'auditor'] },
   { title: 'Facturación', href: '/billing', icon: Receipt, roles: ['admin', 'auditor'], readOnly: true },
   { title: 'Tarifas', href: '/rates', icon: Percent, roles: ['admin', 'reception'] },
 
@@ -166,14 +163,6 @@ function SidebarContent({ collapsed = false, onCollapse, isMobile = false }: Sid
           })}
         </nav>
       </ScrollArea>
-
-      {/* Dev Login & Seeder */}
-      {(!collapsed || isMobile) && (
-        <>
-          {/* <DevLogin /> - Removed in favor of Real Auth */}
-          <Seeder />
-        </>
-      )}
 
       {/* Collapse button (Desktop only) */}
       {!isMobile && (

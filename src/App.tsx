@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AppRoleProvider } from "@/context/AppRoleContext";
 import { AuthProvider } from "@/context/AuthContext";
@@ -19,7 +19,7 @@ const BookingDetail = lazy(() => import("./pages/BookingDetail"));
 const Rooms = lazy(() => import("./pages/Rooms"));
 const Guests = lazy(() => import("./pages/Guests"));
 const Payments = lazy(() => import("./pages/Payments"));
-const Calendar = lazy(() => import("./pages/Calendar"));
+// Calendar page removed — redirects to Availability
 const Availability = lazy(() => import("./pages/Availability"));
 const Rates = lazy(() => import("./pages/Rates"));
 const Statistics = lazy(() => import("./pages/Statistics"));
@@ -57,7 +57,7 @@ const AnimatedRoutes = () => {
         <Route path="/guests" element={<PageWrapper><Guests /></PageWrapper>} />
         <Route path="/guests/:id" element={<PageWrapper><Guests /></PageWrapper>} />
         <Route path="/payments" element={<PageWrapper><Payments /></PageWrapper>} />
-        <Route path="/calendar" element={<PageWrapper><Calendar /></PageWrapper>} />
+        <Route path="/calendar" element={<Navigate to="/availability" replace />} />
         <Route path="/availability" element={<PageWrapper><Availability /></PageWrapper>} />
         <Route path="/rates" element={<PageWrapper><Rates /></PageWrapper>} />
         <Route path="/statistics" element={<PageWrapper><Statistics /></PageWrapper>} />

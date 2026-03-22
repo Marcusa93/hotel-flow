@@ -1,16 +1,16 @@
 import { cn } from '@/lib/utils';
 import { DayCell } from './DayCell';
-import { Guest } from '@/types/hotel';
+import { Booking, Guest } from '@/types/hotel';
 
 interface MonthViewProps {
     days: Date[];
     today: Date;
     currentDate: Date;
-    bookings: any[];
+    bookings: Booking[];
     heatmapMode: 'none' | 'occupancy' | 'revenue';
     getHeatmapColor: (day: Date) => string | undefined;
     calculateDailyRevenue: (day: Date) => number;
-    getBookingsForDay: (day: Date) => any[];
+    getBookingsForDay: (day: Date) => Booking[];
     getGuest: (id: string) => Guest | undefined;
     getRoomNumber: (id: string) => string;
 }

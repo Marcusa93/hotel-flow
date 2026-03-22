@@ -40,13 +40,18 @@ export default function Rooms() {
         const matchesFloor = floorFilter === 'ALL' || room.floor.toString() === floorFilter;
         return matchesStatus && matchesFloor;
       })
-      .sort((a, b) => a.roomNumber.localeCompare(b.roomNumber));
+      .sort((a, b) => {
+        const numA = parseInt(a.roomNumber, 10);
+        const numB = parseInt(b.roomNumber, 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return a.roomNumber.localeCompare(b.roomNumber);
+      });
   }, [rooms, statusFilter, floorFilter]);
 
   // Handlers
   const handleQuickAction = (room: Room, action: 'clean' | 'occupy') => {
     if (action === 'clean') updateRoomStatus(room.id, 'AVAILABLE');
-    if (action === 'occupy') updateRoomStatus(room.id, 'OCCUPIED'); // Mock check-in
+    if (action === 'occupy') updateRoomStatus(room.id, 'OCCUPIED');
   };
 
   const handleStatusChange = (newStatus: RoomStatus, notes?: string) => {

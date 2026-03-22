@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { UserRole } from '@/types/hotel';
 
 export function DevLogin() {
     const [email, setEmail] = useState('');
@@ -25,8 +24,8 @@ export function DevLogin() {
 
             if (error) throw error;
             setMessage('Check your email for the login link!');
-        } catch (error: any) {
-            setMessage(error.message || 'Error occurred');
+        } catch (error: unknown) {
+            setMessage(error instanceof Error ? error.message : 'Error occurred');
         } finally {
             setLoading(false);
         }

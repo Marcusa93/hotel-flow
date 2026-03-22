@@ -11,11 +11,16 @@ import type {
   InvoiceItem,
   HotelSettings,
   AuditLog,
+  BookingCharge,
 } from '@/types/hotel';
 
 // --- Row to Model mappers (snake_case DB → camelCase frontend) ---
 
-export const mapRoomType = (row: any): RoomType => ({
+/** Raw database row from Supabase (untyped — replace with generated types when available) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DbRow = Record<string, any>;
+
+export const mapRoomType = (row: DbRow): RoomType => ({
   id: row.id,
   name: row.name,
   basePrice: row.base_price,
@@ -23,7 +28,7 @@ export const mapRoomType = (row: any): RoomType => ({
   description: row.description,
 });
 
-export const mapRoom = (row: any): Room => ({
+export const mapRoom = (row: DbRow): Room => ({
   id: row.id,
   roomNumber: row.room_number,
   roomTypeId: row.room_type_id,
@@ -32,18 +37,22 @@ export const mapRoom = (row: any): Room => ({
   notes: row.notes,
 });
 
-export const mapGuest = (row: any): Guest => ({
+export const mapGuest = (row: DbRow): Guest => ({
   id: row.id,
   fullName: row.full_name,
+  documentType: row.document_type,
   documentId: row.document_id,
   phone: row.phone,
   email: row.email,
   notes: row.notes,
   country: row.country,
+  hasVehicle: row.has_vehicle ?? false,
+  vehicleDescription: row.vehicle_description,
+  licensePlate: row.license_plate,
   createdAt: new Date(row.created_at || new Date()),
 });
 
-export const mapBooking = (row: any): Booking => ({
+export const mapBooking = (row: DbRow): Booking => ({
   id: row.id,
   guestId: row.guest_id,
   roomId: row.room_id,
@@ -55,11 +64,14 @@ export const mapBooking = (row: any): Booking => ({
   totalAmount: row.total_amount,
   notes: row.notes,
   needsReview: row.needs_review,
+  hasVehicle: row.has_vehicle ?? false,
+  vehicleDescription: row.vehicle_description,
+  licensePlate: row.license_plate,
   createdAt: new Date(row.created_at || new Date()),
   updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
 });
 
-export const mapPayment = (row: any): Payment => ({
+export const mapPayment = (row: DbRow): Payment => ({
   id: row.id,
   bookingId: row.booking_id,
   amount: Number(row.amount),
@@ -80,7 +92,7 @@ function parseLocalDate(value: string | Date): Date {
   return new Date(value);
 }
 
-export const mapHousekeepingTask = (row: any): HousekeepingTask => ({
+export const mapHousekeepingTask = (row: DbRow): HousekeepingTask => ({
   id: row.id,
   roomId: row.room_id,
   date: parseLocalDate(row.date),
@@ -94,11 +106,11 @@ export const mapHousekeepingTask = (row: any): HousekeepingTask => ({
   checkoutTriggered: row.checkout_triggered,
 });
 
-export const mapRate = (row: any): Rate => ({
+export const mapRate = (row: DbRow): Rate => ({
   id: row.id,
   roomTypeId: row.room_type_id,
-  startDate: new Date(row.start_date),
-  endDate: new Date(row.end_date),
+  startDate: parseLocalDate(row.start_date),
+  endDate: parseLocalDate(row.end_date),
   price: row.price,
   label: row.label,
   isActive: row.is_active,
@@ -109,7 +121,7 @@ export const mapRate = (row: any): Rate => ({
   promoCode: row.promo_code,
 });
 
-export const mapExpense = (row: any): Expense => ({
+export const mapExpense = (row: DbRow): Expense => ({
   id: row.id,
   date: new Date(row.date),
   expenseType: row.expense_type,
@@ -118,7 +130,7 @@ export const mapExpense = (row: any): Expense => ({
   createdAt: new Date(row.created_at || new Date()),
 });
 
-export const mapInvoiceItem = (row: any): InvoiceItem => ({
+export const mapInvoiceItem = (row: DbRow): InvoiceItem => ({
   id: row.id,
   invoiceId: row.invoice_id,
   description: row.description,
@@ -128,7 +140,7 @@ export const mapInvoiceItem = (row: any): InvoiceItem => ({
   itemType: row.item_type,
 });
 
-export const mapInvoice = (row: any): Invoice => ({
+export const mapInvoice = (row: DbRow): Invoice => ({
   id: row.id,
   invoiceNumber: row.invoice_number,
   bookingId: row.booking_id,
@@ -147,19 +159,23 @@ export const mapInvoice = (row: any): Invoice => ({
 
 // --- Model to Row mappers (camelCase frontend → snake_case DB) ---
 
-export const guestToRow = (guest: Partial<Guest>): Record<string, any> => {
-  const row: Record<string, any> = {};
+export const guestToRow = (guest: Partial<Guest>): DbRow => {
+  const row: DbRow = {};
   if (guest.fullName !== undefined) row.full_name = guest.fullName;
+  if (guest.documentType !== undefined) row.document_type = guest.documentType;
   if (guest.documentId !== undefined) row.document_id = guest.documentId;
   if (guest.email !== undefined) row.email = guest.email;
   if (guest.phone !== undefined) row.phone = guest.phone;
   if (guest.notes !== undefined) row.notes = guest.notes;
   if (guest.country !== undefined) row.country = guest.country;
+  if (guest.hasVehicle !== undefined) row.has_vehicle = guest.hasVehicle;
+  if (guest.vehicleDescription !== undefined) row.vehicle_description = guest.vehicleDescription;
+  if (guest.licensePlate !== undefined) row.license_plate = guest.licensePlate;
   return row;
 };
 
-export const bookingToRow = (booking: Partial<Booking>): Record<string, any> => {
-  const row: Record<string, any> = {};
+export const bookingToRow = (booking: Partial<Booking>): DbRow => {
+  const row: DbRow = {};
   if (booking.guestId !== undefined) row.guest_id = booking.guestId;
   if (booking.roomId !== undefined) row.room_id = booking.roomId;
   if (booking.checkInDate !== undefined) row.check_in_date = booking.checkInDate instanceof Date ? booking.checkInDate.toISOString() : booking.checkInDate;
@@ -169,10 +185,13 @@ export const bookingToRow = (booking: Partial<Booking>): Record<string, any> => 
   if (booking.status !== undefined) row.status = booking.status;
   if (booking.totalAmount !== undefined) row.total_amount = booking.totalAmount;
   if (booking.notes !== undefined) row.notes = booking.notes;
+  if (booking.hasVehicle !== undefined) row.has_vehicle = booking.hasVehicle;
+  if (booking.vehicleDescription !== undefined) row.vehicle_description = booking.vehicleDescription;
+  if (booking.licensePlate !== undefined) row.license_plate = booking.licensePlate;
   return row;
 };
 
-export const mapHotelSettings = (row: any): HotelSettings => ({
+export const mapHotelSettings = (row: DbRow): HotelSettings => ({
   id: row.id,
   hotelName: row.hotel_name,
   address: row.address || '',
@@ -191,8 +210,8 @@ export const mapHotelSettings = (row: any): HotelSettings => ({
   updatedAt: new Date(row.updated_at),
 });
 
-export const hotelSettingsToRow = (settings: Partial<HotelSettings>): Record<string, any> => {
-  const row: Record<string, any> = {};
+export const hotelSettingsToRow = (settings: Partial<HotelSettings>): DbRow => {
+  const row: DbRow = {};
   if (settings.hotelName !== undefined) row.hotel_name = settings.hotelName;
   if (settings.address !== undefined) row.address = settings.address;
   if (settings.phone !== undefined) row.phone = settings.phone;
@@ -210,7 +229,7 @@ export const hotelSettingsToRow = (settings: Partial<HotelSettings>): Record<str
   return row;
 };
 
-export const mapAuditLog = (row: any): AuditLog => ({
+export const mapAuditLog = (row: DbRow): AuditLog => ({
   id: row.id,
   entityType: row.entity_type,
   entityId: row.entity_id,
@@ -226,8 +245,8 @@ export const mapAuditLog = (row: any): AuditLog => ({
   ipAddress: row.ip_address,
 });
 
-export const paymentToRow = (payment: Partial<Payment>): Record<string, any> => {
-  const row: Record<string, any> = {};
+export const paymentToRow = (payment: Partial<Payment>): DbRow => {
+  const row: DbRow = {};
   if (payment.bookingId !== undefined) row.booking_id = payment.bookingId;
   if (payment.amount !== undefined) row.amount = payment.amount;
   if (payment.method !== undefined) row.method = payment.method;
@@ -237,3 +256,14 @@ export const paymentToRow = (payment: Partial<Payment>): Record<string, any> => 
   if (payment.comment !== undefined) row.comment = payment.comment;
   return row;
 };
+
+export const mapBookingCharge = (row: DbRow): BookingCharge => ({
+  id: row.id,
+  bookingId: row.booking_id,
+  category: row.category,
+  description: row.description,
+  amount: Number(row.amount),
+  quantity: row.quantity,
+  createdAt: new Date(row.created_at || new Date()),
+  createdBy: row.created_by,
+});

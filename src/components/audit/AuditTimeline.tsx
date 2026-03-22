@@ -89,14 +89,14 @@ const actionLabels: Record<AuditAction, string> = {
   STATUS_CHANGE: 'Cambio Estado',
 };
 
-function formatValue(value: any): string {
+function formatValue(value: unknown): string {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'boolean') return value ? 'Sí' : 'No';
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
 }
 
-function DiffViewer({ oldValues, newValues }: { oldValues: Record<string, any>; newValues: Record<string, any> }) {
+function DiffViewer({ oldValues, newValues }: { oldValues: Record<string, unknown>; newValues: Record<string, unknown> }) {
   const hasOld = Object.keys(oldValues).length > 0;
   const hasNew = Object.keys(newValues).length > 0;
 

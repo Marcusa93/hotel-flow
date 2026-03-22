@@ -38,11 +38,12 @@ export default function Login() {
                 if (error) throw error;
                 navigate('/');
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Ha ocurrido un error";
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: error.message || "Ha ocurrido un error",
+                description: message,
             });
         } finally {
             setLoading(false);
@@ -80,7 +81,7 @@ export default function Login() {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="bg-white/10 border-white/10 text-white placeholder:text-white/30 focus:border-yellow-500/50 focus:ring-yellow-500/50"
-                            placeholder="admin@hotel.com"
+                            placeholder="tu@email.com"
                         />
                     </div>
 
@@ -93,7 +94,7 @@ export default function Login() {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="bg-white/10 border-white/10 text-white placeholder:text-white/30 focus:border-yellow-500/50 focus:ring-yellow-500/50"
-                            placeholder="••••••••"
+                            placeholder="Tu contraseña"
                         />
                     </div>
 

@@ -1,12 +1,12 @@
-import { Room, RoomStatus, Guest } from '@/types/hotel';
+import { Room, RoomType, Booking, Guest } from '@/types/hotel';
 import { RoomCard } from './RoomCard';
 import { motion } from 'framer-motion';
 
 interface RoomGridProps {
     rooms: Room[];
-    roomTypes: any[];
+    roomTypes: RoomType[];
     guests: Guest[];
-    bookings: any[];
+    bookings: Booking[];
     onRoomClick: (room: Room) => void;
     onQuickAction: (room: Room, action: 'clean' | 'occupy') => void;
 }

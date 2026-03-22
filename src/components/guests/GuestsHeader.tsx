@@ -10,20 +10,25 @@ import { Guest } from '@/types/hotel';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from '@/hooks/use-toast';
+import { escapeHtml } from '@/lib/utils';
 
 interface GuestsHeaderProps {
     guestCount: number;
     guests: Guest[];
+    hotelName: string;
     onNewGuest: () => void;
 }
 
-export function GuestsHeader({ guestCount, guests, onNewGuest }: GuestsHeaderProps) {
+export function GuestsHeader({ guestCount, guests, hotelName, onNewGuest }: GuestsHeaderProps) {
+    const hotelSlug = hotelName.toLowerCase().replace(/\s+/g, '_');
+
     const handleExportCSV = () => {
-        const headers = ['Nombre', 'Email', 'Teléfono', 'Documento', 'País', 'Notas', 'Fecha Registro'];
+        const headers = ['Nombre', 'Email', 'Teléfono', 'Tipo Doc', 'Documento', 'País', 'Notas', 'Fecha Registro'];
         const rows = guests.map(guest => [
             guest.fullName,
-            guest.email,
+            guest.email || '',
             guest.phone,
+            guest.documentType || '',
             guest.documentId || '',
             guest.country || '',
             (guest.notes || '').replace(/"/g, '""').replace(/\n/g, ' '),
@@ -39,25 +44,29 @@ export function GuestsHeader({ guestCount, guests, onNewGuest }: GuestsHeaderPro
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `huespedes_hotel_metropolitano_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+        link.download = `huespedes_${hotelSlug}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
         link.click();
         URL.revokeObjectURL(url);
 
         toast({
-            title: '📊 Exportado',
+            title: 'Exportado',
             description: `${guests.length} huéspedes exportados a CSV`,
         });
     };
 
     const handlePrintList = () => {
         const printWindow = window.open('', '', 'width=900,height=700');
-        if (!printWindow) return;
+        if (!printWindow) {
+            toast({ title: 'Error', description: 'No se pudo abrir la ventana de impresión. Verifique el bloqueador de popups.', variant: 'destructive' });
+            return;
+        }
+        const h = escapeHtml;
 
         printWindow.document.write(`
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Listado de Huéspedes - Hotel Metropolitano</title>
+                <title>Listado de Huéspedes - ${h(hotelName)}</title>
                 <style>
                     body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 30px; color: #1e293b; }
                     .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #4f46e5; }
@@ -77,7 +86,7 @@ export function GuestsHeader({ guestCount, guests, onNewGuest }: GuestsHeaderPro
             <body>
                 <div class="header">
                     <div>
-                        <div class="logo">Hotel Metropolitano</div>
+                        <div class="logo">${h(hotelName)}</div>
                         <div class="logo-sub">Listado de Huéspedes</div>
                     </div>
                     <div class="date">
@@ -85,7 +94,7 @@ export function GuestsHeader({ guestCount, guests, onNewGuest }: GuestsHeaderPro
                         <div class="count">${guests.length} huéspedes registrados</div>
                     </div>
                 </div>
-                
+
                 <table>
                     <thead>
                         <tr>
@@ -98,21 +107,21 @@ export function GuestsHeader({ guestCount, guests, onNewGuest }: GuestsHeaderPro
                         </tr>
                     </thead>
                     <tbody>
-                        ${guests.map(guest => `
+                        ${guests.map(g => `
                             <tr>
-                                <td class="name">${guest.fullName}</td>
-                                <td>${guest.email}</td>
-                                <td>${guest.phone}</td>
-                                <td>${guest.documentId || '-'}</td>
-                                <td>${guest.country || '-'}</td>
-                                <td>${format(new Date(guest.createdAt), 'dd/MM/yyyy')}</td>
+                                <td class="name">${h(g.fullName)}</td>
+                                <td>${h(g.email) || '-'}</td>
+                                <td>${h(g.phone)}</td>
+                                <td>${g.documentId ? `${h(g.documentType)} ${h(g.documentId)}` : '-'}</td>
+                                <td>${h(g.country) || '-'}</td>
+                                <td>${format(new Date(g.createdAt), 'dd/MM/yyyy')}</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
-                
+
                 <div class="footer">
-                    Hotel Metropolitano - Sistema de Gestión Hotelera
+                    ${h(hotelName)} - Sistema de Gestión Hotelera
                 </div>
             </body>
             </html>

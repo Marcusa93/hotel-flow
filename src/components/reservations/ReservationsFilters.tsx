@@ -1,7 +1,6 @@
 
-import { Search, Filter, Calendar as CalendarIcon } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import {
     Select,
     SelectContent,
@@ -35,12 +34,6 @@ export function ReservationsFilters({
                     className="pl-10 bg-transparent border-transparent hover:bg-white/50 focus:bg-white/80 transition-all rounded-xl h-10"
                 />
             </div>
-
-            {/* Date Range (Mock) */}
-            <Button variant="ghost" className="hidden md:flex text-muted-foreground hover:text-foreground">
-                <CalendarIcon className="w-4 h-4 mr-2" />
-                <span>Rango de fechas</span>
-            </Button>
 
             {/* Status Filter */}
             <Select value={statusFilter} onValueChange={onStatusFilterChange}>

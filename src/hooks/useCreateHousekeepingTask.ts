@@ -3,14 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { TaskPriority } from '@/types/hotel';
 import { logAuditEvent } from './useCreateAuditLog';
 import { createNotificationIfEnabled } from './useCreateNotification';
-
-/** Format a Date as YYYY-MM-DD in local timezone (safe for Postgres DATE columns) */
-function toLocalDateString(d: Date): string {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-}
+import { formatLocalDate } from '@/lib/utils';
 
 interface CreateTaskParams {
     roomId: string;
@@ -27,7 +20,7 @@ export const useCreateHousekeepingTask = () => {
     return useMutation({
         mutationFn: async (params: CreateTaskParams) => {
             const taskDate = params.date || new Date();
-            const dateStr = toLocalDateString(taskDate);
+            const dateStr = formatLocalDate(taskDate);
 
             // Check if task already exists for this room today
             const { data: existingTasks } = await supabase
@@ -93,7 +86,7 @@ export const useCreateHousekeepingTask = () => {
 // Helper function to call when a booking is checked out
 export const createCheckoutTask = async (roomId: string, guestName?: string) => {
     const supabaseClient = supabase;
-    const todayStr = toLocalDateString(new Date());
+    const todayStr = formatLocalDate(new Date());
 
     // Check existing
     const { data: existingTasks } = await supabaseClient

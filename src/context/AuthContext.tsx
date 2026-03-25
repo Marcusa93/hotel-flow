@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return () => subscription.unsubscribe();
     }, []);
 
-    const signOut = async () => {
+    const signOut = useCallback(async () => {
         try {
             await supabase.auth.signOut();
         } catch (e) {
@@ -46,14 +46,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setSession(null);
             setUser(null);
         }
-    };
+    }, []);
 
-    const value = {
+    const value = useMemo(() => ({
         session,
         user,
         loading,
         signOut,
-    };
+    }), [session, user, loading, signOut]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

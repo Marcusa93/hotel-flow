@@ -1,12 +1,10 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Settings2, Check, CheckCheck, Trash2, Filter, Bell, RefreshCw, ArrowRight } from 'lucide-react';
+import { Settings2, Check, CheckCheck, Trash2, Filter, Bell, RefreshCw, ArrowRight } from 'lucide-react';
 import { PageHeader, ListSkeleton } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { NotificationChannelCard } from '@/components/notifications';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -17,9 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useNotifications, useUnreadCount, Notification, NotificationCategory } from '@/hooks/useNotifications';
-import { useCreateNotification } from '@/hooks/useCreateNotification';
 import { useMarkNotificationRead, useMarkAllNotificationsRead, useDeleteNotification, useClearAllNotifications } from '@/hooks/useMarkNotificationRead';
-import { useAppRole } from '@/context/AppRoleContext';
 import { toast } from '@/hooks/use-toast';
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -66,13 +62,11 @@ const categoryColors: Record<NotificationCategory, string> = {
 };
 
 export default function Notifications() {
-  const { notificationSettings, updateNotificationSettings } = useAppRole();
   const [categoryFilter, setCategoryFilter] = useState<NotificationCategory | 'all'>('all');
   const [tab, setTab] = useState<'all' | 'unread'>('all');
 
   const { data: allNotifications = [], isLoading, refetch } = useNotifications({ limit: 100 });
   const { data: unreadCount = 0 } = useUnreadCount();
-  const createNotification = useCreateNotification();
   const markReadMutation = useMarkNotificationRead();
   const markAllReadMutation = useMarkAllNotificationsRead();
   const deleteMutation = useDeleteNotification();
@@ -92,20 +86,6 @@ export default function Notifications() {
 
     return filtered;
   }, [allNotifications, tab, categoryFilter]);
-
-  // Stats by type
-  const emailLogs = allNotifications.filter(n => n.metadata?.channel === 'email');
-  const whatsappLogs = allNotifications.filter(n => n.metadata?.channel === 'whatsapp');
-
-  const emailStats = {
-    sent: emailLogs.filter(l => l.metadata?.status === 'sent').length,
-    failed: emailLogs.filter(l => l.metadata?.status === 'failed').length
-  };
-
-  const whatsappStats = {
-    sent: whatsappLogs.filter(l => l.metadata?.status === 'sent').length,
-    failed: whatsappLogs.filter(l => l.metadata?.status === 'failed').length
-  };
 
   const handleMarkRead = (id: string) => {
     markReadMutation.mutate(id);
@@ -131,20 +111,6 @@ export default function Notifications() {
     clearAllMutation.mutate(undefined, {
       onSuccess: () => {
         toast({ title: '🧹 Notificaciones leídas eliminadas' });
-      }
-    });
-  };
-
-  const handleTestNotification = (channel: 'email' | 'whatsapp') => {
-    createNotification.mutate({
-      type: 'info',
-      category: 'system',
-      title: channel === 'email' ? '📧 Email de prueba enviado' : '📱 WhatsApp de prueba enviado',
-      message: `Esta es una notificación de prueba del canal ${channel === 'email' ? 'Email' : 'WhatsApp'}. El sistema está funcionando correctamente.`,
-      metadata: { channel, status: 'sent', test: true }
-    }, {
-      onSuccess: () => {
-        toast({ title: `✅ ${channel === 'email' ? 'Email' : 'WhatsApp'} de prueba creado` });
       }
     });
   };
@@ -224,27 +190,6 @@ export default function Notifications() {
         </Card>
       </div>
 
-      {/* Channel Config */}
-      <div>
-        <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-4">Canales de Comunicación</h3>
-        <div className="grid gap-6 md:grid-cols-2">
-          <NotificationChannelCard
-            type="EMAIL"
-            isEnabled={notificationSettings.emailEnabled}
-            onToggle={(checked) => updateNotificationSettings({ emailEnabled: checked })}
-            stats={emailStats}
-          />
-          <NotificationChannelCard
-            type="WHATSAPP"
-            isEnabled={notificationSettings.whatsappEnabled}
-            onToggle={(checked) => updateNotificationSettings({ whatsappEnabled: checked })}
-            stats={whatsappStats}
-          />
-        </div>
-      </div>
-
-      <Separator className="my-6" />
-
       {/* Main Content */}
       <div className="grid gap-8 lg:grid-cols-3">
         {/* Notifications List */}
@@ -309,31 +254,8 @@ export default function Notifications() {
           </CardContent>
         </Card>
 
-        {/* Quick Actions */}
+        {/* Actions */}
         <div className="space-y-6">
-          <Card className="border-indigo-200 dark:border-indigo-900 bg-gradient-to-b from-indigo-50/50 to-white/50 dark:from-indigo-950/20 dark:to-slate-900/20">
-            <CardHeader>
-              <CardTitle className="text-base text-indigo-900 dark:text-indigo-100">Prueba Rápida</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                className="w-full justify-start bg-indigo-600 hover:bg-indigo-700 text-white"
-                onClick={() => handleTestNotification('email')}
-                disabled={createNotification.isPending}
-              >
-                <Send className="w-4 h-4 mr-2" /> Enviar Email Test
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
-                onClick={() => handleTestNotification('whatsapp')}
-                disabled={createNotification.isPending}
-              >
-                <Send className="w-4 h-4 mr-2" /> Enviar WhatsApp Test
-              </Button>
-            </CardContent>
-          </Card>
-
           <Card className="border-amber-200 dark:border-amber-900">
             <CardHeader>
               <CardTitle className="text-base text-amber-900 dark:text-amber-100">Mantenimiento</CardTitle>

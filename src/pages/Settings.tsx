@@ -57,7 +57,7 @@ const roles: { value: UserRole; label: string; description: string; icon: React.
 ];
 
 export default function Settings() {
-  const { currentRole, notificationSettings, updateNotificationSettings } = useAppRole();
+  const { currentRole } = useAppRole();
   const { data: settings, isLoading } = useHotelSettings();
   const updateMutation = useUpdateHotelSettings();
   const { theme, setTheme } = useTheme();
@@ -73,16 +73,6 @@ export default function Settings() {
     timezone: 'America/Buenos_Aires',
   });
 
-  // Notification form
-  const [notifForm, setNotifForm] = useState({
-    notificationEmailEnabled: true,
-    notificationWhatsappEnabled: false,
-    notificationSendOnBooking: true,
-    notificationSendOnPayment: true,
-    notificationSendOnCheckIn: true,
-    notificationSendOnCheckOut: false,
-  });
-
   // Sync forms when settings load
   useEffect(() => {
     if (settings) {
@@ -93,14 +83,6 @@ export default function Settings() {
         email: settings.email,
         currency: settings.currency,
         timezone: settings.timezone,
-      });
-      setNotifForm({
-        notificationEmailEnabled: settings.notificationEmailEnabled,
-        notificationWhatsappEnabled: settings.notificationWhatsappEnabled,
-        notificationSendOnBooking: settings.notificationSendOnBooking,
-        notificationSendOnPayment: settings.notificationSendOnPayment,
-        notificationSendOnCheckIn: settings.notificationSendOnCheckIn,
-        notificationSendOnCheckOut: settings.notificationSendOnCheckOut,
       });
     }
   }, [settings]);
@@ -115,23 +97,7 @@ export default function Settings() {
     }
   };
 
-  const handleSaveNotifications = async () => {
-    if (!settings) return;
-    try {
-      await updateMutation.mutateAsync({ id: settings.id, data: notifForm });
-      updateNotificationSettings({
-        emailEnabled: notifForm.notificationEmailEnabled,
-        whatsappEnabled: notifForm.notificationWhatsappEnabled,
-        sendOnBooking: notifForm.notificationSendOnBooking,
-        sendOnPayment: notifForm.notificationSendOnPayment,
-        sendOnCheckIn: notifForm.notificationSendOnCheckIn,
-        sendOnCheckOut: notifForm.notificationSendOnCheckOut,
-      });
-      toast({ title: 'Notificaciones actualizadas', description: 'Las preferencias se guardaron correctamente' });
-    } catch {
-      toast({ title: 'Error', description: 'No se pudieron guardar las preferencias', variant: 'destructive' });
-    }
-  };
+  // handleSaveNotifications removed — no email/whatsapp backend exists
 
   return (
     <div className="space-y-6">
@@ -154,10 +120,7 @@ export default function Settings() {
             <Palette className="w-4 h-4 hidden sm:block" />
             Apariencia
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="gap-2">
-            <Bell className="w-4 h-4 hidden sm:block" />
-            Notificaciones
-          </TabsTrigger>
+          {/* Notification tab removed — no email/whatsapp backend */}
         </TabsList>
 
         {/* TAB 1: Hotel Profile */}
@@ -409,112 +372,6 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        {/* TAB 4: Notifications */}
-        <TabsContent value="notifications">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Bell className="w-5 h-5" />
-                Preferencias de Notificaciones
-              </CardTitle>
-              <CardDescription>
-                Configura cómo y cuándo recibir alertas del sistema
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {isLoading ? (
-                <div className="space-y-4">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full" />
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-4">
-                    <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                      Canales
-                    </Label>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-4 rounded-lg border">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                            <Mail className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">Email</p>
-                            <p className="text-xs text-muted-foreground">Recibir notificaciones por correo electrónico</p>
-                          </div>
-                        </div>
-                        <Switch
-                          checked={notifForm.notificationEmailEnabled}
-                          onCheckedChange={(v) => setNotifForm(prev => ({ ...prev, notificationEmailEnabled: v }))}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between p-4 rounded-lg border">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
-                            <MessageCircle className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">WhatsApp</p>
-                            <p className="text-xs text-muted-foreground">Recibir alertas por WhatsApp</p>
-                          </div>
-                        </div>
-                        <Switch
-                          checked={notifForm.notificationWhatsappEnabled}
-                          onCheckedChange={(v) => setNotifForm(prev => ({ ...prev, notificationWhatsappEnabled: v }))}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="space-y-4">
-                    <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                      Eventos
-                    </Label>
-                    <div className="space-y-4">
-                      {[
-                        { key: 'notificationSendOnBooking' as const, label: 'Nueva reserva', desc: 'Al crear o confirmar una reserva', icon: CalendarCheck, color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' },
-                        { key: 'notificationSendOnPayment' as const, label: 'Pago registrado', desc: 'Al recibir o registrar un pago', icon: CreditCard, color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' },
-                        { key: 'notificationSendOnCheckIn' as const, label: 'Check-In', desc: 'Cuando un huésped hace check-in', icon: LogIn, color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' },
-                        { key: 'notificationSendOnCheckOut' as const, label: 'Check-Out', desc: 'Cuando un huésped hace check-out', icon: LogOut, color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400' },
-                      ].map(item => (
-                        <div key={item.key} className="flex items-center justify-between p-4 rounded-lg border">
-                          <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-lg ${item.color}`}>
-                              <item.icon className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium">{item.label}</p>
-                              <p className="text-xs text-muted-foreground">{item.desc}</p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={notifForm[item.key]}
-                            onCheckedChange={(v) => setNotifForm(prev => ({ ...prev, [item.key]: v }))}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-4 border-t">
-                    <Button onClick={handleSaveNotifications} disabled={updateMutation.isPending}>
-                      {updateMutation.isPending ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Save className="w-4 h-4 mr-2" />
-                      )}
-                      Guardar Preferencias
-                    </Button>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       {/* Credits */}

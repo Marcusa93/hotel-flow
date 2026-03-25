@@ -19,7 +19,7 @@ export function RateCalendarWidget() {
     return (
         <Card className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border-white/20 shadow-sm">
             <CardContent className="p-6">
-                <h3 className="tex-sm font-medium text-slate-500 mb-4">Próximos 14 días (Previsión)</h3>
+                <h3 className="text-sm font-medium text-slate-500 mb-4">Próximos 14 días (Previsión)</h3>
                 <div className="grid grid-cols-7 gap-2">
                     {nextDays.map((date, i) => {
                         const level = getPriceLevel(i);

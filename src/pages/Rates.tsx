@@ -41,6 +41,7 @@ import { useCreateRate } from '@/hooks/useCreateRate';
 import { useUpdateRate } from '@/hooks/useUpdateRate';
 import { useDeleteRate } from '@/hooks/useDeleteRate';
 import { Rate, DiscountType } from '@/types/hotel';
+import { PAYMENT_METHOD_LABELS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUpdateRoomType } from '@/hooks/useUpdateRoomType';
@@ -82,6 +83,7 @@ export default function Rates() {
     minNights: 1,
     promoCode: '',
     isActive: true,
+    paymentMethods: [] as string[],
   });
 
   const resetForm = () => {
@@ -97,6 +99,7 @@ export default function Rates() {
       minNights: 1,
       promoCode: '',
       isActive: true,
+      paymentMethods: [],
     });
   };
 
@@ -135,6 +138,7 @@ export default function Rates() {
             minNights: formData.minNights,
             promoCode: formData.promoCode,
             isActive: formData.isActive,
+            paymentMethods: formData.paymentMethods.length ? formData.paymentMethods : undefined,
           },
         });
         toast({
@@ -155,6 +159,7 @@ export default function Rates() {
           minNights: formData.minNights || undefined,
           promoCode: formData.promoCode || undefined,
           isActive: formData.isActive,
+          paymentMethods: formData.paymentMethods.length ? formData.paymentMethods : undefined,
         });
         toast({
           title: '🎉 Promoción creada',
@@ -185,6 +190,7 @@ export default function Rates() {
       minNights: rate.minNights || 1,
       promoCode: rate.promoCode || '',
       isActive: rate.isActive,
+      paymentMethods: rate.paymentMethods || [],
     });
     setEditingRate(rate);
   };
@@ -352,6 +358,7 @@ export default function Rates() {
                   <TableHead>Aplicado a</TableHead>
                   <TableHead>Precio/Descuento</TableHead>
                   <TableHead>Código</TableHead>
+                  <TableHead>Métodos de pago</TableHead>
                   <TableHead>Vigencia</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="w-[100px]"></TableHead>
@@ -405,6 +412,19 @@ export default function Rates() {
                           </div>
                         ) : (
                           <span className="text-muted-foreground text-xs">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {rate.paymentMethods && rate.paymentMethods.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {rate.paymentMethods.map(m => (
+                              <Badge key={m} variant="outline" className="text-xs px-1.5 py-0">
+                                {PAYMENT_METHOD_LABELS[m] || m}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Todos</span>
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
@@ -608,6 +628,44 @@ export default function Rates() {
                   Los huéspedes pueden usar este código al reservar
                 </p>
               </div>
+            </div>
+
+            {/* Payment methods */}
+            <div>
+              <Label className="mb-2 block">Métodos de pago aceptados</Label>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(PAYMENT_METHOD_LABELS).map(([key, label]) => {
+                  const isSelected = formData.paymentMethods.includes(key);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({
+                          ...prev,
+                          paymentMethods: isSelected
+                            ? prev.paymentMethods.filter(m => m !== key)
+                            : [...prev.paymentMethods, key],
+                        }));
+                      }}
+                      className={cn(
+                        "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+                        isSelected
+                          ? "bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300"
+                          : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300"
+                      )}
+                    >
+                      {isSelected && <Check className="w-3 h-3 inline mr-1" />}
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                {formData.paymentMethods.length === 0
+                  ? 'Sin selección = todos los métodos aceptados'
+                  : `${formData.paymentMethods.length} método(s) seleccionado(s)`}
+              </p>
             </div>
 
             <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { Payment } from '@/types/hotel';
+import { mapPayment } from '@/lib/mappers';
 
 export const usePayments = () => {
     return useQuery({
@@ -11,21 +11,10 @@ export const usePayments = () => {
                 .select('*')
                 .order('date', { ascending: false });
 
-            if (error) {
-                console.error('Error fetching payments:', error);
-                throw error;
-            }
+            if (error) throw error;
 
-            return data.map((payment: Record<string, unknown>) => ({
-                id: payment.id,
-                bookingId: payment.booking_id,
-                amount: Number(payment.amount),
-                method: payment.method,
-                status: payment.status,
-                date: new Date(payment.date),
-                reference: payment.reference,
-                comment: payment.comment,
-            } as Payment));
+            return (data || []).map(mapPayment);
         },
+        staleTime: 2 * 60 * 1000,
     });
 };

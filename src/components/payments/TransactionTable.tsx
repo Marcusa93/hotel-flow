@@ -11,8 +11,9 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/shared';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Eye, Smartphone, CreditCard, Banknote, MoreHorizontal, CheckCircle2, XCircle } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { Payment, PaymentMethod, PaymentStatus, Guest, Room } from '@/types/hotel';
 import {
@@ -26,7 +27,7 @@ import {
 
 interface TransactionTableProps {
     payments: Payment[];
-    getBookingInfo: (bookingId: string) => { guest: Guest | undefined; room: Room | undefined };
+    getBookingInfo: (bookingId: string) => { guest: Guest | undefined; room: Room | undefined; checkIn?: string; checkOut?: string };
     onStatusChange?: (paymentId: string, newStatus: PaymentStatus) => void;
     onViewReceipt?: (payment: Payment) => void;
 }
@@ -59,9 +60,17 @@ export function TransactionTable({ payments, getBookingInfo, onStatusChange, onV
                     </TableHeader>
                     <TableBody>
                         {payments.map((payment) => {
-                            const { guest, room } = getBookingInfo(payment.bookingId);
+                            const { guest, room, checkIn, checkOut } = getBookingInfo(payment.bookingId);
+                            const stayLabel = checkIn && checkOut
+                                ? `${format(new Date(checkIn), 'dd/MM')} → ${format(new Date(checkOut), 'dd/MM')}`
+                                : undefined;
+                            const daysOverdue = payment.status === 'PENDING' ? differenceInDays(new Date(), new Date(payment.date)) : 0;
                             return (
-                                <TableRow key={payment.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-white/40 dark:hover:bg-slate-800/40 transition-colors">
+                                <TableRow key={payment.id} className={cn(
+                                    "border-b border-slate-100 dark:border-slate-800 hover:bg-white/40 dark:hover:bg-slate-800/40 transition-colors",
+                                    daysOverdue >= 7 && "bg-red-50/50 dark:bg-red-950/20",
+                                    daysOverdue >= 3 && daysOverdue < 7 && "bg-amber-50/50 dark:bg-amber-950/20",
+                                )}>
                                     <TableCell>
                                         <div className="flex items-center gap-3">
                                             <Avatar className="w-9 h-9 border border-white/50 shadow-sm">
@@ -71,7 +80,10 @@ export function TransactionTable({ payments, getBookingInfo, onStatusChange, onV
                                             </Avatar>
                                             <div>
                                                 <p className="font-medium text-sm text-slate-900 dark:text-slate-100">{guest?.fullName || 'Desconocido'}</p>
-                                                <p className="text-[11px] text-muted-foreground">Hab. {room?.roomNumber || '-'}</p>
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    Hab. {room?.roomNumber || '-'}
+                                                    {stayLabel && <span className="ml-1.5 text-muted-foreground/70">({stayLabel})</span>}
+                                                </p>
                                             </div>
                                         </div>
                                     </TableCell>
@@ -95,7 +107,15 @@ export function TransactionTable({ payments, getBookingInfo, onStatusChange, onV
                                         ${payment.amount.toLocaleString('es-AR')}
                                     </TableCell>
                                     <TableCell>
-                                        <StatusBadge status={payment.status} />
+                                        <div className="flex items-center gap-1.5">
+                                            <StatusBadge status={payment.status} />
+                                            {payment.status === 'PENDING' && (() => {
+                                                const days = differenceInDays(new Date(), new Date(payment.date));
+                                                if (days >= 7) return <span className="text-[10px] font-bold text-red-600 dark:text-red-400">{days}d</span>;
+                                                if (days >= 3) return <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">{days}d</span>;
+                                                return null;
+                                            })()}
+                                        </div>
                                     </TableCell>
                                     <TableCell>
                                         <DropdownMenu>

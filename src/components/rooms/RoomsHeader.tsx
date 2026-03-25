@@ -6,7 +6,7 @@ interface RoomsHeaderProps {
     totalRooms: number;
     occupiedCount: number;
     dirtyCount: number;
-    onAddRoom: () => void;
+    onAddRoom?: () => void;
 }
 
 export function RoomsHeader({ totalRooms, occupiedCount, dirtyCount, onAddRoom }: RoomsHeaderProps) {
@@ -53,14 +53,16 @@ export function RoomsHeader({ totalRooms, occupiedCount, dirtyCount, onAddRoom }
                 </div>
             </div>
 
-            <Button
-                onClick={onAddRoom}
-                className="rounded-full px-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all mb-1"
-                size="lg"
-            >
-                <Plus className="w-5 h-5 mr-2" />
-                Agregar Habitación
-            </Button>
+            {onAddRoom && (
+                <Button
+                    onClick={onAddRoom}
+                    className="rounded-full px-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all mb-1"
+                    size="lg"
+                >
+                    <Plus className="w-5 h-5 mr-2" />
+                    Agregar Habitación
+                </Button>
+            )}
         </div>
     );
 }

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useAppRole } from '@/context/AppRoleContext';
 import { PageHeader, TableSkeleton } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -87,6 +88,8 @@ const expenseTypeColors: Record<ExpenseType, string> = {
 };
 
 export default function Expenses() {
+    const { currentRole } = useAppRole();
+    const canWrite = currentRole === 'admin' || currentRole === 'reception';
     const [dialogOpen, setDialogOpen] = useState(false);
     const [filterType, setFilterType] = useState<ExpenseType | 'ALL'>('ALL');
 
@@ -143,12 +146,12 @@ export default function Expenses() {
             <PageHeader
                 title="Gastos"
                 description="Control de gastos operativos del hotel"
-                actions={
+                actions={canWrite ? (
                     <Button onClick={() => setDialogOpen(true)}>
                         <Plus className="w-4 h-4 mr-2" />
                         Nuevo Gasto
                     </Button>
-                }
+                ) : undefined}
             />
 
             {/* Stats Cards */}
@@ -279,6 +282,7 @@ export default function Expenses() {
                                             ${expense.amount.toLocaleString('es-AR')}
                                         </TableCell>
                                         <TableCell className="text-right">
+                                          {canWrite && (
                                             <AlertDialog>
                                                 <AlertDialogTrigger asChild>
                                                     <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive">
@@ -300,6 +304,7 @@ export default function Expenses() {
                                                     </AlertDialogFooter>
                                                 </AlertDialogContent>
                                             </AlertDialog>
+                                          )}
                                         </TableCell>
                                     </TableRow>
                                 ))}

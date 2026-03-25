@@ -21,6 +21,7 @@ export const useRoomTypes = () => {
                 maxGuests: item.max_guests,
                 description: item.description
             })) as RoomType[];
-        }
+        },
+        staleTime: 5 * 60 * 1000,
     });
 };

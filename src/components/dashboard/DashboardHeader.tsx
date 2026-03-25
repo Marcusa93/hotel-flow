@@ -6,6 +6,8 @@ import { es } from 'date-fns/locale';
 
 interface DashboardHeaderProps {
     onNewBooking: () => void;
+    onCheckInsClick?: () => void;
+    onCheckOutsClick?: () => void;
     todayCheckIns?: number;
     todayCheckOuts?: number;
     hotelName?: string;
@@ -19,7 +21,7 @@ function timezoneLabel(tz?: string): string {
     return (parts[1] ?? parts[0]).replace(/_/g, ' ');
 }
 
-export function DashboardHeader({ onNewBooking, todayCheckIns = 0, todayCheckOuts = 0, hotelName = 'Hotel', timezone }: DashboardHeaderProps) {
+export function DashboardHeader({ onNewBooking, onCheckInsClick, onCheckOutsClick, todayCheckIns = 0, todayCheckOuts = 0, hotelName = 'Hotel', timezone }: DashboardHeaderProps) {
     const [currentTime, setCurrentTime] = useState(new Date());
 
     // Update clock every second
@@ -92,22 +94,28 @@ export function DashboardHeader({ onNewBooking, todayCheckIns = 0, todayCheckOut
                         </div>
                     </div>
 
-                    {/* Today's Summary */}
+                    {/* Today's Summary — clickable */}
                     <div className="flex gap-3">
-                        <div className="px-4 py-2 rounded-xl bg-white/5 backdrop-blur border border-amber-500/15">
+                        <button
+                            onClick={onCheckInsClick}
+                            className="px-4 py-2 rounded-xl bg-white/5 backdrop-blur border border-amber-500/15 text-left transition-all hover:bg-white/10 hover:border-emerald-400/40 hover:scale-105 active:scale-95"
+                        >
                             <p className="text-xs text-white/50 mb-0.5">Check-ins hoy</p>
                             <p className="text-xl font-bold text-emerald-400">{todayCheckIns}</p>
-                        </div>
-                        <div className="px-4 py-2 rounded-xl bg-white/5 backdrop-blur border border-amber-500/15">
+                        </button>
+                        <button
+                            onClick={onCheckOutsClick}
+                            className="px-4 py-2 rounded-xl bg-white/5 backdrop-blur border border-amber-500/15 text-left transition-all hover:bg-white/10 hover:border-amber-400/40 hover:scale-105 active:scale-95"
+                        >
                             <p className="text-xs text-white/50 mb-0.5">Check-outs hoy</p>
                             <p className="text-xl font-bold text-amber-400">{todayCheckOuts}</p>
-                        </div>
+                        </button>
                     </div>
 
                     <Button
                         onClick={onNewBooking}
                         size="lg"
-                        className="rounded-xl px-6 shadow-lg bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold shadow-amber-500/20"
+                        className="rounded-xl px-6 shadow-lg bg-amber-500 hover:bg-amber-600 hover:shadow-xl text-slate-900 font-semibold shadow-amber-500/20 active:scale-95 transition-all"
                     >
                         <Plus className="w-5 h-5 mr-2" />
                         Nueva Reserva

@@ -1,18 +1,15 @@
 import { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { MobileTabBar } from './MobileTabBar';
 import { AtlasChatbot } from '@/components/chat/AtlasChatbot';
 import { useNotificationToast } from '@/hooks/useNotificationToast';
-import { useNotificationSettingsSync } from '@/hooks/useNotificationSettingsSync';
 
 interface MainLayoutProps {
   children: ReactNode;
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-  // Sync notification preferences from Supabase → context + localStorage
-  useNotificationSettingsSync();
-  // Listen for new notifications and show toast popups in realtime
   useNotificationToast();
 
   return (
@@ -20,10 +17,11 @@ export function MainLayout({ children }: MainLayoutProps) {
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Topbar />
-        <main className="flex-1 overflow-auto p-6 scrollbar-thin">
+        <main className="flex-1 overflow-auto p-6 pb-20 md:pb-6 scrollbar-thin">
           {children}
         </main>
         <AtlasChatbot />
+        <MobileTabBar />
       </div>
     </div>
   );

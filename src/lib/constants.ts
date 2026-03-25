@@ -35,6 +35,39 @@ export const DOCUMENT_TYPES = [
 
 // DocumentType is the canonical type from src/types/hotel.ts — do not re-export here
 
+// --- Status & method labels (used across components, hooks, and pages) ---
+
+export const BOOKING_STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Pendiente',
+  CONFIRMED: 'Confirmada',
+  CHECKED_IN: 'Alojado',
+  CHECKED_OUT: 'Check-out',
+  CANCELLED: 'Cancelada',
+  NO_SHOW: 'No-show',
+};
+
+export const ROOM_STATUS_LABELS: Record<string, string> = {
+  AVAILABLE: 'Disponible',
+  OCCUPIED: 'Ocupada',
+  DIRTY: 'Sucia',
+  MAINTENANCE: 'Mantenimiento',
+  OUT_OF_ORDER: 'Fuera de servicio',
+};
+
+export const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  PAID: 'Pagado',
+  PENDING: 'Pendiente',
+  FAILED: 'Fallido',
+  REFUNDED: 'Reembolsado',
+};
+
+export const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  CASH: 'Efectivo',
+  CARD: 'Tarjeta',
+  TRANSFER: 'Transferencia',
+  OTHER: 'Otro',
+};
+
 export const CHARGE_CATEGORIES = [
   { value: 'MINIBAR', label: 'Minibar', icon: '🍫' },
   { value: 'LAVANDERIA', label: 'Lavandería', icon: '👔' },

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { Expense, ExpenseType } from '@/types/hotel';
+import { ExpenseType } from '@/types/hotel';
+import { mapExpense } from '@/lib/mappers';
 
 interface UseExpensesOptions {
     startDate?: Date;
@@ -31,14 +32,7 @@ export const useExpenses = (options: UseExpensesOptions = {}) => {
 
             if (error) throw error;
 
-            return (data || []).map(row => ({
-                id: row.id,
-                date: new Date(row.date),
-                expenseType: row.expense_type as ExpenseType,
-                amount: parseFloat(row.amount),
-                description: row.description,
-                createdAt: new Date(row.created_at)
-            }));
+            return (data || []).map(mapExpense);
         },
         staleTime: 2 * 60 * 1000,
     });

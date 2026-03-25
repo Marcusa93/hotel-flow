@@ -4,12 +4,14 @@ import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
+import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import {
   DashboardHeader,
   StatsOverview,
   LiveActivityFeed,
   RevenueChart,
-  OccupancyWidget,
+  RoomStatusMap,
+  OperationalAlerts,
   UpcomingArrivalsWidget,
   QuickActions
 } from '@/components/dashboard';
@@ -21,10 +23,11 @@ import { es } from 'date-fns/locale';
 
 export default function Dashboard() {
   const { stats } = useDashboardStats();
-  const { rooms } = useRoomOperations();
+  const { rooms, roomTypes } = useRoomOperations();
   const { guests } = useGuestOperations();
   const { bookings } = useBookingOperations();
   const { data: hotelSettings } = useHotelSettings();
+  const { payments } = usePaymentOperations();
 
   const navigate = useNavigate();
 
@@ -45,20 +48,14 @@ export default function Dashboard() {
     return { todayCheckIns: checkIns, todayCheckOuts: checkOuts };
   }, [bookings]);
 
-  // Derived Data for Widgets
-  const occupancyStats = {
-    clean: rooms.filter(r => r.status === 'AVAILABLE').length,
-    dirty: rooms.filter(r => r.status === 'DIRTY').length,
-    occupied: rooms.filter(r => r.status === 'OCCUPIED').length,
-    maintenance: rooms.filter(r => r.status === 'MAINTENANCE').length,
-  };
+  const availableCount = useMemo(() => rooms.filter(r => r.status === 'AVAILABLE').length, [rooms]);
 
   const { data: revenueStats, isLoading: isLoadingRevenue } = useRevenueStats(7);
 
-  const revenueData = revenueStats?.map(stat => ({
+  const revenueData = useMemo(() => revenueStats?.map(stat => ({
     name: format(new Date(stat.date), 'EEE', { locale: es }),
     value: stat.revenue
-  })) || [];
+  })) || [], [revenueStats]);
 
   // Calculate real ADR from recent bookings
   const adr = useMemo(() => {
@@ -90,6 +87,8 @@ export default function Dashboard() {
         >
           <DashboardHeader
             onNewBooking={() => navigate('/bookings?new=true')}
+            onCheckInsClick={() => navigate('/bookings?filter=checkin-today')}
+            onCheckOutsClick={() => navigate('/bookings?filter=checkout-today')}
             todayCheckIns={todayCheckIns}
             todayCheckOuts={todayCheckOuts}
             hotelName={hotelSettings?.hotelName}
@@ -108,10 +107,13 @@ export default function Dashboard() {
             monthlyRevenue={stats.monthlyRevenue}
             totalGuests={guests.length}
             adr={adr}
-            availableRooms={occupancyStats.clean}
+            availableRooms={availableCount}
             isLoading={isLoadingRevenue}
           />
         </motion.div>
+
+        {/* Operational Alerts */}
+        <OperationalAlerts rooms={rooms} bookings={bookings} payments={payments} />
 
         {/* Quick Actions */}
         <motion.div
@@ -122,6 +124,20 @@ export default function Dashboard() {
           <QuickActions />
         </motion.div>
 
+        {/* Room Status Map — vista principal */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <RoomStatusMap
+            rooms={rooms}
+            bookings={bookings}
+            guests={guests}
+            roomTypes={roomTypes}
+          />
+        </motion.div>
+
         {/* Main Grid: Charts & Feeds */}
         <div className="grid grid-cols-1 lg:grid-cols-7 gap-6">
           {/* Left Column (Charts) */}
@@ -129,20 +145,19 @@ export default function Dashboard() {
             className="lg:col-span-4 space-y-6"
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
+            transition={{ delay: 0.25 }}
           >
             <RevenueChart data={revenueData} isLoading={isLoadingRevenue} />
             <UpcomingArrivalsWidget />
           </motion.div>
 
-          {/* Right Column (Operational Widgets) */}
+          {/* Right Column (Activity Feed) */}
           <motion.div
             className="lg:col-span-3 space-y-6"
             initial={{ opacity: 0, x: 10 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.25 }}
+            transition={{ delay: 0.3 }}
           >
-            <OccupancyWidget stats={occupancyStats} />
             <LiveActivityFeed />
           </motion.div>
         </div>

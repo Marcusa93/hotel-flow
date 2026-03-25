@@ -41,6 +41,7 @@ export const useRooms = () => {
                 roomTypeName: item.room_types?.name,
                 price: item.room_types?.base_price,
             })) as Room[];
-        }
+        },
+        staleTime: 2 * 60 * 1000,
     });
 };

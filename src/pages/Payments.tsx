@@ -4,6 +4,7 @@ import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
+import { useAppRole } from '@/context/AppRoleContext';
 import { PageHeader, EmptyState } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +19,8 @@ import { Payment, PaymentStatus, PaymentMethod } from '@/types/hotel';
 import { PaymentStats, TransactionTable, NewPaymentDialog, PaymentReceipt } from '@/components/payments';
 
 export default function Payments() {
+  const { currentRole } = useAppRole();
+  const canWrite = currentRole === 'admin' || currentRole === 'reception';
   const { payments, updatePayment } = usePaymentOperations();
   const { bookings } = useBookingOperations();
   const { guests } = useGuestOperations();
@@ -54,7 +57,12 @@ export default function Payments() {
     if (!booking) return { guest: undefined, room: undefined };
     const guest = guests.find(g => g.id === booking.guestId);
     const room = rooms.find(r => r.id === booking.roomId);
-    return { guest, room };
+    return {
+      guest,
+      room,
+      checkIn: booking.checkInDate ? String(booking.checkInDate) : undefined,
+      checkOut: booking.checkOutDate ? String(booking.checkOutDate) : undefined,
+    };
   };
 
   const handlePaymentStatusChange = (paymentId: string, newStatus: PaymentStatus) => {
@@ -75,7 +83,7 @@ export default function Payments() {
       <PageHeader
         title="Finanzas"
         description="Centro de Control de Ingresos y Pagos"
-        actions={
+        actions={canWrite ? (
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -85,7 +93,7 @@ export default function Payments() {
               Nuevo Cobro
             </Button>
           </div>
-        }
+        ) : undefined}
       />
 
       {/* New Payment Dialog */}

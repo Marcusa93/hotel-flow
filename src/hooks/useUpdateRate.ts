@@ -32,6 +32,7 @@ export const useUpdateRate = () => {
             if (data.discountAmount !== undefined) updates.discount_amount = data.discountAmount;
             if (data.minNights !== undefined) updates.min_nights = data.minNights;
             if (data.promoCode !== undefined) updates.promo_code = data.promoCode;
+            if (data.paymentMethods !== undefined) updates.payment_methods = data.paymentMethods?.length ? data.paymentMethods : null;
 
             const { error } = await supabase
                 .from('rates')

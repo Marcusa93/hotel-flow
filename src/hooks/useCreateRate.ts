@@ -15,6 +15,7 @@ interface CreateRateParams {
     discountAmount?: number;
     minNights?: number;
     promoCode?: string;
+    paymentMethods?: string[];
 }
 
 export const useCreateRate = () => {
@@ -36,6 +37,7 @@ export const useCreateRate = () => {
                     discount_amount: params.discountAmount,
                     min_nights: params.minNights,
                     promo_code: params.promoCode,
+                    payment_methods: params.paymentMethods?.length ? params.paymentMethods : null,
                 })
                 .select()
                 .single();

@@ -1,4 +1,3 @@
-import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
 
 interface ChatMarkdownProps {
@@ -7,52 +6,117 @@ interface ChatMarkdownProps {
 }
 
 /**
- * Renders markdown inside chat bubbles with compact, chat-optimized styles.
- * Uses @tailwindcss/typography prose classes with tight spacing overrides.
- * User messages render as plain text; assistant messages render as markdown.
+ * Lightweight markdown renderer for chat bubbles.
+ * Supports: **bold**, *italic*, - lists, #### headings, and line breaks.
+ * No external dependencies — just regex parsing.
  */
 export function ChatMarkdown({ content, isUser = false }: ChatMarkdownProps) {
-    // User messages: plain text, no markdown parsing needed
     if (isUser) {
         return <span className="whitespace-pre-wrap">{content}</span>;
     }
 
     return (
-        <ReactMarkdown
-            className={cn(
-                'prose prose-sm dark:prose-invert max-w-none',
-                // Tighten spacing for chat bubbles
-                '[&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
-                // Paragraphs
-                'prose-p:my-1 prose-p:leading-relaxed',
-                // Headings — compact
-                'prose-h1:text-sm prose-h1:font-bold prose-h1:my-2',
-                'prose-h2:text-sm prose-h2:font-bold prose-h2:my-2',
-                'prose-h3:text-[13px] prose-h3:font-semibold prose-h3:my-1.5',
-                'prose-h4:text-[13px] prose-h4:font-semibold prose-h4:my-1',
-                // Lists — tight
-                'prose-ul:my-1 prose-ul:pl-4',
-                'prose-ol:my-1 prose-ol:pl-4',
-                'prose-li:my-0.5 prose-li:leading-relaxed',
-                // Bold — inherit color
-                'prose-strong:text-inherit prose-strong:font-semibold',
-                // Links
-                'prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline',
-                // Code inline
-                'prose-code:text-xs prose-code:bg-black/5 dark:prose-code:bg-white/10 prose-code:rounded prose-code:px-1 prose-code:py-0.5 prose-code:before:content-none prose-code:after:content-none',
-            )}
-            components={{
-                // Disable images (not useful inside chat)
-                img: () => null,
-                // Disable code blocks (not useful inside chat)
-                pre: ({ children }) => <>{children}</>,
-                // Disable tables (too wide for 380px chat)
-                table: () => null,
-                // Disable horizontal rules
-                hr: () => <div className="my-2 border-t border-current/10" />,
-            }}
-        >
-            {content}
-        </ReactMarkdown>
+        <div className="space-y-1.5 text-sm leading-relaxed">
+            {content.split('\n').map((line, i) => (
+                <ChatLine key={i} line={line} />
+            ))}
+        </div>
     );
+}
+
+function ChatLine({ line }: { line: string }) {
+    const trimmed = line.trim();
+
+    // Empty line → small spacer
+    if (!trimmed) return <div className="h-1" />;
+
+    // Headings (#### → h4, ### → h3, etc.)
+    if (trimmed.startsWith('####')) {
+        return <p className="font-semibold text-[13px] mt-2 mb-0.5">{renderInline(trimmed.slice(4).trim())}</p>;
+    }
+    if (trimmed.startsWith('###')) {
+        return <p className="font-semibold text-sm mt-2 mb-0.5">{renderInline(trimmed.slice(3).trim())}</p>;
+    }
+    if (trimmed.startsWith('##')) {
+        return <p className="font-bold text-sm mt-2 mb-0.5">{renderInline(trimmed.slice(2).trim())}</p>;
+    }
+
+    // List items (- or *)
+    if (/^[-*]\s/.test(trimmed)) {
+        return (
+            <div className="flex gap-1.5 pl-1">
+                <span className="text-muted-foreground mt-0.5 shrink-0">•</span>
+                <span>{renderInline(trimmed.slice(2).trim())}</span>
+            </div>
+        );
+    }
+
+    // Numbered list items (1. 2. etc.)
+    const numMatch = trimmed.match(/^(\d+)\.\s/);
+    if (numMatch) {
+        return (
+            <div className="flex gap-1.5 pl-1">
+                <span className="text-muted-foreground shrink-0">{numMatch[1]}.</span>
+                <span>{renderInline(trimmed.slice(numMatch[0].length).trim())}</span>
+            </div>
+        );
+    }
+
+    // Regular paragraph
+    return <p>{renderInline(trimmed)}</p>;
+}
+
+/** Parse inline markdown: **bold**, *italic*, `code` */
+function renderInline(text: string): React.ReactNode {
+    const parts: React.ReactNode[] = [];
+    let remaining = text;
+    let key = 0;
+
+    while (remaining.length > 0) {
+        // Bold: **text**
+        const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+        // Italic: *text* (but not **)
+        const italicMatch = remaining.match(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/);
+        // Code: `text`
+        const codeMatch = remaining.match(/`(.+?)`/);
+
+        // Find earliest match
+        const matches = [
+            boldMatch ? { type: 'bold', match: boldMatch } : null,
+            italicMatch ? { type: 'italic', match: italicMatch } : null,
+            codeMatch ? { type: 'code', match: codeMatch } : null,
+        ].filter(Boolean) as { type: string; match: RegExpMatchArray }[];
+
+        if (matches.length === 0) {
+            parts.push(remaining);
+            break;
+        }
+
+        // Pick the one that appears first
+        const earliest = matches.sort((a, b) => (a.match.index ?? 0) - (b.match.index ?? 0))[0];
+        const idx = earliest.match.index ?? 0;
+
+        // Text before match
+        if (idx > 0) {
+            parts.push(remaining.slice(0, idx));
+        }
+
+        // Render match
+        const inner = earliest.match[1];
+        if (earliest.type === 'bold') {
+            parts.push(<strong key={key++} className="font-semibold">{inner}</strong>);
+        } else if (earliest.type === 'italic') {
+            parts.push(<em key={key++}>{inner}</em>);
+        } else if (earliest.type === 'code') {
+            parts.push(
+                <code key={key++} className="text-xs bg-black/5 dark:bg-white/10 rounded px-1 py-0.5">
+                    {inner}
+                </code>
+            );
+        }
+
+        remaining = remaining.slice(idx + earliest.match[0].length);
+    }
+
+    return parts.length === 1 && typeof parts[0] === 'string' ? parts[0] : <>{parts}</>;
 }

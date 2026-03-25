@@ -9,6 +9,7 @@ import { AppRoleProvider } from "@/context/AppRoleContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { MainLayout } from "@/components/layout";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { RoleGuard } from "@/components/auth/RoleGuard";
 import Login from "@/pages/Auth/Login";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -50,23 +51,38 @@ const AnimatedRoutes = () => {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<PageWrapper><Dashboard /></PageWrapper>} />
-        <Route path="/bookings" element={<PageWrapper><Bookings /></PageWrapper>} />
-        <Route path="/bookings/:id" element={<PageWrapper><BookingDetail /></PageWrapper>} />
-        <Route path="/rooms" element={<PageWrapper><Rooms /></PageWrapper>} />
-        <Route path="/guests" element={<PageWrapper><Guests /></PageWrapper>} />
-        <Route path="/guests/:id" element={<PageWrapper><Guests /></PageWrapper>} />
-        <Route path="/payments" element={<PageWrapper><Payments /></PageWrapper>} />
-        <Route path="/calendar" element={<Navigate to="/availability" replace />} />
-        <Route path="/availability" element={<PageWrapper><Availability /></PageWrapper>} />
-        <Route path="/rates" element={<PageWrapper><Rates /></PageWrapper>} />
-        <Route path="/statistics" element={<PageWrapper><Statistics /></PageWrapper>} />
-        <Route path="/billing" element={<PageWrapper><Billing /></PageWrapper>} />
-        <Route path="/housekeeping" element={<PageWrapper><Housekeeping /></PageWrapper>} />
-        <Route path="/notifications" element={<PageWrapper><Notifications /></PageWrapper>} />
-        <Route path="/expenses" element={<PageWrapper><Expenses /></PageWrapper>} />
+        {/* Dashboard — admin, reception */}
+        <Route path="/" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Dashboard /></PageWrapper></RoleGuard>} />
+
+        {/* Operaciones — admin, reception */}
+        <Route path="/bookings" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Bookings /></PageWrapper></RoleGuard>} />
+        <Route path="/bookings/:id" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><BookingDetail /></PageWrapper></RoleGuard>} />
+        <Route path="/guests" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Guests /></PageWrapper></RoleGuard>} />
+        <Route path="/guests/:id" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Guests /></PageWrapper></RoleGuard>} />
+        <Route path="/availability" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Availability /></PageWrapper></RoleGuard>} />
+        <Route path="/rates" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Rates /></PageWrapper></RoleGuard>} />
+
+        {/* Habitaciones — admin, reception, housekeeping */}
+        <Route path="/rooms" element={<RoleGuard allowedRoles={['admin', 'reception', 'housekeeping']}><PageWrapper><Rooms /></PageWrapper></RoleGuard>} />
+
+        {/* Housekeeping — admin, housekeeping */}
+        <Route path="/housekeeping" element={<RoleGuard allowedRoles={['admin', 'housekeeping']}><PageWrapper><Housekeeping /></PageWrapper></RoleGuard>} />
+
+        {/* Finanzas — admin, reception, auditor */}
+        <Route path="/payments" element={<RoleGuard allowedRoles={['admin', 'reception', 'auditor']}><PageWrapper><Payments /></PageWrapper></RoleGuard>} />
+        <Route path="/expenses" element={<RoleGuard allowedRoles={['admin', 'reception', 'auditor']}><PageWrapper><Expenses /></PageWrapper></RoleGuard>} />
+        <Route path="/billing" element={<RoleGuard allowedRoles={['admin', 'auditor']}><PageWrapper><Billing /></PageWrapper></RoleGuard>} />
+
+        {/* Reportes — admin, auditor */}
+        <Route path="/statistics" element={<RoleGuard allowedRoles={['admin', 'auditor']}><PageWrapper><Statistics /></PageWrapper></RoleGuard>} />
+        <Route path="/audit-log" element={<RoleGuard allowedRoles={['admin', 'auditor']}><PageWrapper><AuditLog /></PageWrapper></RoleGuard>} />
+
+        {/* Sistema */}
+        <Route path="/notifications" element={<RoleGuard allowedRoles={['admin']}><PageWrapper><Notifications /></PageWrapper></RoleGuard>} />
         <Route path="/settings" element={<PageWrapper><Settings /></PageWrapper>} />
-        <Route path="/audit-log" element={<PageWrapper><AuditLog /></PageWrapper>} />
+
+        {/* Redirects */}
+        <Route path="/calendar" element={<Navigate to="/availability" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AnimatePresence>

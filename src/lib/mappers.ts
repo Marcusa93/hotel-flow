@@ -119,6 +119,7 @@ export const mapRate = (row: DbRow): Rate => ({
   discountAmount: row.discount_amount,
   minNights: row.min_nights,
   promoCode: row.promo_code,
+  paymentMethods: row.payment_methods || null,
 });
 
 export const mapExpense = (row: DbRow): Expense => ({

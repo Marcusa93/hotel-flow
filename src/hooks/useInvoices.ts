@@ -11,12 +11,10 @@ export const useInvoices = () => {
                 .select('*, invoice_items(*)')
                 .order('issue_date', { ascending: false });
 
-            if (error) {
-                console.error('Error fetching invoices:', error);
-                throw error;
-            }
+            if (error) throw error;
 
             return (data || []).map(mapInvoice);
         },
+        staleTime: 2 * 60 * 1000,
     });
 };

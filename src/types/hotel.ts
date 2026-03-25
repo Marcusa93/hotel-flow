@@ -120,6 +120,7 @@ export interface Rate {
   discountAmount?: number;
   minNights?: number;
   promoCode?: string;
+  paymentMethods?: string[];
 }
 
 export interface InvoiceItem {
@@ -159,6 +160,7 @@ export interface NotificationLog {
   bookingId?: string;
 }
 
+/** @deprecated Notification email/whatsapp settings removed — no external sender backend exists */
 export interface NotificationSettings {
   emailEnabled: boolean;
   whatsappEnabled: boolean;

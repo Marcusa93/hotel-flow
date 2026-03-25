@@ -1,7 +1,6 @@
-import { Room, RoomStatus, Guest, Booking } from '@/types/hotel';
-import { Badge } from '@/components/ui/badge';
+import { Room, RoomStatus, Guest } from '@/types/hotel';
 import { Button } from '@/components/ui/button';
-import { Users, AlertTriangle, Sparkles, LogIn, PaintBucket, Brush } from 'lucide-react';
+import { Sparkles, LogIn, Brush } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
@@ -11,10 +10,9 @@ interface RoomCardProps {
     roomTypeName?: string;
     onClick: () => void;
     onQuickAction: (action: 'clean' | 'occupy') => void;
-    needsCleaning?: boolean; // Flag para indicar si necesita limpieza
+    needsCleaning?: boolean;
 }
 
-// Colores actualizados: verde=disponible, rojo=ocupada, azul=mantenimiento, amarillo=sucia
 const statusColorMap: Record<RoomStatus, string> = {
     AVAILABLE: 'bg-emerald-500',
     OCCUPIED: 'bg-rose-500',
@@ -48,13 +46,12 @@ const statusLabels: Record<RoomStatus, string> = {
 };
 
 export function RoomCard({ room, guest, roomTypeName, onClick, onQuickAction, needsCleaning }: RoomCardProps) {
-    // Si el estado es DIRTY, automáticamente needsCleaning es true
     const showCleaningIndicator = needsCleaning || room.status === 'DIRTY';
+    const hasQuickAction = room.status === 'DIRTY' || room.status === 'AVAILABLE';
 
     return (
         <motion.div
             whileHover={{ y: -4, transition: { duration: 0.2 } }}
-            className="group relative"
         >
             <div
                 onClick={onClick}
@@ -68,14 +65,13 @@ export function RoomCard({ room, guest, roomTypeName, onClick, onQuickAction, ne
                 <div className="p-4 flex flex-col h-full">
                     <div className="flex justify-between items-start mb-2">
                         <div>
-                            <span className="text-[10px] bg-white/70 dark:bg-slate-800 text-slate-500 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                            <span className="text-xs bg-white/70 dark:bg-slate-800 text-slate-500 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                                 {roomTypeName}
                             </span>
                             <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">
                                 {room.roomNumber}
                             </h3>
                         </div>
-                        {/* Indicador de limpieza - puede aparecer en cualquier estado */}
                         {showCleaningIndicator && (
                             <div className={cn(
                                 "p-1.5 rounded-full",
@@ -104,42 +100,38 @@ export function RoomCard({ room, guest, roomTypeName, onClick, onQuickAction, ne
                             </div>
                         )}
 
-                        <div className="flex justify-between items-center text-[10px] text-muted-foreground font-medium uppercase tracking-wide pt-2 border-t border-white/50 dark:border-slate-800">
+                        <div className="flex justify-between items-center text-xs text-muted-foreground font-medium uppercase tracking-wide pt-2 border-t border-white/50 dark:border-slate-800">
                             <span>Piso {room.floor}</span>
                             <span className={cn("font-bold", statusTextMap[room.status])}>
                                 {statusLabels[room.status]}
                             </span>
                         </div>
+
+                        {/* Always-visible quick action buttons */}
+                        {hasQuickAction && (
+                            <div className="pt-1">
+                                {room.status === 'DIRTY' && (
+                                    <Button
+                                        size="sm"
+                                        className="w-full h-8 rounded-xl text-xs bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95 transition-transform"
+                                        onClick={(e) => { e.stopPropagation(); onQuickAction('clean'); }}
+                                    >
+                                        <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Marcar Limpia
+                                    </Button>
+                                )}
+                                {room.status === 'AVAILABLE' && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="w-full h-8 rounded-xl text-xs border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 active:scale-95 transition-transform"
+                                        onClick={(e) => { e.stopPropagation(); onQuickAction('occupy'); }}
+                                    >
+                                        <LogIn className="w-3.5 h-3.5 mr-1.5" /> Check-in
+                                    </Button>
+                                )}
+                            </div>
+                        )}
                     </div>
-                </div>
-
-                {/* Quick Actions Overlay (Appears on Hover) */}
-                <div className="absolute inset-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3 p-4 pointer-events-none group-hover:pointer-events-auto">
-                    <Button size="sm" className="w-full rounded-xl bg-slate-900 text-white hover:bg-black" onClick={(e) => { e.stopPropagation(); onClick(); }}>
-                        Ver Detalles
-                    </Button>
-
-                    {room.status === 'DIRTY' && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full rounded-xl border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-800 hover:border-emerald-300"
-                            onClick={(e) => { e.stopPropagation(); onQuickAction('clean'); }}
-                        >
-                            <Sparkles className="w-4 h-4 mr-2" /> Marcar Limpia
-                        </Button>
-                    )}
-
-                    {room.status === 'AVAILABLE' && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full rounded-xl border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 hover:border-blue-300"
-                            onClick={(e) => { e.stopPropagation(); onQuickAction('occupy'); }}
-                        >
-                            <LogIn className="w-4 h-4 mr-2" /> Check-in Rápido
-                        </Button>
-                    )}
                 </div>
             </div>
         </motion.div>

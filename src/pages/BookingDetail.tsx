@@ -193,6 +193,26 @@ export default function BookingDetail() {
               </div>
 
               <div className="space-y-4">
+                {/* Room housekeeping status */}
+                {booking.room.status === 'DIRTY' && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs font-medium">
+                    <BedDouble className="w-4 h-4 shrink-0" />
+                    Habitación pendiente de limpieza
+                  </div>
+                )}
+                {booking.room.status === 'MAINTENANCE' && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-medium">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    Habitación en mantenimiento
+                  </div>
+                )}
+                {booking.room.status === 'AVAILABLE' && booking.status === 'CONFIRMED' && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-medium">
+                    <CheckCircle className="w-4 h-4 shrink-0" />
+                    Habitación lista para check-in
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <span className="text-xs text-muted-foreground">Entrada</span>

@@ -2,6 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Payment } from '@/types/hotel';
+import { PAYMENT_METHOD_LABELS } from '@/lib/constants';
 import { createNotificationIfEnabled } from './useCreateNotification';
 import { logAuditEvent } from './useCreateAuditLog';
 
@@ -49,18 +50,13 @@ export const useCreatePayment = () => {
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
 
             // Create notification for new payment
-            const methodLabels: Record<string, string> = {
-                cash: 'efectivo',
-                card: 'tarjeta',
-                transfer: 'transferencia',
-                other: 'otro medio'
-            };
+            const methodLabel = PAYMENT_METHOD_LABELS[payment.method]?.toLowerCase() || payment.method;
 
             createNotificationIfEnabled({
                 type: 'success',
                 category: 'payment',
                 title: '💰 Pago registrado',
-                message: `Pago de $${payment.amount.toLocaleString('es-AR')} recibido por ${methodLabels[payment.method] || payment.method}`,
+                message: `Pago de $${payment.amount.toLocaleString('es-AR')} recibido por ${methodLabel}`,
                 metadata: { paymentId: payment.id, bookingId: payment.bookingId }
             });
 
@@ -69,7 +65,7 @@ export const useCreatePayment = () => {
                 entityType: 'payment',
                 entityId: payment.id,
                 action: 'CREATE',
-                description: `Pago registrado: $${payment.amount.toLocaleString('es-AR')} por ${methodLabels[payment.method] || payment.method}`,
+                description: `Pago registrado: $${payment.amount.toLocaleString('es-AR')} por ${methodLabel}`,
                 newValues: { amount: payment.amount, method: payment.method, status: payment.status, bookingId: payment.bookingId },
             });
         }

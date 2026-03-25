@@ -58,7 +58,7 @@ export default function Login() {
             {/* Golden glow effect top right */}
             <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-yellow-500/10 rounded-full blur-[100px] pointer-events-none" />
 
-            <div className="w-full max-w-md bg-white/5 backdrop-blur-lg border border-white/10 p-8 rounded-2xl shadow-2xl relative z-10 animate-fade-in">
+            <div className="w-full max-w-md bg-white/5 backdrop-blur-lg border border-white/10 p-8 rounded-2xl shadow-2xl relative z-10 animate-fade-in bg-[radial-gradient(ellipse_at_top,_rgba(212,160,23,0.06),_transparent_60%)]">
                 <div className="flex flex-col items-center mb-8">
                     <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 ring-1 ring-white/20 flex items-center justify-center mb-4 shadow-lg">
                         <img src="/logo.png" alt="HoMe" className="w-10 h-10 object-contain" />

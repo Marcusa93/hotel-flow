@@ -1,4 +1,5 @@
 
+import React from 'react';
 import { Draggable } from '@hello-pangea/dnd';
 import { Booking, Guest, Room, RoomType } from '@/types/hotel';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -18,7 +19,7 @@ interface ReservationCardProps {
     onClick: () => void;
 }
 
-export function ReservationCard({ booking, guest, room, roomType, index, onClick }: ReservationCardProps) {
+export const ReservationCard = React.memo(function ReservationCard({ booking, guest, room, roomType, index, onClick }: ReservationCardProps) {
     const nights = differenceInDays(new Date(booking.checkOutDate), new Date(booking.checkInDate));
 
     return (
@@ -52,10 +53,10 @@ export function ReservationCard({ booking, guest, room, roomType, index, onClick
                                 </AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
-                                <p className="font-bold text-slate-800 dark:text-slate-100 truncate text-[15px]">
+                                <p className="font-bold text-slate-800 dark:text-slate-100 truncate text-base">
                                     {guest?.fullName || 'Huésped Desconocido'}
                                 </p>
-                                <p className="text-[11px] text-muted-foreground font-mono">
+                                <p className="text-xs text-muted-foreground font-mono">
                                     #{booking.id.slice(0, 6)}
                                 </p>
                             </div>
@@ -88,13 +89,13 @@ export function ReservationCard({ booking, guest, room, roomType, index, onClick
 
                         {/* Footer: Tags */}
                         <div className="flex items-center gap-2 relative z-10">
-                            <Badge variant="secondary" className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-normal px-2 h-6 text-[10px] gap-1 group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
+                            <Badge variant="secondary" className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-normal px-2 h-6 text-xs gap-1 group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
                                 <CreditCard className="w-3 h-3" />
                                 ${(booking.totalAmount / 1000).toFixed(0)}k
                             </Badge>
 
                             {booking.status === 'CHECKED_OUT' && (
-                                <Badge variant="outline" className="border-green-200 text-green-700 text-[10px] h-6">Pagado</Badge>
+                                <Badge variant="outline" className="border-green-200 text-green-700 text-xs h-6">Pagado</Badge>
                             )}
                         </div>
 
@@ -103,4 +104,4 @@ export function ReservationCard({ booking, guest, room, roomType, index, onClick
             )}
         </Draggable>
     );
-}
+});

@@ -5,6 +5,7 @@ import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { BookingStatus } from '@/types/hotel';
+import { isToday } from 'date-fns';
 import {
   ReservationsHeader,
   ReservationsFilters,
@@ -22,13 +23,20 @@ export default function Bookings() {
   // UI State
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [todayFilter, setTodayFilter] = useState<'checkin-today' | 'checkout-today' | null>(null);
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
 
-  // Handle ?new=true query param from Dashboard
+  // Handle query params from Dashboard
   useEffect(() => {
     if (searchParams.get('new') === 'true') {
       setIsNewDialogOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+    const filter = searchParams.get('filter');
+    if (filter === 'checkin-today' || filter === 'checkout-today') {
+      setTodayFilter(filter);
+      setStatusFilter('ALL');
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -48,7 +56,16 @@ export default function Bookings() {
 
         const matchesStatus = statusFilter === 'ALL' || booking.status === statusFilter;
 
-        return matchesSearch && matchesStatus;
+        // Today filter from dashboard clicks
+        let matchesToday = true;
+        if (todayFilter === 'checkin-today') {
+          matchesToday = isToday(new Date(booking.checkInDate)) &&
+            (booking.status === 'CONFIRMED' || booking.status === 'CHECKED_IN' || booking.status === 'PENDING');
+        } else if (todayFilter === 'checkout-today') {
+          matchesToday = isToday(new Date(booking.checkOutDate)) && booking.status === 'CHECKED_IN';
+        }
+
+        return matchesSearch && matchesStatus && matchesToday;
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [bookings, guests, rooms, search, statusFilter]);
@@ -78,14 +95,28 @@ export default function Bookings() {
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden">
       {/* Top Section: Fixed */}
-      <div className="flex-none px-6 pt-6 pb-2">
+      <div className="flex-none px-6 pt-6 pb-4">
         <ReservationsHeader onNewBooking={() => setIsNewDialogOpen(true)} />
         <ReservationsFilters
           search={search}
           onSearchChange={setSearch}
           statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
+          onStatusFilterChange={(v) => { setStatusFilter(v); setTodayFilter(null); }}
         />
+        {todayFilter && (
+          <div className="mt-3 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+              {todayFilter === 'checkin-today' ? 'Check-ins de hoy' : 'Check-outs de hoy'}
+              <button
+                onClick={() => setTodayFilter(null)}
+                className="ml-1 hover:bg-primary/20 rounded-full p-0.5 transition-colors"
+                aria-label="Quitar filtro"
+              >
+                ✕
+              </button>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Board Section: Scrollable */}

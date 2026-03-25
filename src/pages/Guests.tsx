@@ -33,12 +33,19 @@ export default function Guests() {
     }
   }, [searchParams, setSearchParams]);
 
-  // Stats Helper
-  const getGuestStats = (guestId: string) => {
-    const guestBookings = bookings.filter(b => b.guestId === guestId);
-    const totalSpend = guestBookings.reduce((sum, b) => sum + b.totalAmount, 0);
-    return { bookingsCount: guestBookings.length, totalSpend };
-  };
+  // Precompute guest stats once (avoids O(n²) in sort)
+  const guestStatsMap = useMemo(() => {
+    const map: Record<string, { bookingsCount: number; totalSpend: number }> = {};
+    for (const b of bookings) {
+      if (!map[b.guestId]) map[b.guestId] = { bookingsCount: 0, totalSpend: 0 };
+      map[b.guestId].bookingsCount++;
+      map[b.guestId].totalSpend += b.totalAmount;
+    }
+    return map;
+  }, [bookings]);
+
+  const getGuestStats = (guestId: string) =>
+    guestStatsMap[guestId] || { bookingsCount: 0, totalSpend: 0 };
 
   const filteredGuests = useMemo(() => {
     let result = guests.filter(guest => {
@@ -56,8 +63,8 @@ export default function Guests() {
       result.sort((a, b) => a.fullName.localeCompare(b.fullName));
     } else if (statusFilter === 'spend_desc') {
       result.sort((a, b) => {
-        const spendA = getGuestStats(a.id).totalSpend;
-        const spendB = getGuestStats(b.id).totalSpend;
+        const spendA = guestStatsMap[a.id]?.totalSpend || 0;
+        const spendB = guestStatsMap[b.id]?.totalSpend || 0;
         return spendB - spendA;
       });
     } else {
@@ -66,12 +73,12 @@ export default function Guests() {
     }
 
     return result;
-  }, [guests, search, statusFilter, bookings]);
+  }, [guests, search, statusFilter, guestStatsMap]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden">
       {/* Header Section */}
-      <div className="flex-none px-6 pt-6 pb-2">
+      <div className="flex-none px-6 pt-6 pb-4">
         <GuestsHeader
           guestCount={guests.length}
           guests={guests}
@@ -104,7 +111,6 @@ export default function Guests() {
             guests={filteredGuests}
             onGuestClick={setSelectedGuest}
             getGuestStats={getGuestStats}
-            hotelName={hotelName}
           />
         )}
       </div>

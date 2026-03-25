@@ -1,3 +1,4 @@
+import React from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { format, isSameDay, isSameMonth } from 'date-fns';
@@ -18,7 +19,7 @@ interface DayCellProps {
     getRoomNumber: (id: string) => string;
 }
 
-export function DayCell({
+export const DayCell = React.memo(function DayCell({
     day,
     today,
     currentDate,
@@ -118,4 +119,4 @@ export function DayCell({
             </div>
         </motion.div>
     );
-}
+});

@@ -6,3 +6,5 @@ export * from './OccupancyWidget';
 export * from './VIPArrivalsWidget';
 export { UpcomingArrivalsWidget } from './VIPArrivalsWidget';
 export * from './QuickActions';
+export * from './RoomStatusMap';
+export * from './OperationalAlerts';

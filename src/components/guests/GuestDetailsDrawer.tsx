@@ -18,7 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Mail, X, Edit, Save, MessageCircle, FileSpreadsheet, Download, Calendar, Trash2, AlertTriangle, Loader2, Hotel, CreditCard, Globe, Car } from 'lucide-react';
+import { Mail, X, Edit, Save, FileSpreadsheet, Download, Calendar, Trash2, AlertTriangle, Loader2, Hotel, CreditCard, Globe, Car } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useUpdateGuest } from '@/hooks/useUpdateGuest';
@@ -147,22 +147,6 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                 : 'No se pudo eliminar el huésped. Intente nuevamente.';
             toast({ title: 'Error al eliminar', description: message, variant: 'destructive' });
         }
-    };
-
-    const handleWhatsApp = () => {
-        const message = encodeURIComponent(
-            `Hola ${guest.fullName}, somos de ${hotelName}. Nos comunicamos contigo por lo siguiente:`
-        );
-        const phone = guest.phone.replace(/\D/g, '');
-        window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
-    };
-
-    const handleEmail = () => {
-        const subject = encodeURIComponent(`${hotelName} - Información`);
-        const body = encodeURIComponent(
-            `Estimado/a ${guest.fullName},\n\nNos comunicamos desde ${hotelName}.\n\n`
-        );
-        window.open(`mailto:${guest.email}?subject=${subject}&body=${body}`, '_blank');
     };
 
     const handleExportExcel = () => {
@@ -579,29 +563,7 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
 
                         <Separator />
 
-                        {/* Contact Actions */}
-                        <section>
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">Comunicación</h3>
-                            <div className="grid grid-cols-2 gap-3">
-                                <Button onClick={handleWhatsApp} className="w-full bg-green-500 hover:bg-green-600 text-white">
-                                    <MessageCircle className="w-4 h-4 mr-2" />
-                                    WhatsApp
-                                </Button>
-                                <Button
-                                    onClick={handleEmail}
-                                    variant="outline"
-                                    className="w-full hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 hover:border-blue-200 dark:hover:border-blue-800/30"
-                                    disabled={!guest.email}
-                                >
-                                    <Mail className="w-4 h-4 mr-2" />
-                                    Enviar Email
-                                </Button>
-                            </div>
-                        </section>
-
-                        <Separator />
-
-                        {/* Export Actions */}
+                            {/* Export Actions */}
                         <section>
                             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">Exportar</h3>
                             <div className="flex gap-3">

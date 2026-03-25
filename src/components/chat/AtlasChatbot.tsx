@@ -120,7 +120,7 @@ export function AtlasChatbot() {
 
                 {/* Messages */}
                 <ScrollArea className="flex-1 p-4 bg-slate-50 dark:bg-slate-900/50" ref={scrollRef}>
-                    <div className="space-y-4">
+                    <div className="space-y-4" aria-live="polite" aria-label="Mensajes del chat">
                         {messages.map((msg, i) => (
                             <div key={i} className={cn(
                                 "flex w-full",
@@ -181,6 +181,7 @@ export function AtlasChatbot() {
             {/* Floating Action Button (FAB) */}
             <button
                 onClick={toggleChat}
+                aria-label={isOpen ? 'Cerrar chat de Atlas' : 'Abrir chat de Atlas'}
                 className="pointer-events-auto group relative flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
             >
                 {/* Golden Radiant Effect */}

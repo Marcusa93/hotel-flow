@@ -6,10 +6,9 @@ interface GuestGridProps {
     guests: Guest[];
     onGuestClick: (guest: Guest) => void;
     getGuestStats: (guestId: string) => { bookingsCount: number; totalSpend: number };
-    hotelName: string;
 }
 
-export function GuestGrid({ guests, onGuestClick, getGuestStats, hotelName }: GuestGridProps) {
+export function GuestGrid({ guests, onGuestClick, getGuestStats }: GuestGridProps) {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
             {guests.map((guest, index) => {
@@ -26,7 +25,6 @@ export function GuestGrid({ guests, onGuestClick, getGuestStats, hotelName }: Gu
                             bookingsCount={stats.bookingsCount}
                             totalSpend={stats.totalSpend}
                             onClick={() => onGuestClick(guest)}
-                            hotelName={hotelName}
                         />
                     </motion.div>
                 );

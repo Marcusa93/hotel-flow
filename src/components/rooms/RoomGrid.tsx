@@ -21,7 +21,10 @@ export function RoomGrid({ rooms, roomTypes, guests, bookings, onRoomClick, onQu
         return activeBooking ? guests.find(g => g.id === activeBooking.guestId) : undefined;
     };
 
-    const getType = (typeId: string) => roomTypes.find(rt => rt.id === typeId)?.name;
+    const getType = (typeId: string) => {
+        const rt = roomTypes.find(rt => rt.id === typeId);
+        return rt ? `${rt.maxGuests} personas` : undefined;
+    };
 
     const isBulkMode = !!selectedIds;
 

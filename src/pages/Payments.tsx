@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
 import { Search, Filter } from 'lucide-react';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
@@ -8,6 +8,7 @@ import { useAppRole } from '@/context/AppRoleContext';
 import { PageHeader, EmptyState } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -17,6 +18,8 @@ import {
 } from '@/components/ui/select';
 import { Payment, PaymentStatus, PaymentMethod } from '@/types/hotel';
 import { PaymentStats, TransactionTable, NewPaymentDialog, PaymentReceipt } from '@/components/payments';
+
+const BillingContent = lazy(() => import('./Billing'));
 
 export default function Payments() {
   const { currentRole } = useAppRole();
@@ -82,90 +85,83 @@ export default function Payments() {
     <div className="space-y-6">
       <PageHeader
         title="Finanzas"
-        description="Centro de Control de Ingresos y Pagos"
+        description="Pagos, cobros y facturación"
         actions={canWrite ? (
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={() => setIsNewPaymentOpen(true)}
-            >
-              Nuevo Cobro
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={() => setIsNewPaymentOpen(true)}
+          >
+            Nuevo Cobro
+          </Button>
         ) : undefined}
       />
 
-      {/* New Payment Dialog */}
-      <NewPaymentDialog
-        open={isNewPaymentOpen}
-        onOpenChange={setIsNewPaymentOpen}
-      />
+      <NewPaymentDialog open={isNewPaymentOpen} onOpenChange={setIsNewPaymentOpen} />
 
-      {/* KPI Cards */}
-      <PaymentStats
-        totalPaid={totalPaid}
-        totalPending={totalPending}
-        totalFailed={totalFailed}
-      />
+      <Tabs defaultValue="payments" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-grid">
+          <TabsTrigger value="payments">Pagos</TabsTrigger>
+          <TabsTrigger value="invoices">Facturas</TabsTrigger>
+        </TabsList>
 
-      {/* Filters Bar */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl p-3 rounded-2xl border border-white/20 shadow-sm mt-8">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por huésped, referencia..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 border-transparent bg-white/50 focus:bg-white transition-all shadow-sm"
-          />
-        </div>
-        <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden md:block" />
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as PaymentStatus | 'ALL')}>
-          <SelectTrigger className="w-[150px] border-transparent bg-transparent hover:bg-white/50 rounded-xl">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">Todos los estados</SelectItem>
-            <SelectItem value="PAID">Pagado</SelectItem>
-            <SelectItem value="PENDING">Pendiente</SelectItem>
-            <SelectItem value="FAILED">Fallido</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={methodFilter} onValueChange={(v) => setMethodFilter(v as PaymentMethod | 'ALL')}>
-          <SelectTrigger className="w-[150px] border-transparent bg-transparent hover:bg-white/50 rounded-xl">
-            <SelectValue placeholder="Método" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">Todos los métodos</SelectItem>
-            <SelectItem value="CASH">Efectivo</SelectItem>
-            <SelectItem value="CARD">Tarjeta</SelectItem>
-            <SelectItem value="TRANSFER">Transferencia</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        <TabsContent value="payments" className="space-y-6">
+          <PaymentStats totalPaid={totalPaid} totalPending={totalPending} totalFailed={totalFailed} />
 
-      {filteredPayments.length === 0 ? (
-        <EmptyState
-          icon={Search}
-          title="No se encontraron pagos"
-          description="Intenta ajustar los filtros de búsqueda"
-        />
-      ) : (
-        <TransactionTable
-          payments={filteredPayments}
-          getBookingInfo={getBookingInfo}
-          onStatusChange={handlePaymentStatusChange}
-          onViewReceipt={handleViewReceipt}
-        />
-      )}
+          <div className="flex flex-col gap-4 md:flex-row md:items-center bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl p-3 rounded-2xl border border-white/20 shadow-sm">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por huésped, referencia..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 border-transparent bg-white/50 focus:bg-white transition-all shadow-sm"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as PaymentStatus | 'ALL')}>
+              <SelectTrigger className="w-[150px] border-transparent bg-transparent hover:bg-white/50 rounded-xl">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todos</SelectItem>
+                <SelectItem value="PAID">Pagado</SelectItem>
+                <SelectItem value="PENDING">Pendiente</SelectItem>
+                <SelectItem value="FAILED">Fallido</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={methodFilter} onValueChange={(v) => setMethodFilter(v as PaymentMethod | 'ALL')}>
+              <SelectTrigger className="w-[150px] border-transparent bg-transparent hover:bg-white/50 rounded-xl">
+                <SelectValue placeholder="Método" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todos</SelectItem>
+                <SelectItem value="CASH">Efectivo</SelectItem>
+                <SelectItem value="CARD">Tarjeta</SelectItem>
+                <SelectItem value="TRANSFER">Transferencia</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-      {/* Receipt Modal */}
-      <PaymentReceipt
-        open={isReceiptOpen}
-        onOpenChange={setIsReceiptOpen}
-        payment={selectedPayment}
-      />
+          {filteredPayments.length === 0 ? (
+            <EmptyState icon={Search} title="No se encontraron pagos" description="Ajusta los filtros de búsqueda" />
+          ) : (
+            <TransactionTable
+              payments={filteredPayments}
+              getBookingInfo={getBookingInfo}
+              onStatusChange={handlePaymentStatusChange}
+              onViewReceipt={handleViewReceipt}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="invoices">
+          <Suspense fallback={<div className="text-center py-12 text-muted-foreground">Cargando facturas...</div>}>
+            <BillingContent />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
+
+      <PaymentReceipt open={isReceiptOpen} onOpenChange={setIsReceiptOpen} payment={selectedPayment} />
     </div>
   );
 }

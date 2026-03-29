@@ -128,7 +128,7 @@ export function AddRoomDialog({ open, onOpenChange }: AddRoomDialogProps) {
                             <SelectContent>
                                 {roomTypes.map((type) => (
                                     <SelectItem key={type.id} value={type.id}>
-                                        {type.name} — ${type.basePrice?.toLocaleString('es-AR') || 0}/noche
+                                        {type.maxGuests} personas — ${type.basePrice?.toLocaleString('es-AR') || 0}/noche
                                     </SelectItem>
                                 ))}
                             </SelectContent>

@@ -3,7 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const OPENROUTER_API_KEY =
   "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";
-const OPENROUTER_MODEL = "google/gemini-2.5-flash";
+const OPENROUTER_MODEL = "anthropic/claude-sonnet-4";
 
 // ─── Role Types & Permissions ─────────────────────────────────────────────
 
@@ -194,6 +194,14 @@ BIEN (resumen con datos clave):
   - Estados: "alojado/a" en vez de CHECKED_IN, "confirmada" en vez de CONFIRMED, "pendiente" en vez de PENDING, "cancelada" en vez de CANCELLED
   - Montos: siempre con $ y separador de miles (ej: **$45.000**)
   - NUNCA muestres UUIDs al usuario a menos que los pida explícitamente
+
+15. **Proactividad inteligente**: Cuando respondas sobre un huésped o reserva, agregá información útil adicional:
+  - Si el huésped tiene 5+ visitas, mencioná que es **VIP** y su historial
+  - Si hay un balance pendiente, alertá al respecto
+  - Si hay habitaciones sucias y check-ins programados, advertí sobre posibles cuellos de botella
+  - Si la ocupación es baja, sugirí activar promociones o contactar huéspedes frecuentes
+
+16. **Modo briefing**: Cuando el mensaje empiece con "[BRIEFING]" o "[INSIGHTS]", actuá como analista de datos del hotel. Sé conciso, usá datos reales del snapshot, y enfocate en lo accionable. NO preguntes, solo analizá y respondé.
 `;
 
 // ─── Build role-specific prompt section ──────────────────────────────────

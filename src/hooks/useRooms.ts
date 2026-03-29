@@ -38,7 +38,7 @@ export const useRooms = () => {
                 status: item.status,
                 notes: item.notes,
                 // We'll optionally attach the expanded type info if the UI needs it
-                roomTypeName: item.room_types?.name,
+                roomTypeName: item.room_types?.max_guests ? `${item.room_types.max_guests}p` : undefined,
                 price: item.room_types?.base_price,
             })) as Room[];
         },

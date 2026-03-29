@@ -68,10 +68,12 @@ export function RegisterPaymentDialog({
   bookingId,
   pendingAmount
 }: RegisterPaymentDialogProps) {
-  const { addPayment } = usePaymentOperations();
+  const { addPayment, payments } = usePaymentOperations();
   const { data: rates = [] } = useRates();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmWarning, setConfirmWarning] = useState<string | null>(null);
   const [appliedPromo, setAppliedPromo] = useState<Rate | null>(null);
 
   const form = useForm<PaymentFormData>({
@@ -150,9 +152,26 @@ export function RegisterPaymentDialog({
   };
 
   const onSubmit = async (data: PaymentFormData) => {
-    setIsSubmitting(true);
-
     const paymentAmount = appliedPromo ? finalAmount : data.amount;
+
+    // First click → show confirmation
+    if (!showConfirm) {
+      // Check duplicate
+      const recent = payments.filter(p =>
+        p.bookingId === bookingId && p.amount === paymentAmount && p.method === data.method && p.status === 'PAID'
+      );
+      if (recent.length > 0) {
+        setConfirmWarning(`Ya existe un pago similar de $${paymentAmount.toLocaleString('es-AR')} (${data.method}). ¿Registrar otro?`);
+      } else if (paymentAmount > pendingAmount && pendingAmount > 0) {
+        setConfirmWarning(`El monto ($${paymentAmount.toLocaleString('es-AR')}) excede el saldo pendiente ($${pendingAmount.toLocaleString('es-AR')}).`);
+      } else {
+        setConfirmWarning(null);
+      }
+      setShowConfirm(true);
+      return;
+    }
+
+    setIsSubmitting(true);
     const comment = appliedPromo
       ? `${data.comment || ''}\n[Promoción: ${appliedPromo.label} (${appliedPromo.promoCode}) - Descuento: $${discount.toLocaleString('es-AR')}]`.trim()
       : data.comment;
@@ -170,14 +189,14 @@ export function RegisterPaymentDialog({
 
       toast({
         title: '✅ Pago registrado',
-        description: appliedPromo
-          ? `Pago de $${paymentAmount.toLocaleString('es-AR')} (Descuento: $${discount.toLocaleString('es-AR')})`
-          : `Se registró un pago de $${paymentAmount.toLocaleString('es-AR')}`,
+        description: `$${paymentAmount.toLocaleString('es-AR')} registrado correctamente`,
       });
 
       form.reset();
       setAppliedPromo(null);
       setPromoCodeInput('');
+      setShowConfirm(false);
+      setConfirmWarning(null);
       onOpenChange(false);
     } catch (error) {
       toast({
@@ -409,12 +428,20 @@ export function RegisterPaymentDialog({
               )}
             />
 
+            {showConfirm && (
+              <div className="p-3 rounded-xl border-2 border-amber-300 bg-amber-50 dark:bg-amber-950/30 mb-3">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                  {confirmWarning ? `⚠️ ${confirmWarning}` : `Confirmar pago de $${finalAmount.toLocaleString('es-AR')} por ${form.getValues('method')}`}
+                </p>
+              </div>
+            )}
+
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => { setShowConfirm(false); setConfirmWarning(null); onOpenChange(false); }}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Registrando...' : `Registrar $${finalAmount.toLocaleString('es-AR')}`}
+                {isSubmitting ? 'Registrando...' : showConfirm ? `✓ Confirmar $${finalAmount.toLocaleString('es-AR')}` : `Registrar $${finalAmount.toLocaleString('es-AR')}`}
               </Button>
             </DialogFooter>
           </form>

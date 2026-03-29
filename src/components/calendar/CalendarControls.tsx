@@ -90,7 +90,7 @@ export function CalendarControls({
                         <SelectContent>
                             <SelectItem value="all">Todas las habitaciones</SelectItem>
                             {roomTypes.map(rt => (
-                                <SelectItem key={rt.id} value={rt.id}>{rt.name}</SelectItem>
+                                <SelectItem key={rt.id} value={rt.id}>Hab. {rt.maxGuests}p</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>

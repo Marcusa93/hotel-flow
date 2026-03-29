@@ -1,7 +1,7 @@
 
 import { useMemo } from 'react';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
-import { Booking, BookingStatus, Guest, Room, RoomType } from '@/types/hotel';
+import { Booking, BookingStatus, Guest, Room, RoomType, Payment } from '@/types/hotel';
 import { ReservationColumn } from './ReservationColumn';
 import { ReservationCard } from './ReservationCard';
 
@@ -10,6 +10,7 @@ interface ReservationBoardProps {
     guests: Guest[];
     rooms: Room[];
     roomTypes: RoomType[];
+    payments?: Payment[];
     onStatusChange: (id: string, newStatus: BookingStatus) => void;
     onCardClick: (bookingId: string) => void;
 }
@@ -21,7 +22,7 @@ const COLUMNS: { id: BookingStatus; title: string; color: string }[] = [
     { id: 'CHECKED_OUT', title: 'Salidas', color: 'bg-slate-400 ring-slate-400' },
 ];
 
-export function ReservationBoard({ bookings, guests, rooms, roomTypes, onStatusChange, onCardClick }: ReservationBoardProps) {
+export function ReservationBoard({ bookings, guests, rooms, roomTypes, payments = [], onStatusChange, onCardClick }: ReservationBoardProps) {
 
     const columns = useMemo(() => {
         const cols: Record<string, Booking[]> = {
@@ -32,6 +33,17 @@ export function ReservationBoard({ bookings, guests, rooms, roomTypes, onStatusC
         });
         return cols;
     }, [bookings]);
+
+    // Pre-compute paid amounts per booking
+    const paidByBooking = useMemo(() => {
+        const map = new Map<string, number>();
+        for (const p of payments) {
+            if (p.status === 'PAID' && p.bookingId) {
+                map.set(p.bookingId, (map.get(p.bookingId) || 0) + p.amount);
+            }
+        }
+        return map;
+    }, [payments]);
 
     const onDragEnd = (result: DropResult) => {
         const { destination, source, draggableId } = result;
@@ -66,6 +78,7 @@ export function ReservationBoard({ bookings, guests, rooms, roomTypes, onStatusC
                                         guest={getGuest(booking.guestId)}
                                         room={room}
                                         roomType={getRoomType(room?.roomTypeId)}
+                                        totalPaid={paidByBooking.get(booking.id) || 0}
                                         onClick={() => onCardClick(booking.id)}
                                     />
                                 );

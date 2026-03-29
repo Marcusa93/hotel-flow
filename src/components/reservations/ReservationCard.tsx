@@ -1,12 +1,11 @@
 
 import React from 'react';
 import { Draggable } from '@hello-pangea/dnd';
-import { Booking, Guest, Room, RoomType } from '@/types/hotel';
+import { Booking, Guest, Room, RoomType, Payment } from '@/types/hotel';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, User, BedDouble, Moon, CreditCard } from 'lucide-react';
+import { Calendar, BedDouble, Moon, CreditCard, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
@@ -15,12 +14,32 @@ interface ReservationCardProps {
     guest?: Guest;
     room?: Room;
     roomType?: RoomType;
+    totalPaid?: number;
     index: number;
     onClick: () => void;
 }
 
-export const ReservationCard = React.memo(function ReservationCard({ booking, guest, room, roomType, index, onClick }: ReservationCardProps) {
+export const ReservationCard = React.memo(function ReservationCard({ booking, guest, room, roomType, totalPaid = 0, index, onClick }: ReservationCardProps) {
     const nights = differenceInDays(new Date(booking.checkOutDate), new Date(booking.checkInDate));
+    const balance = booking.totalAmount - totalPaid;
+    const paymentRatio = booking.totalAmount > 0 ? totalPaid / booking.totalAmount : 0;
+
+    // Payment status
+    let paymentStatus: 'paid' | 'partial' | 'unpaid' = 'unpaid';
+    if (paymentRatio >= 1) paymentStatus = 'paid';
+    else if (paymentRatio > 0) paymentStatus = 'partial';
+
+    const PaymentIcon = paymentStatus === 'paid' ? CheckCircle : paymentStatus === 'partial' ? AlertCircle : XCircle;
+    const paymentColors = {
+        paid: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30',
+        partial: 'text-amber-600 bg-amber-50 dark:bg-amber-950/30',
+        unpaid: 'text-red-500 bg-red-50 dark:bg-red-950/30',
+    };
+    const paymentLabel = {
+        paid: 'Pagado',
+        partial: `Debe $${balance.toLocaleString()}`,
+        unpaid: 'Sin pagar',
+    };
 
     return (
         <Draggable draggableId={booking.id} index={index}>
@@ -36,69 +55,63 @@ export const ReservationCard = React.memo(function ReservationCard({ booking, gu
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                        whileHover={{ y: -3, transition: { duration: 0.15 } }}
                         className={cn(
                             "bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-800 cursor-grab active:cursor-grabbing group relative overflow-hidden",
                             snapshot.isDragging && "shadow-2xl ring-2 ring-primary/20 rotate-1 z-50 scale-105"
                         )}
                     >
-                        {/* Hover Gradient Overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-transparent to-slate-50 dark:to-slate-800/50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-
-                        {/* Header: Avatar + Name */}
-                        <div className="flex items-center gap-3 relative z-10 mb-3">
-                            <Avatar className="h-9 w-9 border-2 border-white dark:border-slate-800 shadow-sm">
+                        {/* Header: Name + Room badge */}
+                        <div className="flex items-center gap-3 mb-3">
+                            <Avatar className="h-9 w-9 border-2 border-white dark:border-slate-800 shadow-sm shrink-0">
                                 <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
                                     {guest?.fullName?.slice(0, 2).toUpperCase() || '??'}
                                 </AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
-                                <p className="font-bold text-slate-800 dark:text-slate-100 truncate text-base">
-                                    {guest?.fullName || 'Huésped Desconocido'}
+                                <p className="font-bold text-slate-800 dark:text-slate-100 truncate text-[15px] leading-tight">
+                                    {guest?.fullName || 'Huésped'}
                                 </p>
-                                <p className="text-xs text-muted-foreground font-mono">
-                                    #{booking.id.slice(0, 6)}
-                                </p>
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                                    <BedDouble className="w-3 h-3" />
+                                    <span className="font-semibold text-slate-600 dark:text-slate-400">
+                                        {room?.roomNumber || '?'}
+                                    </span>
+                                    {roomType && (
+                                        <>
+                                            <span className="opacity-30">·</span>
+                                            <span className="truncate">{roomType.maxGuests}p</span>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
-                        {/* Body: Dates + Room */}
-                        <div className="space-y-1.5 relative z-10 mb-4">
-                            <div className="flex items-center text-xs text-muted-foreground/80">
-                                <Calendar className="w-3 h-3 mr-1.5 opacity-70" />
-                                <span className="font-medium text-slate-600 dark:text-slate-400">
-                                    {format(new Date(booking.checkInDate), 'd MMM')} - {format(new Date(booking.checkOutDate), 'd MMM')}
-                                </span>
-                                <span className="mx-1.5 opacity-30">|</span>
-                                <span className="flex items-center">
-                                    <Moon className="w-3 h-3 mr-1 opacity-70" /> {nights} noches
+                        {/* Dates row */}
+                        <div className="flex items-center justify-between text-xs text-muted-foreground bg-slate-50 dark:bg-slate-800/50 rounded-lg px-3 py-2 mb-3">
+                            <div className="flex items-center gap-1.5">
+                                <Calendar className="w-3 h-3 opacity-60" />
+                                <span className="font-medium">
+                                    {format(new Date(booking.checkInDate), 'dd/MM')} → {format(new Date(booking.checkOutDate), 'dd/MM')}
                                 </span>
                             </div>
-
-                            <div className="flex items-center text-xs text-muted-foreground/80">
-                                <BedDouble className="w-3 h-3 mr-1.5 opacity-70" />
-                                <span className="font-medium text-slate-600 dark:text-slate-400">
-                                    Hab. {room?.roomNumber || '?'}
-                                </span>
-                                <span className="mx-1 opacity-30">·</span>
-                                <span className="truncate max-w-[120px]">{roomType?.name}</span>
-                                <span className="mx-1 opacity-30">·</span>
-                                <span>{booking.adults}p</span>
+                            <div className="flex items-center gap-1">
+                                <Moon className="w-3 h-3 opacity-60" />
+                                <span className="font-semibold">{nights}N</span>
                             </div>
                         </div>
 
-                        {/* Footer: Tags */}
-                        <div className="flex items-center gap-2 relative z-10">
-                            <Badge variant="secondary" className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-normal px-2 h-6 text-xs gap-1 group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
-                                <CreditCard className="w-3 h-3" />
-                                ${(booking.totalAmount / 1000).toFixed(0)}k
+                        {/* Footer: Amount + Payment indicator */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 text-sm font-bold text-slate-800 dark:text-slate-200">
+                                <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
+                                ${booking.totalAmount.toLocaleString()}
+                            </div>
+                            <Badge variant="secondary" className={cn('text-[10px] font-semibold gap-1 h-5 px-2', paymentColors[paymentStatus])}>
+                                <PaymentIcon className="w-3 h-3" />
+                                {paymentLabel[paymentStatus]}
                             </Badge>
-
-                            {booking.status === 'CHECKED_OUT' && (
-                                <Badge variant="outline" className="border-green-200 text-green-700 text-xs h-6">Pagado</Badge>
-                            )}
                         </div>
-
                     </motion.div>
                 </div>
             )}

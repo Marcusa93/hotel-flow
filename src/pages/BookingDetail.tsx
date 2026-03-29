@@ -167,6 +167,72 @@ export default function BookingDetail() {
         </div>
       </motion.div>
 
+      {/* Status Timeline */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.05 }}
+        className="flex items-center justify-between bg-white/60 dark:bg-slate-900/40 backdrop-blur border rounded-xl p-4"
+      >
+        {(['CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT'] as const).map((step, i) => {
+          const labels: Record<string, string> = { CONFIRMED: 'Confirmada', CHECKED_IN: 'Check-in', CHECKED_OUT: 'Check-out' };
+          const icons: Record<string, typeof CheckCircle> = { CONFIRMED: CheckCircle, CHECKED_IN: LogIn, CHECKED_OUT: LogOut };
+          const StepIcon = icons[step];
+          const statusOrder = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT'];
+          const currentIdx = statusOrder.indexOf(booking.status);
+          const stepIdx = statusOrder.indexOf(step);
+          const isCompleted = stepIdx <= currentIdx;
+          const isCurrent = stepIdx === currentIdx;
+
+          return (
+            <div key={step} className="flex items-center flex-1">
+              <div className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all",
+                isCompleted ? "bg-emerald-50 dark:bg-emerald-950/30" : "bg-muted/30",
+                isCurrent && "ring-2 ring-primary/30",
+              )}>
+                <StepIcon className={cn("w-4 h-4", isCompleted ? "text-emerald-600" : "text-muted-foreground/40")} />
+                <span className={cn("text-xs font-semibold", isCompleted ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground/50")}>
+                  {labels[step]}
+                </span>
+              </div>
+              {i < 2 && <div className={cn("flex-1 h-0.5 mx-2 rounded", isCompleted && stepIdx < currentIdx ? "bg-emerald-400" : "bg-muted")} />}
+            </div>
+          );
+        })}
+
+        {/* Estado de Cuenta */}
+        <div className="flex items-center gap-3 pl-4 border-l ml-4">
+          <div className="text-right">
+            <p className="text-[10px] text-muted-foreground uppercase font-bold">Alojamiento</p>
+            <p className="text-sm font-bold">${booking.totalAmount.toLocaleString()}</p>
+          </div>
+          {totalCharges > 0 && (
+            <div className="text-right">
+              <p className="text-[10px] text-muted-foreground uppercase font-bold">+ Extras</p>
+              <p className="text-sm font-bold text-blue-600">${totalCharges.toLocaleString()}</p>
+            </div>
+          )}
+          <div className="text-right border-l pl-3">
+            <p className="text-[10px] text-muted-foreground uppercase font-bold">Pagado</p>
+            <p className="text-sm font-bold text-emerald-600">${totalPaid.toLocaleString()}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-muted-foreground uppercase font-bold">
+              {pendingAmount > 0 ? 'Debe' : 'Saldo'}
+            </p>
+            <p className={cn("text-sm font-bold", pendingAmount > 0 ? "text-red-500" : "text-emerald-600")}>
+              ${pendingAmount > 0 ? pendingAmount.toLocaleString() : '0'}
+            </p>
+          </div>
+          {bookingPayments.length > 0 && (
+            <div className="text-right text-[10px] text-muted-foreground">
+              {bookingPayments.length} pago{bookingPayments.length > 1 ? 's' : ''}
+            </div>
+          )}
+        </div>
+      </motion.div>
+
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Column 1: Guest Journey & Room */}
         <motion.div
@@ -188,7 +254,7 @@ export default function BookingDetail() {
                   <p className="text-3xl font-bold text-primary">{booking.room.roomNumber}</p>
                 </div>
                 <Badge variant="outline" className="mb-4 bg-background/50 h-8 px-3">
-                  {booking.roomType.name}
+                  {booking.roomType.maxGuests} personas
                 </Badge>
               </div>
 

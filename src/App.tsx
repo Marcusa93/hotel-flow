@@ -20,11 +20,9 @@ const BookingDetail = lazy(() => import("./pages/BookingDetail"));
 const Rooms = lazy(() => import("./pages/Rooms"));
 const Guests = lazy(() => import("./pages/Guests"));
 const Payments = lazy(() => import("./pages/Payments"));
-// Calendar page removed — redirects to Availability
-const Availability = lazy(() => import("./pages/Availability"));
+// Availability page removed — room map is on Dashboard
 const Rates = lazy(() => import("./pages/Rates"));
-const Statistics = lazy(() => import("./pages/Statistics"));
-const Billing = lazy(() => import("./pages/Billing"));
+// Statistics and Billing removed — merged into Payments and Rates respectively
 const Housekeeping = lazy(() => import("./pages/Housekeeping"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -59,7 +57,7 @@ const AnimatedRoutes = () => {
         <Route path="/bookings/:id" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><BookingDetail /></PageWrapper></RoleGuard>} />
         <Route path="/guests" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Guests /></PageWrapper></RoleGuard>} />
         <Route path="/guests/:id" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Guests /></PageWrapper></RoleGuard>} />
-        <Route path="/availability" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Availability /></PageWrapper></RoleGuard>} />
+        {/* Availability removed — room map on Dashboard */}
         <Route path="/rates" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Rates /></PageWrapper></RoleGuard>} />
 
         {/* Habitaciones — admin, reception, housekeeping */}
@@ -71,10 +69,8 @@ const AnimatedRoutes = () => {
         {/* Finanzas — admin, reception, auditor */}
         <Route path="/payments" element={<RoleGuard allowedRoles={['admin', 'reception', 'auditor']}><PageWrapper><Payments /></PageWrapper></RoleGuard>} />
         <Route path="/expenses" element={<RoleGuard allowedRoles={['admin', 'reception', 'auditor']}><PageWrapper><Expenses /></PageWrapper></RoleGuard>} />
-        <Route path="/billing" element={<RoleGuard allowedRoles={['admin', 'auditor']}><PageWrapper><Billing /></PageWrapper></RoleGuard>} />
-
-        {/* Reportes — admin, auditor */}
-        <Route path="/statistics" element={<RoleGuard allowedRoles={['admin', 'auditor']}><PageWrapper><Statistics /></PageWrapper></RoleGuard>} />
+        <Route path="/billing" element={<Navigate to="/payments" replace />} />
+        <Route path="/statistics" element={<Navigate to="/rates" replace />} />
         <Route path="/audit-log" element={<RoleGuard allowedRoles={['admin', 'auditor']}><PageWrapper><AuditLog /></PageWrapper></RoleGuard>} />
 
         {/* Sistema */}
@@ -82,7 +78,7 @@ const AnimatedRoutes = () => {
         <Route path="/settings" element={<PageWrapper><Settings /></PageWrapper>} />
 
         {/* Redirects */}
-        <Route path="/calendar" element={<Navigate to="/availability" replace />} />
+        <Route path="/calendar" element={<Navigate to="/" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AnimatePresence>

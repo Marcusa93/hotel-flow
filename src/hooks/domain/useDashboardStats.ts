@@ -82,7 +82,7 @@ export function useDashboardStats() {
       const occupied = typeRooms.filter((r) => r.status === 'OCCUPIED').length;
       return {
         roomTypeId: rt.id,
-        roomTypeName: rt.name,
+        roomTypeName: `${rt.maxGuests}p`,
         total: typeRooms.length,
         occupied,
         rate: typeRooms.length > 0 ? (occupied / typeRooms.length) * 100 : 0,

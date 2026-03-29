@@ -56,7 +56,7 @@ export function UpcomingArrivalsWidget() {
                     guestEmail: guest?.email || '',
                     roomNumber: room?.roomNumber || '-',
                     roomId: room?.id || '',
-                    roomTypeName: roomType?.name || 'Habitación',
+                    roomTypeName: roomType ? `${roomType.maxGuests}p` : '',
                     checkInDate,
                     checkOutDate,
                     isToday: isToday(checkInDate),

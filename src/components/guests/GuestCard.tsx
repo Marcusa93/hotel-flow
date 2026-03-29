@@ -1,16 +1,20 @@
 import { Guest } from '@/types/hotel';
-import { Calendar, ArrowUpRight } from 'lucide-react';
+import { Calendar, Phone, Globe, BedDouble } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface GuestCardProps {
     guest: Guest;
     bookingsCount: number;
     totalSpend: number;
+    isCurrentlyHosted?: boolean;
+    lastCheckout?: Date | null;
     onClick: () => void;
 }
 
-export function GuestCard({ guest, bookingsCount, totalSpend, onClick }: GuestCardProps) {
+export function GuestCard({ guest, bookingsCount, totalSpend, isCurrentlyHosted, lastCheckout, onClick }: GuestCardProps) {
     const initials = guest.fullName
         .split(' ')
         .map(n => n[0])
@@ -18,47 +22,85 @@ export function GuestCard({ guest, bookingsCount, totalSpend, onClick }: GuestCa
         .join('')
         .toUpperCase();
 
+    // Guest tier based on visits
+    const tier = bookingsCount >= 5 ? 'vip' : bookingsCount >= 2 ? 'regular' : 'new';
+    const tierColors = {
+        vip: 'from-amber-500 to-orange-600',
+        regular: 'from-indigo-500 to-violet-600',
+        new: 'from-slate-400 to-slate-500',
+    };
+
     return (
         <motion.div
-            whileHover={{ y: -5, transition: { duration: 0.2 } }}
+            whileHover={{ y: -3, transition: { duration: 0.15 } }}
             className="group relative"
         >
-            <div
+            <button
                 onClick={onClick}
-                className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-2xl hover:shadow-slate-200/60 dark:hover:shadow-slate-900/60 transition-all cursor-pointer h-full flex flex-col"
+                className="w-full text-left bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-lg transition-all cursor-pointer h-full flex flex-col"
             >
-                <div className="flex flex-col items-center text-center mb-6">
-                    <div className="h-20 w-20 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mb-3 shadow-lg">
-                        <span className="text-2xl font-bold text-white">{initials}</span>
+                {/* Header row */}
+                <div className="flex items-center gap-3 mb-3">
+                    <div className={cn(
+                        "h-11 w-11 rounded-full flex items-center justify-center shrink-0 shadow-sm bg-gradient-to-br",
+                        tierColors[tier],
+                        isCurrentlyHosted && "ring-2 ring-emerald-400 ring-offset-2"
+                    )}>
+                        <span className="text-sm font-bold text-white">{initials}</span>
                     </div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1 line-clamp-1">
-                        {guest.fullName}
-                    </h3>
-                    <p className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        Desde {format(new Date(guest.createdAt), 'MMM yyyy')}
-                    </p>
+                    <div className="flex-1 min-w-0">
+                        <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 truncate">
+                            {guest.fullName}
+                        </h3>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                            {guest.country && (
+                                <span className="flex items-center gap-0.5">
+                                    <Globe className="w-3 h-3" />
+                                    {guest.country}
+                                </span>
+                            )}
+                            {guest.phone && (
+                                <span className="flex items-center gap-0.5 truncate">
+                                    <Phone className="w-3 h-3" />
+                                    {guest.phone}
+                                </span>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 w-full">
-                    <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl text-center border border-slate-200/50 dark:border-slate-700/50">
-                        <p className="text-xs uppercase text-muted-foreground font-bold tracking-wider mb-1">Visitas</p>
-                        <p className="text-xl font-bold text-slate-700 dark:text-slate-200">{bookingsCount}</p>
+                {/* Stats row */}
+                <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-1 text-xs bg-slate-50 dark:bg-slate-800/50 px-2 py-1 rounded-lg">
+                        <BedDouble className="w-3 h-3 text-muted-foreground" />
+                        <span className="font-bold">{bookingsCount}</span>
+                        <span className="text-muted-foreground">visitas</span>
                     </div>
-                    <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl text-center border border-slate-200/50 dark:border-slate-700/50">
-                        <p className="text-xs uppercase text-muted-foreground font-bold tracking-wider mb-1">Gasto Total</p>
-                        <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
-                            ${(totalSpend / 1000).toFixed(1)}k
-                        </p>
+                    <div className="flex items-center gap-1 text-xs bg-emerald-50 dark:bg-emerald-950/30 px-2 py-1 rounded-lg text-emerald-700 dark:text-emerald-400">
+                        <span className="font-bold">${totalSpend > 1000 ? `${(totalSpend / 1000).toFixed(0)}k` : totalSpend.toLocaleString()}</span>
                     </div>
+                    {tier === 'vip' && (
+                        <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 text-[10px] h-5 px-1.5">
+                            VIP
+                        </Badge>
+                    )}
                 </div>
 
-                <div className="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-all transform -translate-x-2 group-hover:translate-x-0">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                        <ArrowUpRight className="w-4 h-4" />
-                    </div>
+                {/* Footer */}
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-auto pt-2 border-t border-slate-100 dark:border-slate-800">
+                    {isCurrentlyHosted ? (
+                        <span className="flex items-center gap-1 text-emerald-600 font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Hospedado ahora
+                        </span>
+                    ) : lastCheckout ? (
+                        <span>Última visita: {format(lastCheckout, 'dd/MM/yy')}</span>
+                    ) : (
+                        <span>Registrado {format(new Date(guest.createdAt), 'dd/MM/yy')}</span>
+                    )}
+                    <Calendar className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
-            </div>
+            </button>
         </motion.div>
     );
 }

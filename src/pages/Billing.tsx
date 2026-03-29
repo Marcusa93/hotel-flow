@@ -140,26 +140,23 @@ export default function Billing() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Facturación"
-        description="Gestión de Facturas y Comprobantes Fiscales"
-        actions={
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleExportExcel}>
-              <Download className="w-4 h-4 mr-1" />
-              Exportar
-            </Button>
-            <Button
-              size="sm"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
-              onClick={() => setIsNewInvoiceOpen(true)}
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Nueva Factura
-            </Button>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h3 className="text-lg font-semibold">Gestión de Facturas</h3>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportExcel}>
+            <Download className="w-4 h-4 mr-1" />
+            Exportar
+          </Button>
+          <Button
+            size="sm"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            onClick={() => setIsNewInvoiceOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Nueva Factura
+          </Button>
           </div>
-        }
-      />
+      </div>
 
       {/* Invoice Dialog */}
       <InvoiceDialog

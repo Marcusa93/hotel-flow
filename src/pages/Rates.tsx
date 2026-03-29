@@ -1,8 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
 import { Plus, Edit, Trash2, Tag, Percent, Calendar, Check, X, Copy, Zap } from 'lucide-react';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { PageHeader } from '@/components/shared';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+const StatisticsContent = lazy(() => import('./Statistics'));
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SeasonalityChart, RateCalendarWidget } from '@/components/rates';
@@ -243,21 +246,26 @@ export default function Rates() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Tarifas y Promociones"
-        description="Gestión de precios, descuentos y ofertas especiales"
+        title="Tarifas y Reportes"
+        description="Promociones, precios y estadísticas del hotel"
         actions={
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={() => setIsCreateDialogOpen(true)}
-              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/30 transition-all"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nueva Promoción
-            </Button>
-          </div>
+          <Button
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/30 transition-all"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Nueva Promoción
+          </Button>
         }
       />
 
+      <Tabs defaultValue="rates" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-grid">
+          <TabsTrigger value="rates">Tarifas</TabsTrigger>
+          <TabsTrigger value="stats">Estadísticas</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="rates" className="space-y-6">
       {/* Visual Analytics Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
@@ -286,7 +294,7 @@ export default function Rates() {
                 className="p-5 rounded-2xl border border-purple-100 dark:border-purple-900/30 bg-gradient-to-br from-purple-50/50 to-indigo-50/50 dark:from-purple-950/20 dark:to-indigo-950/20 backdrop-blur-md"
               >
                 <div className="flex items-center justify-between mb-3">
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">{type.name}</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">Hab. {type.maxGuests} personas</span>
                   <Badge variant="outline" className="border-purple-200 text-purple-600 bg-purple-50 dark:bg-purple-900/20 text-xs">
                     Base
                   </Badge>
@@ -479,6 +487,15 @@ export default function Rates() {
         </CardContent>
       </Card>
 
+        </TabsContent>
+
+        <TabsContent value="stats">
+          <Suspense fallback={<div className="text-center py-12 text-muted-foreground">Cargando estadísticas...</div>}>
+            <StatisticsContent />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
+
       {/* Create/Edit Dialog */}
       <Dialog open={isCreateDialogOpen || !!editingRate} onOpenChange={() => {
         setIsCreateDialogOpen(false);
@@ -519,7 +536,7 @@ export default function Rates() {
                   <SelectContent>
                     <SelectItem value="all">Todas las categorías</SelectItem>
                     {roomTypes.map(rt => (
-                      <SelectItem key={rt.id} value={rt.id}>{rt.name}</SelectItem>
+                      <SelectItem key={rt.id} value={rt.id}>Hab. {rt.maxGuests} personas</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

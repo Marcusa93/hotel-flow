@@ -93,11 +93,13 @@ export function AtlasChatbot() {
     };
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end pointer-events-none">
-            {/* Chat Window */}
+        <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-[60] flex flex-col items-end pointer-events-none">
+            {/* Chat Window — full screen on mobile, floating on desktop */}
             <div className={cn(
                 "pointer-events-auto bg-card border border-border rounded-xl shadow-2xl transition-all duration-300 origin-bottom-right overflow-hidden flex flex-col mb-4",
-                isOpen ? "w-[380px] h-[540px] opacity-100 scale-100" : "w-0 h-0 opacity-0 scale-50"
+                isOpen
+                    ? "w-[calc(100vw-2rem)] md:w-[380px] h-[calc(100vh-10rem)] md:h-[540px] opacity-100 scale-100"
+                    : "w-0 h-0 opacity-0 scale-50"
             )}>
                 {/* Header */}
                 <div className="bg-sidebar p-4 flex items-center justify-between shrink-0">

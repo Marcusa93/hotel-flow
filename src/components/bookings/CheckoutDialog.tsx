@@ -83,7 +83,7 @@ export function CheckoutDialog({
                     dueDate: new Date(),
                     items: [
                         {
-                            description: `Alojamiento ${booking.roomType.name} - Hab. ${booking.room.roomNumber} (${nights} noches)`,
+                            description: `Alojamiento Hab. ${booking.room.roomNumber} (${nights} noches)`,
                             quantity: nights,
                             unitPrice: booking.roomType.basePrice,
                             itemType: 'ACCOMMODATION'
@@ -123,7 +123,7 @@ export function CheckoutDialog({
                             <span className="text-sm text-muted-foreground">Habitación</span>
                             <span className="font-medium flex items-center gap-2">
                                 <BedDouble className="w-4 h-4" />
-                                {booking.room.roomNumber} - {booking.roomType.name}
+                                {booking.room.roomNumber} ({booking.roomType.maxGuests}p)
                             </span>
                         </div>
                         <div className="flex justify-between items-center">

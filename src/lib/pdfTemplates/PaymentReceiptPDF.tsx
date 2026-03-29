@@ -180,7 +180,7 @@ export function PaymentReceiptPDF({
               <View style={styles.row}>
                 <Text style={styles.label}>Habitacion</Text>
                 <Text style={styles.value}>
-                  {room.roomNumber} {roomType ? `(${roomType.name})` : ''}
+                  {room.roomNumber} {roomType ? `(${roomType.maxGuests} personas)` : ''}
                 </Text>
               </View>
             )}

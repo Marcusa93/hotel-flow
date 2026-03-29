@@ -1,25 +1,36 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useDashboardStats } from '@/hooks/domain/useDashboardStats';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
+import { useAppRole } from '@/context/AppRoleContext';
 import {
-  DashboardHeader,
-  StatsOverview,
-  LiveActivityFeed,
-  RevenueChart,
   RoomStatusMap,
   OperationalAlerts,
+  RevenueChart,
   UpcomingArrivalsWidget,
-  QuickActions
+  AIBriefing,
+  AIInsights,
 } from '@/components/dashboard';
+import { NewBookingDialog } from '@/components/bookings/NewBookingDialog';
+import { NewGuestDialog } from '@/components/guests/NewGuestDialog';
+import { NewPaymentDialog } from '@/components/payments/NewPaymentDialog';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useRevenueStats } from '@/hooks/useRevenueStats';
 import { format, isToday, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+  Sun, Moon, CloudSun, CalendarPlus, UserPlus, CreditCard, Sparkles,
+  BedDouble, TrendingUp, Users, DollarSign, LogIn, LogOut,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+type DialogKey = 'booking' | 'guest' | 'payment' | null;
 
 export default function Dashboard() {
   const { stats } = useDashboardStats();
@@ -28,43 +39,35 @@ export default function Dashboard() {
   const { bookings } = useBookingOperations();
   const { data: hotelSettings } = useHotelSettings();
   const { payments } = usePaymentOperations();
-
+  const { currentRole } = useAppRole();
   const navigate = useNavigate();
 
-  // Calculate today's check-ins and check-outs
+  const [openDialog, setOpenDialog] = useState<DialogKey>(null);
+
+  // Today stats
   const { todayCheckIns, todayCheckOuts } = useMemo(() => {
-    const today = startOfDay(new Date());
-
     const checkIns = bookings.filter(b => {
-      const checkInDate = new Date(b.checkInDate);
-      return isToday(checkInDate) && (b.status === 'CONFIRMED' || b.status === 'CHECKED_IN');
+      return isToday(new Date(b.checkInDate)) && (b.status === 'CONFIRMED' || b.status === 'CHECKED_IN');
     }).length;
-
     const checkOuts = bookings.filter(b => {
-      const checkOutDate = new Date(b.checkOutDate);
-      return isToday(checkOutDate) && b.status === 'CHECKED_IN';
+      return isToday(new Date(b.checkOutDate)) && b.status === 'CHECKED_IN';
     }).length;
-
     return { todayCheckIns: checkIns, todayCheckOuts: checkOuts };
   }, [bookings]);
 
-  const availableCount = useMemo(() => rooms.filter(r => r.status === 'AVAILABLE').length, [rooms]);
-
+  // Revenue chart data
   const { data: revenueStats, isLoading: isLoadingRevenue } = useRevenueStats(7);
-
   const revenueData = useMemo(() => revenueStats?.map(stat => ({
     name: format(new Date(stat.date), 'EEE', { locale: es }),
     value: stat.revenue
   })) || [], [revenueStats]);
 
-  // Calculate real ADR from recent bookings
+  // ADR
   const adr = useMemo(() => {
-    const recentOccupied = bookings.filter(b =>
-      b.status === 'CHECKED_IN' || b.status === 'CHECKED_OUT'
-    );
-    if (recentOccupied.length === 0) return 0;
-    const totalRevenue = recentOccupied.reduce((sum, b) => sum + b.totalAmount, 0);
-    const totalNights = recentOccupied.reduce((sum, b) => {
+    const recent = bookings.filter(b => b.status === 'CHECKED_IN' || b.status === 'CHECKED_OUT');
+    if (recent.length === 0) return 0;
+    const totalRevenue = recent.reduce((sum, b) => sum + b.totalAmount, 0);
+    const totalNights = recent.reduce((sum, b) => {
       const nights = Math.ceil(
         (new Date(b.checkOutDate).getTime() - new Date(b.checkInDate).getTime()) / (1000 * 60 * 60 * 24)
       );
@@ -73,95 +76,168 @@ export default function Dashboard() {
     return totalNights > 0 ? Math.round(totalRevenue / totalNights) : 0;
   }, [bookings]);
 
+  // Greeting
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
+  const GreetingIcon = hour < 12 ? Sun : hour < 20 ? CloudSun : Moon;
+
+  const canDoActions = currentRole === 'admin' || currentRole === 'reception';
+  const canHousekeeping = currentRole === 'admin' || currentRole === 'housekeeping';
+
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] overflow-y-auto px-4 md:px-6 py-6 pb-20 relative">
-      {/* Background Decoration */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 -z-10 pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto w-full space-y-6">
+      <div className="max-w-7xl mx-auto w-full space-y-5">
 
-        {/* Header - Hero Section */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <DashboardHeader
-            onNewBooking={() => navigate('/bookings?new=true')}
-            onCheckInsClick={() => navigate('/bookings?filter=checkin-today')}
-            onCheckOutsClick={() => navigate('/bookings?filter=checkout-today')}
-            todayCheckIns={todayCheckIns}
-            todayCheckOuts={todayCheckOuts}
-            hotelName={hotelSettings?.hotelName}
-            timezone={hotelSettings?.timezone}
-          />
+        {/* ── COMPACT HEADER ── */}
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/30">
+                <GreetingIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground font-medium">{greeting}</p>
+                <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+                  {hotelSettings?.hotelName || 'Hotel'}
+                </h1>
+              </div>
+              <span className="text-xs text-muted-foreground ml-2 hidden sm:block">
+                {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
+              </span>
+            </div>
+
+            {/* Quick actions inline */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {canDoActions && (
+                <>
+                  <Button size="sm" className="rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold shadow-sm" onClick={() => setOpenDialog('booking')}>
+                    <CalendarPlus className="w-4 h-4 mr-1.5" /> Reserva
+                  </Button>
+                  <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setOpenDialog('guest')}>
+                    <UserPlus className="w-4 h-4 mr-1.5" /> Huésped
+                  </Button>
+                  <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setOpenDialog('payment')}>
+                    <CreditCard className="w-4 h-4 mr-1.5" /> Pago
+                  </Button>
+                </>
+              )}
+              {canHousekeeping && (
+                <Button size="sm" variant="outline" className="rounded-xl" onClick={() => navigate('/housekeeping')}>
+                  <Sparkles className="w-4 h-4 mr-1.5" /> Limpieza
+                </Button>
+              )}
+            </div>
+          </div>
         </motion.div>
 
-        {/* Core Stats Row */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <StatsOverview
-            occupancyRate={stats.occupancyRate}
-            monthlyRevenue={stats.monthlyRevenue}
-            totalGuests={guests.length}
-            adr={adr}
-            availableRooms={availableCount}
-            isLoading={isLoadingRevenue}
-          />
+        {/* ── TODAY BAR: check-ins, check-outs, occupancy ── */}
+        <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <MiniStat
+              icon={BedDouble} label="Ocupación"
+              value={`${stats.occupancyRate.toFixed(0)}%`}
+              sub={`${stats.occupiedRooms}/${stats.totalRooms} hab.`}
+              color="blue"
+            />
+            <MiniStat
+              icon={LogIn} label="Check-ins hoy"
+              value={todayCheckIns}
+              sub="llegadas"
+              color="emerald"
+              onClick={() => navigate('/bookings?filter=checkin-today')}
+            />
+            <MiniStat
+              icon={LogOut} label="Check-outs hoy"
+              value={todayCheckOuts}
+              sub="salidas"
+              color="amber"
+              onClick={() => navigate('/bookings?filter=checkout-today')}
+            />
+            <MiniStat
+              icon={DollarSign} label="Ingresos mes"
+              value={`$${(stats.monthlyRevenue / 1000).toFixed(0)}k`}
+              sub={`ADR $${adr.toLocaleString()}`}
+              color="violet"
+            />
+          </div>
         </motion.div>
 
-        {/* Operational Alerts */}
+        {/* ── AI BRIEFING — resumen del día ── */}
+        <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+          <AIBriefing bookings={bookings} rooms={rooms} guests={guests} payments={payments} />
+        </motion.div>
+
+        {/* ── OPERATIONAL ALERTS ── */}
         <OperationalAlerts rooms={rooms} bookings={bookings} payments={payments} />
 
-        {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.15 }}
-        >
-          <QuickActions />
+        {/* ── ROOM MAP — HERO ── */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <RoomStatusMap rooms={rooms} bookings={bookings} guests={guests} roomTypes={roomTypes} />
         </motion.div>
 
-        {/* Room Status Map — vista principal */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <RoomStatusMap
-            rooms={rooms}
+        {/* ── AI INSIGHTS — alertas predictivas + revenue ── */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
+          <AIInsights
             bookings={bookings}
+            rooms={rooms}
+            payments={payments}
             guests={guests}
-            roomTypes={roomTypes}
+            monthlyRevenue={stats.monthlyRevenue}
+            occupancyRate={stats.occupancyRate}
           />
         </motion.div>
 
-        {/* Main Grid: Charts & Feeds */}
-        <div className="grid grid-cols-1 lg:grid-cols-7 gap-6">
-          {/* Left Column (Charts) */}
-          <motion.div
-            className="lg:col-span-4 space-y-6"
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.25 }}
-          >
+        {/* ── BOTTOM GRID: Revenue + Arrivals ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }}>
             <RevenueChart data={revenueData} isLoading={isLoadingRevenue} />
-            <UpcomingArrivalsWidget />
           </motion.div>
-
-          {/* Right Column (Activity Feed) */}
-          <motion.div
-            className="lg:col-span-3 space-y-6"
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <LiveActivityFeed />
+          <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
+            <UpcomingArrivalsWidget />
           </motion.div>
         </div>
       </div>
+
+      {/* Inline Dialogs */}
+      <NewBookingDialog open={openDialog === 'booking'} onOpenChange={(open) => !open && setOpenDialog(null)} />
+      <NewGuestDialog open={openDialog === 'guest'} onOpenChange={(open) => !open && setOpenDialog(null)} />
+      <NewPaymentDialog open={openDialog === 'payment'} onOpenChange={(open) => !open && setOpenDialog(null)} />
     </div>
+  );
+}
+
+/* ── Mini Stat Card ── */
+function MiniStat({
+  icon: Icon, label, value, sub, color, onClick,
+}: {
+  icon: typeof BedDouble; label: string; value: string | number; sub: string;
+  color: 'blue' | 'emerald' | 'amber' | 'violet';
+  onClick?: () => void;
+}) {
+  const colors = {
+    blue: 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400',
+    emerald: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400',
+    amber: 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400',
+    violet: 'bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400',
+  };
+  const Component = onClick ? 'button' : 'div';
+  return (
+    <Component
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-3 p-3 rounded-xl border bg-white/60 dark:bg-slate-900/40 backdrop-blur transition-all',
+        onClick && 'hover:shadow-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer',
+      )}
+    >
+      <div className={cn('p-2 rounded-lg', colors[color])}>
+        <Icon className="w-4 h-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{value}</p>
+        <p className="text-[11px] text-muted-foreground truncate">{sub}</p>
+      </div>
+    </Component>
   );
 }

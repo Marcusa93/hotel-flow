@@ -46,19 +46,14 @@ const navItems: NavItem[] = [
 
   // Operaciones diarias
   { title: 'Reservas', href: '/bookings', icon: CalendarDays, roles: ['admin', 'reception'] },
-  { title: 'Disponibilidad', href: '/availability', icon: PieChart, roles: ['admin', 'reception'] },
   { title: 'Habitaciones', href: '/rooms', icon: BedDouble, roles: ['admin', 'reception', 'housekeeping'] },
   { title: 'Huéspedes', href: '/guests', icon: Users, roles: ['admin', 'reception'] },
   { title: 'Limpieza', href: '/housekeeping', icon: ClipboardList, roles: ['admin', 'housekeeping'] },
 
   // Finanzas
-  { title: 'Pagos', href: '/payments', icon: CreditCard, roles: ['admin', 'reception', 'auditor'], readOnly: true },
+  { title: 'Finanzas', href: '/payments', icon: CreditCard, roles: ['admin', 'reception', 'auditor'], readOnly: true },
   { title: 'Gastos', href: '/expenses', icon: Receipt, roles: ['admin', 'reception', 'auditor'] },
-  { title: 'Facturación', href: '/billing', icon: Receipt, roles: ['admin', 'auditor'], readOnly: true },
   { title: 'Tarifas', href: '/rates', icon: Percent, roles: ['admin', 'reception'] },
-
-  // Reportes
-  { title: 'Estadísticas', href: '/statistics', icon: BarChart3, roles: ['admin', 'auditor'], readOnly: true },
   { title: 'Auditoría', href: '/audit-log', icon: Shield, roles: ['admin', 'auditor'], readOnly: true },
 
   // Sistema

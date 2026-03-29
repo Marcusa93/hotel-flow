@@ -85,39 +85,32 @@ export default function Statistics() {
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        title="Estadísticas Avanzadas"
-        description="Business Intelligence del Hotel"
-        actions={
-          <div className="flex items-center gap-2">
-            <DateRangeSelector dateRange={dateRange} onDateRangeChange={setDateRange} />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Download className="w-4 h-4" />
-                  <span className="hidden sm:inline">Exportar</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Formato de Exportación</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleExportExcel}>
-                  <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-600" />
-                  Excel (.xlsx)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleExportPDF}>
-                  <FileText className="w-4 h-4 mr-2 text-blue-600" />
-                  PDF (Imprimir)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full text-xs font-medium">
-              <Activity className="w-3 h-3" />
-              Live
-            </div>
-          </div>
-        }
-      />
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h3 className="text-lg font-semibold">Estadísticas del Hotel</h3>
+        <div className="flex items-center gap-2">
+          <DateRangeSelector dateRange={dateRange} onDateRangeChange={setDateRange} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Exportar</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Formato</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleExportExcel}>
+                <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-600" />
+                Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportPDF}>
+                <FileText className="w-4 h-4 mr-2 text-blue-600" />
+                PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
 
       {/* KPI Cockpit */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 animate-in slide-in-from-bottom-3 duration-500">

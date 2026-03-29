@@ -69,6 +69,8 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
     const { rooms } = useRoomOperations();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [showConfirm, setShowConfirm] = useState(false);
+    const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
     const form = useForm<PaymentFormData>({
         resolver: zodResolver(paymentSchema),
@@ -102,15 +104,17 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
             .sort((a, b) => new Date(b.checkInDate).getTime() - new Date(a.checkInDate).getTime());
     }, [bookings, guests, rooms, searchTerm]);
 
-    // Calculate pending amount for selected booking
-    const pendingAmount = useMemo(() => {
-        if (!selectedBookingId) return 0;
+    // Calculate pending amount for selected booking (includes extra charges)
+    const { pendingAmount, totalAccount, totalPaid } = useMemo(() => {
+        if (!selectedBookingId) return { pendingAmount: 0, totalAccount: 0, totalPaid: 0 };
         const booking = bookings.find(b => b.id === selectedBookingId);
-        if (!booking) return 0;
-        const paidAmount = payments
+        if (!booking) return { pendingAmount: 0, totalAccount: 0, totalPaid: 0 };
+        const paid = payments
             .filter(p => p.bookingId === selectedBookingId && p.status === 'PAID')
             .reduce((sum, p) => sum + p.amount, 0);
-        return Math.max(0, booking.totalAmount - paidAmount);
+        // Note: charges would need a separate query — for now use booking.totalAmount
+        const account = booking.totalAmount;
+        return { pendingAmount: Math.max(0, account - paid), totalAccount: account, totalPaid: paid };
     }, [selectedBookingId, bookings, payments]);
 
     // Auto-fill amount when booking is selected
@@ -126,9 +130,50 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
         }
     };
 
-    const onSubmit = async (data: PaymentFormData) => {
-        setIsSubmitting(true);
+    // Check for duplicate payment (same booking + amount + method in last 60 seconds)
+    const checkDuplicate = (data: PaymentFormData): string | null => {
+        const recent = payments.filter(p =>
+            p.bookingId === data.bookingId &&
+            p.amount === data.amount &&
+            p.method === data.method &&
+            p.status === 'PAID'
+        );
+        if (recent.length > 0) {
+            const last = recent[recent.length - 1];
+            const secAgo = Math.floor((Date.now() - new Date(last.date).getTime()) / 1000);
+            if (secAgo < 300) { // 5 minutes
+                return `Ya existe un pago de $${data.amount.toLocaleString('es-AR')} (${data.method}) registrado hace ${secAgo < 60 ? `${secAgo}s` : `${Math.floor(secAgo / 60)}min`}. ¿Estás seguro que querés registrar otro?`;
+            }
+        }
+        return null;
+    };
 
+    const handlePreSubmit = (data: PaymentFormData) => {
+        // Check for overpayment
+        if (data.amount > pendingAmount && pendingAmount > 0) {
+            setDuplicateWarning(`El monto ($${data.amount.toLocaleString('es-AR')}) excede el saldo pendiente ($${pendingAmount.toLocaleString('es-AR')}). ¿Continuar?`);
+            setShowConfirm(true);
+            return;
+        }
+        // Check for duplicate
+        const dupWarning = checkDuplicate(data);
+        if (dupWarning) {
+            setDuplicateWarning(dupWarning);
+            setShowConfirm(true);
+            return;
+        }
+        // All clear — show confirmation
+        setDuplicateWarning(null);
+        setShowConfirm(true);
+    };
+
+    const onSubmit = async (data: PaymentFormData) => {
+        if (!showConfirm) {
+            handlePreSubmit(data);
+            return;
+        }
+
+        setIsSubmitting(true);
         try {
             await addPayment({
                 bookingId: data.bookingId,
@@ -142,11 +187,13 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
 
             toast({
                 title: '✅ Pago registrado',
-                description: `Se registró un pago de $${data.amount.toLocaleString('es-AR')}`,
+                description: `$${data.amount.toLocaleString('es-AR')} registrado correctamente`,
             });
 
             form.reset();
             setSearchTerm('');
+            setShowConfirm(false);
+            setDuplicateWarning(null);
             onOpenChange(false);
         } catch (error) {
             toast({
@@ -414,13 +461,33 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                         </ScrollArea>
 
                         <div className="flex-shrink-0 p-4 border-t bg-slate-50 dark:bg-slate-900/50">
+                            {/* Confirmation step */}
+                            {showConfirm && (
+                                <div className="p-3 rounded-xl border-2 border-amber-300 bg-amber-50 dark:bg-amber-950/30 space-y-2 mb-3">
+                                    {duplicateWarning ? (
+                                        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">⚠️ {duplicateWarning}</p>
+                                    ) : (
+                                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                            Confirmar pago de <strong>${form.getValues('amount')?.toLocaleString('es-AR')}</strong> por <strong>{form.getValues('method')}</strong>
+                                            {pendingAmount > 0 && <span> — Saldo pendiente: ${pendingAmount.toLocaleString('es-AR')}</span>}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
                             <div className="flex flex-col sm:flex-row gap-2 justify-end">
-                                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
+                                <Button type="button" variant="outline" onClick={() => { setShowConfirm(false); setDuplicateWarning(null); onOpenChange(false); }} className="w-full sm:w-auto">
                                     Cancelar
                                 </Button>
-                                <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700">
-                                    {isSubmitting ? 'Registrando...' : 'Registrar Cobro'}
-                                </Button>
+                                {showConfirm ? (
+                                    <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700">
+                                        {isSubmitting ? 'Registrando...' : '✓ Confirmar Cobro'}
+                                    </Button>
+                                ) : (
+                                    <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700">
+                                        Registrar Cobro
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </form>

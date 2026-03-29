@@ -49,10 +49,10 @@ export function AvailabilityTimeline({ rooms, bookings, roomTypes, guests }: Ava
         return a.roomNumber.localeCompare(b.roomNumber);
     });
 
-    // Helper to get room type name
+    // Helper to get room capacity label
     const getRoomTypeName = (roomTypeId: string): string => {
         const type = roomTypes.find(rt => rt.id === roomTypeId);
-        return type?.name || '';
+        return type ? `${type.maxGuests}p` : '';
     };
 
     const getBookingForRoomAndDate = (roomId: string, date: Date) => {

@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback } from 'react';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
-import { useAppRole } from '@/context/AppRoleContext';
 import { Room, RoomStatus } from '@/types/hotel';
 import {
   RoomsHeader,
@@ -10,15 +9,13 @@ import {
   RoomGrid,
   RoomDetailsDrawer
 } from '@/components/rooms';
-import { AddRoomDialog } from '@/components/rooms/AddRoomDialog';
+// AddRoomDialog removed — rooms are fixed infrastructure
 import { EmptyState } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { BedDouble, CheckSquare, X, Sparkles, PaintBucket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function Rooms() {
-  const { currentRole } = useAppRole();
-  const canAddRoom = currentRole === 'admin';
   const { rooms, roomTypes, updateRoomStatus } = useRoomOperations();
   const { guests } = useGuestOperations();
   const { bookings } = useBookingOperations();
@@ -27,7 +24,7 @@ export default function Rooms() {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [floorFilter, setFloorFilter] = useState<string>('ALL');
   const [selectedRoom, setSelectedRoom] = useState<Room | undefined>(undefined);
-  const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
+  // isAddRoomOpen removed
 
   // Bulk selection state
   const [bulkMode, setBulkMode] = useState(false);
@@ -78,7 +75,8 @@ export default function Rooms() {
 
   const getSelectedRoomTypeName = () => {
     if (!selectedRoom) return undefined;
-    return roomTypes.find(rt => rt.id === selectedRoom.roomTypeId)?.name;
+    const rt = roomTypes.find(rt => rt.id === selectedRoom.roomTypeId);
+    return rt ? `${rt.maxGuests} personas` : undefined;
   };
 
   // Bulk action handlers
@@ -119,7 +117,6 @@ export default function Rooms() {
           totalRooms={stats.total}
           occupiedCount={stats.occupied}
           dirtyCount={stats.dirty}
-          onAddRoom={canAddRoom ? () => setIsAddRoomOpen(true) : undefined}
         />
         <div className="flex items-center justify-between gap-2">
           <RoomsFilters
@@ -184,7 +181,7 @@ export default function Rooms() {
         )}
       </div>
 
-      <AddRoomDialog open={isAddRoomOpen} onOpenChange={setIsAddRoomOpen} />
+      {/* AddRoomDialog removed */}
 
       <RoomDetailsDrawer
         isOpen={!!selectedRoom}

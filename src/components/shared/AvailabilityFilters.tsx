@@ -73,7 +73,7 @@ export function AvailabilityFilters({
                             checked={selectedTypeIds.includes(type.id)}
                             onCheckedChange={() => toggleType(type.id)}
                         >
-                            {type.name}
+                            {type.maxGuests}p
                         </DropdownMenuCheckboxItem>
                     ))}
                     <DropdownMenuSeparator />

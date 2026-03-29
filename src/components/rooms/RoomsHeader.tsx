@@ -1,15 +1,13 @@
-import { Plus, BedDouble, CheckCircle, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { BedDouble, CheckCircle, AlertCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
 interface RoomsHeaderProps {
     totalRooms: number;
     occupiedCount: number;
     dirtyCount: number;
-    onAddRoom?: () => void;
 }
 
-export function RoomsHeader({ totalRooms, occupiedCount, dirtyCount, onAddRoom }: RoomsHeaderProps) {
+export function RoomsHeader({ totalRooms, occupiedCount, dirtyCount }: RoomsHeaderProps) {
     return (
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-2">
             <div className="space-y-4 flex-1">
@@ -18,7 +16,7 @@ export function RoomsHeader({ totalRooms, occupiedCount, dirtyCount, onAddRoom }
                         Habitaciones
                     </h1>
                     <p className="text-muted-foreground mt-1 text-sm font-medium">
-                        Panel de control de housekeeping e inventario
+                        Estado actual de las habitaciones del hotel
                     </p>
                 </div>
 
@@ -52,17 +50,6 @@ export function RoomsHeader({ totalRooms, occupiedCount, dirtyCount, onAddRoom }
                     </Card>
                 </div>
             </div>
-
-            {onAddRoom && (
-                <Button
-                    onClick={onAddRoom}
-                    className="rounded-full px-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all mb-1"
-                    size="lg"
-                >
-                    <Plus className="w-5 h-5 mr-2" />
-                    Agregar Habitación
-                </Button>
-            )}
         </div>
     );
 }

@@ -117,6 +117,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
   const [isNewGuest, setIsNewGuest] = useState(false);
   const [isSavingGuest, setIsSavingGuest] = useState(false);
   const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
   const [appliedPromoCode, setAppliedPromoCode] = useState<Rate | null>(null);
 
   const form = useForm<BookingFormData>({
@@ -400,6 +401,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
       setIsNewGuest(false);
       setAppliedPromoCode(null);
       setPromoCodeInput('');
+      setWizardStep(1);
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating booking:', error);
@@ -419,12 +421,33 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
         <DialogHeader>
           <DialogTitle>Nueva Reserva</DialogTitle>
           <DialogDescription>
-            Completa los datos para crear una nueva reserva
+            {wizardStep === 1 ? 'Paso 1: Selecciona o crea un huésped' : wizardStep === 2 ? 'Paso 2: Habitación, fechas y promoción' : 'Paso 3: Revisa y confirma'}
           </DialogDescription>
+          {/* Wizard progress */}
+          <div className="flex items-center gap-2 pt-2">
+            {[1, 2, 3].map(s => (
+              <div key={s} className="flex items-center gap-2 flex-1">
+                <div className={cn(
+                  "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all",
+                  s < wizardStep ? "bg-emerald-500 text-white" :
+                  s === wizardStep ? "bg-primary text-white" :
+                  "bg-muted text-muted-foreground"
+                )}>
+                  {s < wizardStep ? <Check className="w-4 h-4" /> : s}
+                </div>
+                <span className={cn("text-xs font-medium hidden sm:block", s === wizardStep ? "text-foreground" : "text-muted-foreground")}>
+                  {s === 1 ? 'Huésped' : s === 2 ? 'Habitación' : 'Confirmar'}
+                </span>
+                {s < 3 && <div className={cn("flex-1 h-0.5 rounded", s < wizardStep ? "bg-emerald-500" : "bg-muted")} />}
+              </div>
+            ))}
+          </div>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            {/* ═══ STEP 1: Guest ═══ */}
+            {wizardStep === 1 && (<div className="space-y-4">
             {/* Guest selection */}
             {!isNewGuest ? (
               <div className="space-y-2">
@@ -628,6 +651,23 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
               </div>
             )}
 
+            {/* Step 1 navigation */}
+            <div className="flex justify-end pt-2">
+              <Button type="button" onClick={() => {
+                const guestId = form.getValues('guestId');
+                if (!guestId || guestId === '__new__') {
+                  form.setError('guestId', { message: 'Selecciona o crea un huésped primero' });
+                  return;
+                }
+                setWizardStep(2);
+              }}>
+                Siguiente →
+              </Button>
+            </div>
+            </div>)}
+
+            {/* ═══ STEP 2: Room, Dates, Promo ═══ */}
+            {wizardStep === 2 && (<div className="space-y-5">
             {/* Room selection */}
             <FormField
               control={form.control}
@@ -646,7 +686,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
                         const roomType = roomTypes.find(rt => rt.id === room.roomTypeId);
                         return (
                           <SelectItem key={room.id} value={room.id}>
-                            {room.roomNumber} - {roomType?.name} (${roomType?.basePrice.toLocaleString('es-AR')}/noche)
+                            Hab {room.roomNumber} — {roomType?.maxGuests}p (${roomType?.basePrice.toLocaleString('es-AR')}/noche)
                           </SelectItem>
                         );
                       })}
@@ -874,6 +914,28 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
               </div>
             )}
 
+            {/* Step 2 navigation */}
+            <div className="flex justify-between pt-2">
+              <Button type="button" variant="outline" onClick={() => setWizardStep(1)}>
+                ← Atrás
+              </Button>
+              <Button type="button" onClick={() => {
+                const roomId = form.getValues('roomId');
+                const checkIn = form.getValues('checkInDate');
+                const checkOut = form.getValues('checkOutDate');
+                if (!roomId) { form.setError('roomId', { message: 'Selecciona una habitación' }); return; }
+                if (!checkIn) { form.setError('checkInDate', { message: 'Fecha de check-in requerida' }); return; }
+                if (!checkOut) { form.setError('checkOutDate', { message: 'Fecha de check-out requerida' }); return; }
+                if (checkOut <= checkIn) { form.setError('checkOutDate', { message: 'Check-out debe ser posterior' }); return; }
+                setWizardStep(3);
+              }}>
+                Siguiente →
+              </Button>
+            </div>
+            </div>)}
+
+            {/* ═══ STEP 3: Notes, Vehicle, Summary ═══ */}
+            {wizardStep === 3 && (<div className="space-y-5">
             {/* Notes */}
             <FormField
               control={form.control}
@@ -989,13 +1051,8 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
             )}
 
             <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                className="w-full sm:w-auto"
-              >
-                Cancelar
+              <Button type="button" variant="outline" onClick={() => setWizardStep(2)} className="w-full sm:w-auto">
+                ← Atrás
               </Button>
               <Button
                 type="submit"
@@ -1005,6 +1062,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
                 {isSubmitting ? 'Creando...' : 'Crear Reserva'}
               </Button>
             </DialogFooter>
+            </div>)}
           </form>
         </Form>
       </DialogContent>

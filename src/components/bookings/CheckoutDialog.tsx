@@ -97,7 +97,7 @@ export function CheckoutDialog({
             onCheckoutComplete();
             onOpenChange(false);
         } catch (error) {
-            console.error('Checkout error:', error);
+            // Error silenced in production
         } finally {
             setIsProcessing(false);
         }

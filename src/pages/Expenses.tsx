@@ -36,7 +36,10 @@ import {
     Wrench,
     Zap,
     Package,
-    Trash2
+    Trash2,
+    ChevronLeft,
+    ChevronRight,
+    Edit
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -91,11 +94,17 @@ export default function Expenses() {
     const { currentRole } = useAppRole();
     const canWrite = currentRole === 'admin' || currentRole === 'reception';
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [editingExpense, setEditingExpense] = useState<string | null>(null);
     const [filterType, setFilterType] = useState<ExpenseType | 'ALL'>('ALL');
+    const [selectedMonth, setSelectedMonth] = useState(new Date());
 
-    // Get current month dates
-    const startDate = startOfMonth(new Date());
-    const endDate = endOfMonth(new Date());
+    // Month navigation
+    const startDate = startOfMonth(selectedMonth);
+    const endDate = endOfMonth(selectedMonth);
+    const goToPrevMonth = () => setSelectedMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+    const goToNextMonth = () => setSelectedMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+    const goToCurrentMonth = () => setSelectedMonth(new Date());
+    const isCurrentMonth = format(selectedMonth, 'yyyy-MM') === format(new Date(), 'yyyy-MM');
 
     const { data: expenses = [], isLoading } = useExpenses({
         startDate,
@@ -154,8 +163,28 @@ export default function Expenses() {
                 ) : undefined}
             />
 
+            {/* Month Navigation */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="icon" onClick={goToPrevMonth} className="h-9 w-9 rounded-xl">
+                        <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="text-lg font-semibold capitalize min-w-[140px] text-center">
+                        {format(selectedMonth, 'MMMM yyyy', { locale: es })}
+                    </span>
+                    <Button variant="outline" size="icon" onClick={goToNextMonth} className="h-9 w-9 rounded-xl" disabled={isCurrentMonth}>
+                        <ChevronRight className="w-4 h-4" />
+                    </Button>
+                </div>
+                {!isCurrentMonth && (
+                    <Button variant="ghost" size="sm" onClick={goToCurrentMonth} className="text-xs">
+                        Mes actual
+                    </Button>
+                )}
+            </div>
+
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                 <Card>
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-4">
@@ -254,7 +283,8 @@ export default function Expenses() {
                             </Button>
                         </div>
                     ) : (
-                        <Table>
+                        <div className="overflow-x-auto -mx-6 px-6">
+                        <Table className="min-w-[600px]">
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Fecha</TableHead>
@@ -283,6 +313,10 @@ export default function Expenses() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                           {canWrite && (
+                                            <div className="flex items-center justify-end gap-1">
+                                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" onClick={() => { setEditingExpense(expense.id); setDialogOpen(true); }}>
+                                                <Edit className="w-4 h-4" />
+                                            </Button>
                                             <AlertDialog>
                                                 <AlertDialogTrigger asChild>
                                                     <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive">
@@ -304,17 +338,23 @@ export default function Expenses() {
                                                     </AlertDialogFooter>
                                                 </AlertDialogContent>
                                             </AlertDialog>
+                                            </div>
                                           )}
                                         </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
                         </Table>
+                        </div>
                     )}
                 </CardContent>
             </Card>
 
-            <NewExpenseDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+            <NewExpenseDialog
+                open={dialogOpen}
+                onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingExpense(null); }}
+                expense={editingExpense ? expenses.find(e => e.id === editingExpense) : null}
+            />
         </div>
     );
 }

@@ -19,9 +19,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { UserRole, HotelSettings } from '@/types/hotel';
 import {
-  Building2, Users, Palette, Bell, Shield, User,
-  ClipboardList, Eye, Save, Loader2, Sun, Moon, Monitor,
-  Mail, MessageCircle, CalendarCheck, CreditCard, LogIn, LogOut
+  Building2, Users, Palette, Shield, User,
+  ClipboardList, Eye, Save, Loader2, Sun, Moon, Monitor
 } from 'lucide-react';
 
 // --- Role Configuration ---
@@ -97,8 +96,6 @@ export default function Settings() {
     }
   };
 
-  // handleSaveNotifications removed — no email/whatsapp backend exists
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -107,7 +104,7 @@ export default function Settings() {
       />
 
       <Tabs defaultValue="hotel" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
           <TabsTrigger value="hotel" className="gap-2">
             <Building2 className="w-4 h-4 hidden sm:block" />
             Hotel
@@ -120,7 +117,6 @@ export default function Settings() {
             <Palette className="w-4 h-4 hidden sm:block" />
             Apariencia
           </TabsTrigger>
-          {/* Notification tab removed — no email/whatsapp backend */}
         </TabsList>
 
         {/* TAB 1: Hotel Profile */}

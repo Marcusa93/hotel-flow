@@ -33,7 +33,15 @@ export default function Guests() {
       setIsNewGuestDialogOpen(true);
       setSearchParams({}, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+    const openId = searchParams.get('open');
+    if (openId && guests.length > 0) {
+      const guest = guests.find(g => g.id === openId);
+      if (guest) {
+        setSelectedGuest(guest);
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, setSearchParams, guests]);
 
   // Precompute guest stats
   const guestStatsMap = useMemo(() => {

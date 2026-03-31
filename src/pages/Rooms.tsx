@@ -12,6 +12,10 @@ import {
 // AddRoomDialog removed — rooms are fixed infrastructure
 import { EmptyState } from '@/components/shared';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { BedDouble, CheckSquare, X, Sparkles, PaintBucket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -144,15 +148,55 @@ export default function Rooms() {
             {selectedIds.size} habitación{selectedIds.size > 1 ? 'es' : ''} seleccionada{selectedIds.size > 1 ? 's' : ''}
           </span>
           <div className="flex-1" />
-          <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs" onClick={() => handleBulkAction('AVAILABLE')}>
-            <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Marcar Limpias
-          </Button>
-          <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs" onClick={() => handleBulkAction('DIRTY')}>
-            <PaintBucket className="w-3.5 h-3.5 mr-1.5" /> Marcar Sucias
-          </Button>
-          <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs" onClick={() => handleBulkAction('MAINTENANCE')}>
-            Mantenimiento
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs">
+                <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Limpias
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Marcar {selectedIds.size} habitación{selectedIds.size > 1 ? 'es' : ''} como limpias?</AlertDialogTitle>
+                <AlertDialogDescription>Las habitaciones seleccionadas pasarán a estado Disponible.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={() => handleBulkAction('AVAILABLE')}>Confirmar</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs">
+                <PaintBucket className="w-3.5 h-3.5 mr-1.5" /> Sucias
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Marcar {selectedIds.size} habitación{selectedIds.size > 1 ? 'es' : ''} como sucias?</AlertDialogTitle>
+                <AlertDialogDescription>Se crearán tareas de limpieza automáticamente.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={() => handleBulkAction('DIRTY')}>Confirmar</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs">Mantenimiento</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Poner {selectedIds.size} habitación{selectedIds.size > 1 ? 'es' : ''} en mantenimiento?</AlertDialogTitle>
+                <AlertDialogDescription>Las habitaciones no estarán disponibles para reservas.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={() => handleBulkAction('MAINTENANCE')} className="bg-destructive hover:bg-destructive/90">Confirmar</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       )}
 

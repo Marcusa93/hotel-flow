@@ -404,7 +404,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
       setWizardStep(1);
       onOpenChange(false);
     } catch (error) {
-      console.error('Error creating booking:', error);
+      // Error handled by toast below
       toast({
         title: 'Error al crear reserva',
         description: error instanceof Error ? error.message : 'Ocurrió un error inesperado. Intenta nuevamente.',

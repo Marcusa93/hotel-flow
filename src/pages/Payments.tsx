@@ -119,7 +119,7 @@ export default function Payments() {
               />
             </div>
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as PaymentStatus | 'ALL')}>
-              <SelectTrigger className="w-[150px] border-transparent bg-transparent hover:bg-white/50 rounded-xl">
+              <SelectTrigger className="w-full md:w-[150px] border-transparent bg-transparent hover:bg-white/50 rounded-xl">
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
@@ -130,7 +130,7 @@ export default function Payments() {
               </SelectContent>
             </Select>
             <Select value={methodFilter} onValueChange={(v) => setMethodFilter(v as PaymentMethod | 'ALL')}>
-              <SelectTrigger className="w-[150px] border-transparent bg-transparent hover:bg-white/50 rounded-xl">
+              <SelectTrigger className="w-full md:w-[150px] border-transparent bg-transparent hover:bg-white/50 rounded-xl">
                 <SelectValue placeholder="Método" />
               </SelectTrigger>
               <SelectContent>

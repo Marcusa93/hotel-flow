@@ -35,7 +35,7 @@ export const useUpdateRoom = () => {
             if (error) throw error;
             return data;
         },
-        onSuccess: (data, variables) => {
+        onSuccess: async (data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['rooms'] });
 
             // Audit log
@@ -64,6 +64,29 @@ export const useUpdateRoom = () => {
                     message: `Habitación ${data?.room_number || ''} requiere limpieza`,
                     metadata: { roomId: variables.id, status: variables.status },
                 });
+
+                // Auto-create housekeeping task for dirty rooms (skip if one already exists today)
+                const today = new Date().toISOString().split('T')[0];
+                const { data: existing } = await supabase
+                    .from('housekeeping_tasks')
+                    .select('id')
+                    .eq('room_id', variables.id)
+                    .eq('date', today)
+                    .neq('status', 'DONE')
+                    .limit(1);
+
+                if (!existing?.length) {
+                    await supabase
+                        .from('housekeeping_tasks')
+                        .insert({
+                            room_id: variables.id,
+                            date: today,
+                            status: 'TODO',
+                            priority: 'NORMAL',
+                            notes: 'Limpieza requerida',
+                        });
+                }
+                queryClient.invalidateQueries({ queryKey: ['housekeepingTasks'] });
             }
         }
     });

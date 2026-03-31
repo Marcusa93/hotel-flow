@@ -19,19 +19,38 @@ function getInitialGreeting(hotelName?: string) {
     return `¡Hola! Soy Atlas, tu asistente de ${name}. Tengo acceso a todos los datos del sistema en tiempo real. ¿En qué puedo ayudarte?`;
 }
 
+const CHAT_STORAGE_KEY = 'atlas_chat_history';
+
+function loadChatHistory(): ChatMessage[] | null {
+    try {
+        const saved = sessionStorage.getItem(CHAT_STORAGE_KEY);
+        if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return null;
+}
+
+function saveChatHistory(messages: ChatMessage[]) {
+    try { sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages)); } catch { /* ignore */ }
+}
+
 export function AtlasChatbot() {
     const { data: hotelSettings } = useHotelSettings();
     const [isOpen, setIsOpen] = useState(false);
-    const [messages, setMessages] = useState<ChatMessage[]>([
-        { role: 'assistant', content: getInitialGreeting() }
-    ]);
+    const [messages, setMessages] = useState<ChatMessage[]>(() => {
+        return loadChatHistory() || [{ role: 'assistant', content: getInitialGreeting() }];
+    });
 
-    // Update initial greeting when hotel settings load
+    // Update initial greeting when hotel settings load (only if no chat history)
     useEffect(() => {
-        if (hotelSettings?.hotelName && messages.length === 1 && messages[0].role === 'assistant') {
+        if (hotelSettings?.hotelName && messages.length === 1 && messages[0].role === 'assistant' && !loadChatHistory()) {
             setMessages([{ role: 'assistant', content: getInitialGreeting(hotelSettings.hotelName) }]);
         }
     }, [hotelSettings?.hotelName]);
+
+    // Persist messages to sessionStorage
+    useEffect(() => {
+        if (messages.length > 1) saveChatHistory(messages);
+    }, [messages]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);

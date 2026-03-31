@@ -307,7 +307,7 @@ export default function Rates() {
                       type="number"
                       value={editingBasePrice.price}
                       onChange={e => setEditingBasePrice({ ...editingBasePrice, price: Number(e.target.value) })}
-                      className="text-2xl font-bold h-12 w-28"
+                      className="text-2xl font-bold h-12 w-24 md:w-28"
                       autoFocus
                     />
                     <Button size="icon" variant="ghost" onClick={() => handleSaveBasePrice(type.id, editingBasePrice.price)}>
@@ -359,7 +359,8 @@ export default function Rates() {
               </Button>
             </div>
           ) : (
-            <Table>
+            <div className="overflow-x-auto -mx-6 px-6">
+            <Table className="min-w-[800px]">
               <TableHeader>
                 <TableRow className="border-slate-200 dark:border-slate-800">
                   <TableHead>Promoción</TableHead>
@@ -483,6 +484,7 @@ export default function Rates() {
                 </AnimatePresence>
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

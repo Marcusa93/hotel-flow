@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
   CalendarDays,
@@ -65,10 +65,12 @@ interface SidebarContentProps {
   collapsed?: boolean;
   onCollapse?: () => void;
   isMobile?: boolean; // If true, never collapsed
+  onNavigate?: () => void; // Called when a nav item is clicked (used to close mobile sheet)
 }
 
-function SidebarContent({ collapsed = false, onCollapse, isMobile = false }: SidebarContentProps) {
+function SidebarContent({ collapsed = false, onCollapse, isMobile = false, onNavigate }: SidebarContentProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { currentRole } = useAppRole();
   const { data: unreadCount = 0 } = useUnreadCount();
   const filteredItems = navItems.filter(item => item.roles.includes(currentRole));
@@ -101,9 +103,16 @@ function SidebarContent({ collapsed = false, onCollapse, isMobile = false }: Sid
             const isActive = location.pathname === item.href;
             const showReadOnly = isAuditor && item.readOnly;
 
+            const handleClick = isMobile && onNavigate ? (e: React.MouseEvent) => {
+              e.preventDefault();
+              onNavigate();
+              navigate(item.href);
+            } : undefined;
+
             const linkContent = (
               <Link
                 to={item.href}
+                onClick={handleClick}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden active:scale-[0.97]",
                   isActive
@@ -203,15 +212,17 @@ export function Sidebar() {
 }
 
 export function MobileSidebar() {
+  const [open, setOpen] = useState(false);
+
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="md:hidden text-sidebar-foreground hover:bg-white/10">
           <Menu className="w-6 h-6" />
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="p-0 border-r-0 w-72 bg-sidebar text-sidebar-foreground">
-        <SidebarContent isMobile={true} />
+        <SidebarContent isMobile={true} onNavigate={() => setOpen(false)} />
       </SheetContent>
     </Sheet>
   );

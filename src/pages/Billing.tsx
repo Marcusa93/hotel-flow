@@ -88,7 +88,7 @@ export default function Billing() {
         description: `Factura ${invoice.invoiceNumber} descargada`,
       });
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      // Error handled by toast below
       toast({
         title: 'Error',
         description: 'No se pudo generar el PDF',

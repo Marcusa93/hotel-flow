@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
   LayoutGrid, List, CheckCircle, AlertCircle, XCircle,
-  CreditCard, Calendar, BedDouble, Moon,
+  CreditCard, Calendar, BedDouble,
 } from 'lucide-react';
 
 type ViewMode = 'kanban' | 'list';

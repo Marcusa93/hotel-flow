@@ -17,7 +17,6 @@ import {
   MapPin,
   Clock,
   ShieldCheck,
-  MoreVertical,
   Car
 } from 'lucide-react';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
@@ -31,12 +30,6 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BookingStatus } from '@/types/hotel';
@@ -49,6 +42,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { RegisterPaymentDialog } from '@/components/payments/RegisterPaymentDialog';
 import { CheckoutDialog } from '@/components/bookings/CheckoutDialog';
@@ -121,17 +115,17 @@ export default function BookingDetail() {
             </AvatarFallback>
           </Avatar>
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">{booking.guest.fullName}</h1>
+            <div className="flex flex-wrap items-center gap-2 md:gap-3">
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight">{booking.guest.fullName}</h1>
               <StatusBadge status={booking.status} />
             </div>
-            <p className="text-muted-foreground flex items-center gap-2 text-sm mt-1">
+            <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm mt-1">
               <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">#{booking.id.slice(0, 8)}</span>
-              <span>•</span>
+              <span className="hidden md:inline">•</span>
               <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {nights} noches</span>
-              <span>•</span>
+              <span className="hidden md:inline">•</span>
               <span className="flex items-center gap-1"><User className="w-3 h-3" /> {booking.adults + booking.children} huéspedes</span>
-            </p>
+            </div>
           </div>
         </div>
 
@@ -142,9 +136,28 @@ export default function BookingDetail() {
             </Button>
           )}
           {booking.status === 'CONFIRMED' && (
-            <Button onClick={() => handleStatusChange('CHECKED_IN')} className="bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20">
-              <LogIn className="w-4 h-4 mr-2" /> Check-in
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button className="bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20">
+                  <LogIn className="w-4 h-4 mr-2" /> Check-in
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirmar Check-in</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    ¿Registrar el ingreso de <strong>{booking.guest.fullName}</strong> a la habitación <strong>{booking.room.roomNumber}</strong>?
+                    La habitación pasará a estado Ocupada.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Volver</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleStatusChange('CHECKED_IN')} className="bg-emerald-600 hover:bg-emerald-700">
+                    Confirmar Check-in
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
           {booking.status === 'CHECKED_IN' && (
             <Button onClick={() => setIsCheckoutDialogOpen(true)} className="bg-slate-800 hover:bg-slate-900 shadow-lg">
@@ -152,18 +165,30 @@ export default function BookingDetail() {
             </Button>
           )}
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="rounded-full">
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleStatusChange('CANCELLED')} className="text-destructive">
-                <XCircle className="w-4 h-4 mr-2" /> Cancelar Reserva
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {booking.status !== 'CANCELLED' && booking.status !== 'CHECKED_OUT' && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="icon" className="rounded-full text-destructive hover:text-destructive">
+                  <XCircle className="w-4 h-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Cancelar esta reserva?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Se cancelará la reserva de <strong>{booking.guest.fullName}</strong> (Hab. {booking.room.roomNumber}, {nights} noches, ${booking.totalAmount.toLocaleString()}).
+                    Esta acción no se puede deshacer.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Volver</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleStatusChange('CANCELLED')} className="bg-destructive hover:bg-destructive/90">
+                    Cancelar Reserva
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </motion.div>
 
@@ -337,8 +362,8 @@ export default function BookingDetail() {
                 </div>
               </div>
 
-              <Link to={`/guests/${booking.guest.id}`} className="block">
-                <Button variant="outline" className="w-full">Ver Perfil CRM</Button>
+              <Link to={`/guests?open=${booking.guest.id}`} className="block">
+                <Button variant="outline" className="w-full">Ver Perfil Completo</Button>
               </Link>
             </CardContent>
           </Card>

@@ -14,7 +14,7 @@ interface TabItem {
 const tabs: TabItem[] = [
     { label: 'Inicio', href: '/', icon: LayoutDashboard, roles: ['admin', 'reception'] },
     { label: 'Reservas', href: '/bookings', icon: CalendarDays, roles: ['admin', 'reception'] },
-    { label: 'Rooms', href: '/rooms', icon: BedDouble, roles: ['admin', 'reception', 'housekeeping'] },
+    { label: 'Habitaciones', href: '/rooms', icon: BedDouble, roles: ['admin', 'reception', 'housekeeping'] },
     { label: 'Limpieza', href: '/housekeeping', icon: Sparkles, roles: ['admin', 'housekeeping'] },
     { label: 'Config', href: '/settings', icon: Settings, roles: ['admin', 'reception', 'housekeeping', 'auditor'] },
 ];

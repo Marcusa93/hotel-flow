@@ -238,8 +238,13 @@ export function CheckoutDialog({
                                     <Input
                                         id="lateFee"
                                         type="number"
+                                        min={0}
+                                        max={booking.totalAmount}
                                         value={lateCheckoutFee}
-                                        onChange={(e) => setLateCheckoutFee(Number(e.target.value))}
+                                        onChange={(e) => {
+                                            const val = Math.max(0, Math.min(Number(e.target.value), booking.totalAmount));
+                                            setLateCheckoutFee(val);
+                                        }}
                                         className="w-28 pl-7 h-8 text-sm"
                                     />
                                 </div>

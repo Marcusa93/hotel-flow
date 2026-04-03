@@ -17,7 +17,8 @@ import {
   MapPin,
   Clock,
   ShieldCheck,
-  Car
+  Car,
+  Pencil
 } from 'lucide-react';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
@@ -47,6 +48,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { RegisterPaymentDialog } from '@/components/payments/RegisterPaymentDialog';
 import { CheckoutDialog } from '@/components/bookings/CheckoutDialog';
+import { EditBookingDialog } from '@/components/bookings/EditBookingDialog';
 import { BookingChargesSection } from '@/components/bookings/BookingChargesSection';
 import { useBookingCharges } from '@/hooks/useBookingCharges';
 import { motion } from 'framer-motion';
@@ -54,13 +56,15 @@ import { motion } from 'framer-motion';
 export default function BookingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getBookingWithDetails, updateBookingStatus, isLoading: bookingsLoading } = useBookingOperations();
+  const { getBookingWithDetails, updateBookingStatus, updateBooking, isLoading: bookingsLoading } = useBookingOperations();
   const { guests } = useGuestOperations();
   const { rooms, roomTypes } = useRoomOperations();
   const { payments } = usePaymentOperations();
   const isLoading = bookingsLoading;
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const { data: bookingCharges = [] } = useBookingCharges(id);
 
   const booking = id ? getBookingWithDetails(id, guests, rooms, roomTypes, payments) : undefined;
@@ -184,24 +188,61 @@ export default function BookingDetail() {
             </Button>
           )}
 
+          {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(true)} className="rounded-full">
+              <Pencil className="w-4 h-4 mr-2" /> Editar
+            </Button>
+          )}
+
           {booking.status !== 'CANCELLED' && booking.status !== 'CHECKED_OUT' && (
-            <AlertDialog>
+            <AlertDialog onOpenChange={() => setCancelReason('')}>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" size="icon" className="rounded-full text-destructive hover:text-destructive">
-                  <XCircle className="w-4 h-4" />
+                <Button variant="outline" size="sm" className="rounded-full text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5">
+                  <XCircle className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Cancelar</span>
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>¿Cancelar esta reserva?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Se cancelará la reserva de <strong>{formatLastNameFirst(booking.guest.fullName)}</strong> (Hab. {booking.room.roomNumber}, {nights} noches, ${booking.totalAmount.toLocaleString()}).
-                    Esta acción no se puede deshacer.
+                  <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                    <AlertTriangle className="w-5 h-5" />
+                    ¿Cancelar esta reserva?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-3">
+                      <p>
+                        Se cancelará la reserva de <strong>{formatLastNameFirst(booking.guest.fullName)}</strong> (Hab. {booking.room.roomNumber}, {nights} noches, ${booking.totalAmount.toLocaleString()}).
+                      </p>
+                      {totalPaid > 0 && (
+                        <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-sm">
+                          ⚠ Esta reserva tiene <strong>${totalPaid.toLocaleString('es-AR')}</strong> pagados. Deberá gestionar el reembolso por separado.
+                        </div>
+                      )}
+                      <div>
+                        <label className="text-xs font-medium text-foreground mb-1 block">Motivo de cancelación</label>
+                        <textarea
+                          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[60px]"
+                          placeholder="Ej: Solicitud del huésped, overbooking, error de carga..."
+                          value={cancelReason}
+                          onChange={(e) => setCancelReason(e.target.value)}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Esta acción no se puede deshacer.</p>
+                    </div>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Volver</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => handleStatusChange('CANCELLED')} className="bg-destructive hover:bg-destructive/90">
+                  <AlertDialogAction
+                    onClick={() => {
+                      if (cancelReason.trim()) {
+                        updateBooking(booking.id, { notes: `${booking.notes ? booking.notes + '\n' : ''}[CANCELACIÓN: ${cancelReason.trim()}]` });
+                      }
+                      handleStatusChange('CANCELLED');
+                    }}
+                    disabled={!cancelReason.trim()}
+                    className="bg-destructive hover:bg-destructive/90"
+                  >
                     Cancelar Reserva
                   </AlertDialogAction>
                 </AlertDialogFooter>
@@ -555,6 +596,12 @@ export default function BookingDetail() {
         booking={booking}
         bookingPayments={bookingPayments}
         onCheckoutComplete={() => navigate('/bookings')}
+      />
+
+      <EditBookingDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        booking={booking}
       />
     </div>
   );

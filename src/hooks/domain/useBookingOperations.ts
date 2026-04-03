@@ -55,9 +55,7 @@ export function useBookingOperations() {
 
   const updateBooking = useCallback(
     async (id: string, data: Partial<Booking>) => {
-      if (data.status) {
-        await updateBookingMutation.mutateAsync({ id, status: data.status });
-      }
+      await updateBookingMutation.mutateAsync({ id, ...data });
     },
     [updateBookingMutation]
   );

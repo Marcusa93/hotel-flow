@@ -284,7 +284,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
   };
 
   const availableRooms = rooms.filter(r =>
-    r.status === 'AVAILABLE' || r.status === 'DIRTY'
+    r.status === 'AVAILABLE'
   );
 
   // Save new guest inline without closing the booking dialog

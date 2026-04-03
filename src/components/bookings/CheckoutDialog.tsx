@@ -53,6 +53,7 @@ export function CheckoutDialog({
     const [isProcessing, setIsProcessing] = useState(false);
     const [isLateCheckout, setIsLateCheckout] = useState(false);
     const [lateCheckoutFee, setLateCheckoutFee] = useState(5000); // Default late fee
+    const [confirmUnpaid, setConfirmUnpaid] = useState(false);
 
     // Calculate payment summary
     const totalPaid = bookingPayments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + p.amount, 0);
@@ -172,11 +173,23 @@ export function CheckoutDialog({
                         </div>
 
                         {!isPaidInFull && (
-                            <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-700 dark:text-amber-400">
-                                <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
-                                <div className="text-sm">
-                                    <p className="font-medium">Hay saldo pendiente</p>
-                                    <p className="text-xs opacity-80">Puede proceder con el checkout, pero el saldo quedará registrado.</p>
+                            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-700 dark:text-red-400 space-y-2">
+                                <div className="flex items-start gap-2">
+                                    <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                                    <div className="text-sm">
+                                        <p className="font-medium">⚠ Saldo pendiente: ${pendingAmount.toLocaleString('es-AR')}</p>
+                                        <p className="text-xs opacity-80">El huésped tiene un saldo sin pagar. Si continúa, la deuda quedará registrada.</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center space-x-3 ml-7">
+                                    <Checkbox
+                                        id="confirmUnpaid"
+                                        checked={confirmUnpaid}
+                                        onCheckedChange={(checked) => setConfirmUnpaid(!!checked)}
+                                    />
+                                    <label htmlFor="confirmUnpaid" className="text-xs cursor-pointer font-medium">
+                                        Confirmo que autorizo el check-out con saldo pendiente
+                                    </label>
                                 </div>
                             </div>
                         )}
@@ -245,7 +258,7 @@ export function CheckoutDialog({
                     <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isProcessing}>
                         Cancelar
                     </Button>
-                    <Button onClick={handleCheckout} disabled={isProcessing} className="bg-slate-800 hover:bg-slate-900">
+                    <Button onClick={handleCheckout} disabled={isProcessing || (!isPaidInFull && !confirmUnpaid)} className="bg-slate-800 hover:bg-slate-900">
                         {isProcessing ? (
                             <>
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />

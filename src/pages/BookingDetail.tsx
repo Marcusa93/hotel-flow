@@ -132,9 +132,27 @@ export default function BookingDetail() {
 
         <div className="flex gap-2">
           {booking.status === 'PENDING' && (
-            <Button onClick={() => handleStatusChange('CONFIRMED')} className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20">
-              <CheckCircle className="w-4 h-4 mr-2" /> Confirmar
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20">
+                  <CheckCircle className="w-4 h-4 mr-2" /> Confirmar
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirmar Reserva</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    ¿Confirmar la reserva de <strong>{formatLastNameFirst(booking.guest.fullName)}</strong> en la habitación <strong>{booking.room.roomNumber}</strong> por {nights} noches (${booking.totalAmount.toLocaleString('es-AR')})?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Volver</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleStatusChange('CONFIRMED')} className="bg-blue-600 hover:bg-blue-700">
+                    Confirmar Reserva
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
           {booking.status === 'CONFIRMED' && (
             <AlertDialog>
@@ -200,9 +218,9 @@ export default function BookingDetail() {
         transition={{ delay: 0.05 }}
         className="flex items-center justify-between bg-white/60 dark:bg-slate-900/40 backdrop-blur border rounded-xl p-4"
       >
-        {(['CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT'] as const).map((step, i) => {
-          const labels: Record<string, string> = { CONFIRMED: 'Confirmada', CHECKED_IN: 'Check-in', CHECKED_OUT: 'Check-out' };
-          const icons: Record<string, typeof CheckCircle> = { CONFIRMED: CheckCircle, CHECKED_IN: LogIn, CHECKED_OUT: LogOut };
+        {(['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT'] as const).map((step, i) => {
+          const labels: Record<string, string> = { PENDING: 'Pendiente', CONFIRMED: 'Confirmada', CHECKED_IN: 'Check-in', CHECKED_OUT: 'Check-out' };
+          const icons: Record<string, typeof CheckCircle> = { PENDING: Clock, CONFIRMED: CheckCircle, CHECKED_IN: LogIn, CHECKED_OUT: LogOut };
           const StepIcon = icons[step];
           const statusOrder = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT'];
           const currentIdx = statusOrder.indexOf(booking.status);
@@ -222,7 +240,7 @@ export default function BookingDetail() {
                   {labels[step]}
                 </span>
               </div>
-              {i < 2 && <div className={cn("flex-1 h-0.5 mx-2 rounded", isCompleted && stepIdx < currentIdx ? "bg-emerald-400" : "bg-muted")} />}
+              {i < 3 && <div className={cn("flex-1 h-0.5 mx-2 rounded", isCompleted && stepIdx < currentIdx ? "bg-emerald-400" : "bg-muted")} />}
             </div>
           );
         })}
@@ -424,7 +442,7 @@ export default function BookingDetail() {
 
                 <Button className="w-full" onClick={() => setIsPaymentDialogOpen(true)}>
                   <Plus className="w-4 h-4 mr-2" />
-                  Registrar Pago
+                  {pendingAmount > 0 ? `Registrar Pago — $${pendingAmount.toLocaleString('es-AR')}` : 'Registrar Pago'}
                 </Button>
               </CardContent>
             </Card>

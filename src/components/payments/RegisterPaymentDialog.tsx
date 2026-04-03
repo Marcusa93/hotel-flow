@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -87,6 +87,17 @@ export function RegisterPaymentDialog({
       status: 'PAID',
     },
   });
+
+  // Update amount when dialog opens or pendingAmount changes
+  useEffect(() => {
+    if (open && pendingAmount > 0) {
+      form.setValue('amount', pendingAmount);
+      setShowConfirm(false);
+      setConfirmWarning(null);
+      setAppliedPromo(null);
+      setPromoCodeInput('');
+    }
+  }, [open, pendingAmount, form]);
 
   // Get current active promotions with promo codes
   const availablePromos = useMemo(() => {

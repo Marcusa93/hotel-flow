@@ -516,8 +516,8 @@ export default function Rates() {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
                 <Label>Nombre de la promoción *</Label>
                 <Input
                   placeholder="Ej: Oferta Fin de Semana"

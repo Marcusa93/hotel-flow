@@ -226,7 +226,7 @@ export default function Housekeeping() {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div className="bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/20 dark:to-slate-900 rounded-2xl p-3 text-center shadow-sm">
             <p className="text-2xl font-extrabold text-orange-600 dark:text-orange-400">{dirtyRooms.length}</p>
             <p className="text-[10px] text-orange-600/70 dark:text-orange-400/70 font-semibold">Sucias</p>

@@ -17,7 +17,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Topbar />
-        <main className="flex-1 overflow-auto p-6 pb-20 md:pb-6 scrollbar-thin">
+        <main className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6 scrollbar-thin">
           {children}
         </main>
         <AtlasChatbot />

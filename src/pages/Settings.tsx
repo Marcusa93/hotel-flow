@@ -104,7 +104,7 @@ export default function Settings() {
       />
 
       <Tabs defaultValue="hotel" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 lg:w-auto lg:inline-grid">
           <TabsTrigger value="hotel" className="gap-2">
             <Building2 className="w-4 h-4 hidden sm:block" />
             Hotel
@@ -323,7 +323,7 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div className="space-y-3">
                 <Label>Modo de Tema</Label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
                     { value: 'light', label: 'Claro', icon: Sun, desc: 'Fondo claro' },
                     { value: 'dark', label: 'Oscuro', icon: Moon, desc: 'Fondo oscuro' },

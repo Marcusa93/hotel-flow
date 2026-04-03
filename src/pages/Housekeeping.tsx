@@ -9,7 +9,8 @@ import {
   StaffPerformanceCard,
   MobileTaskList,
   TaskAlertBanner,
-  CreateTaskDialog
+  CreateTaskDialog,
+  EditTaskDialog
 } from '@/components/housekeeping';
 import { HousekeepingTask, HousekeepingStatus, TaskPriority } from '@/types/hotel';
 import {
@@ -31,6 +32,7 @@ export default function Housekeeping() {
   const [newAlertTasks, setNewAlertTasks] = useState<HousekeepingTask[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
+  const [editingTask, setEditingTask] = useState<HousekeepingTask | null>(null);
 
   // Dynamically get available floors from rooms
   const availableFloors = useMemo(() => {
@@ -162,6 +164,32 @@ export default function Housekeeping() {
     return Array.from(names);
   }, [todaysTasks]);
 
+  // All known staff names (from all tasks, not just today) for autocomplete
+  const allStaffNames = useMemo(() => {
+    const names = new Set<string>();
+    housekeepingTasks.forEach(t => {
+      if (t.assignedTo) names.add(t.assignedTo);
+    });
+    return Array.from(names).sort();
+  }, [housekeepingTasks]);
+
+  const handleEditTask = useCallback(async (taskId: string, data: Partial<HousekeepingTask>) => {
+    try {
+      await updateHousekeepingTask(taskId, data, rooms);
+      toast({
+        title: '✅ Tarea actualizada',
+        description: 'Los cambios se guardaron correctamente',
+      });
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'No se pudo actualizar la tarea',
+        variant: 'destructive',
+      });
+      throw new Error('update failed');
+    }
+  }, [updateHousekeepingTask, rooms]);
+
   const completedToday = todaysTasks.filter(t => t.status === 'DONE').length;
   const inProgressCount = todaysTasks.filter(t => t.status === 'IN_PROGRESS').length;
   const pendingCount = todaysTasks.filter(t => t.status === 'TODO').length;
@@ -198,6 +226,7 @@ export default function Housekeeping() {
           <div className="flex gap-2">
             <CreateTaskDialog
               rooms={rooms}
+              staffSuggestions={allStaffNames}
               onCreateTask={handleCreateTask}
               isCreating={isCreating}
             />
@@ -279,16 +308,17 @@ export default function Housekeeping() {
           tasks={todaysTasks}
           rooms={rooms}
           onStatusChange={handleStatusChange}
+          onEdit={setEditingTask}
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
         />
       ) : (
         /* Desktop View */
         <>
-          {/* Staff Stats Row */}
+          {/* Staff Stats Row — show ALL staff */}
           {staffMembers.length > 0 && (
-            <div className="grid gap-4 md:grid-cols-3 mb-8">
-              {staffMembers.slice(0, 2).map(name => (
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 mb-8">
+              {staffMembers.map(name => (
                 <StaffPerformanceCard
                   key={name}
                   name={name}
@@ -327,6 +357,19 @@ export default function Housekeeping() {
             )}
           </div>
         </>
+      )}
+
+      {/* Edit Task Dialog */}
+      {editingTask && (
+        <EditTaskDialog
+          open={!!editingTask}
+          onOpenChange={(open) => { if (!open) setEditingTask(null); }}
+          task={editingTask}
+          room={rooms.find(r => r.id === editingTask.roomId) || rooms[0]}
+          rooms={rooms}
+          staffSuggestions={allStaffNames}
+          onSave={handleEditTask}
+        />
       )}
     </div>
   );

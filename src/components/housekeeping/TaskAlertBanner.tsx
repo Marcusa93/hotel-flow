@@ -96,7 +96,7 @@ export function TaskAlertBanner({ newTasks, rooms, onDismiss, onViewTask, enable
     return (
         <div
             className={cn(
-                "fixed top-0 left-0 right-0 z-50 p-4 safe-area-inset-top",
+                "sticky top-0 left-0 right-0 z-40 p-4",
                 "animate-in slide-in-from-top duration-300"
             )}
         >

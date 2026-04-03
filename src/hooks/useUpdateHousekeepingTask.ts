@@ -26,7 +26,7 @@ export const useUpdateHousekeepingTask = () => {
             if (data.priority) updates.priority = data.priority;
             if (data.assignedTo !== undefined) updates.assigned_to = data.assignedTo ?? null;
 
-            // Time tracking
+            // Time tracking — forward transitions
             if (startedAt) {
                 updates.started_at = startedAt.toISOString();
             }
@@ -50,6 +50,18 @@ export const useUpdateHousekeepingTask = () => {
                     updates.started_at = completedAt.toISOString();
                     updates.duration_minutes = 0;
                 }
+            }
+
+            // Time tracking — reverse transitions (revert)
+            if (data.status === 'TODO') {
+                // Going back to TODO: clear all time tracking
+                updates.started_at = null;
+                updates.completed_at = null;
+                updates.duration_minutes = null;
+            } else if (data.status === 'IN_PROGRESS' && !startedAt && !completedAt) {
+                // Reverting from DONE to IN_PROGRESS: clear completion, keep start
+                updates.completed_at = null;
+                updates.duration_minutes = null;
             }
 
             const { error } = await supabase

@@ -57,15 +57,26 @@ export function useHousekeepingOperations() {
     ) => {
       await updateTaskMutation.mutateAsync({ id, data, startedAt, completedAt });
 
-      // Side effect: update room status if task is DONE
-      if (data.status === 'DONE' && rooms) {
-        const task = housekeepingTasks.find((t) => t.id === id);
-        if (task) {
-          const room = rooms.find((r) => r.id === task.roomId);
-          if (room && room.status === 'DIRTY') {
+      // Side effects: sync room status with task status
+      const task = housekeepingTasks.find((t) => t.id === id);
+      if (task && rooms) {
+        const room = rooms.find((r) => r.id === task.roomId);
+        if (room) {
+          if (data.status === 'DONE' && room.status === 'DIRTY') {
+            // Task completed → room available
             await updateRoomMutation.mutateAsync({
               id: task.roomId,
               status: 'AVAILABLE',
+            });
+          } else if (
+            (data.status === 'IN_PROGRESS' || data.status === 'TODO') &&
+            room.status === 'AVAILABLE' &&
+            task.status === 'DONE'
+          ) {
+            // Task reverted from DONE → room back to dirty
+            await updateRoomMutation.mutateAsync({
+              id: task.roomId,
+              status: 'DIRTY',
             });
           }
         }

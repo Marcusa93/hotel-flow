@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, CheckCircle2, Clock, AlertTriangle, Sparkles, User, ChevronRight, Timer } from 'lucide-react';
+import { Play, CheckCircle2, Clock, AlertTriangle, Sparkles, User, ChevronRight, Timer, Undo2, Pencil } from 'lucide-react';
 import { HousekeepingTask, Room, TaskPriority, HousekeepingStatus } from '@/types/hotel';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ interface MobileTaskCardProps {
     task: HousekeepingTask;
     room: Room;
     onStatusChange: (taskId: string, status: HousekeepingStatus, startedAt?: Date, completedAt?: Date) => void;
+    onEdit?: (task: HousekeepingTask) => void;
 }
 
 const priorityConfig: Record<TaskPriority, { label: string; color: string; icon: React.ElementType }> = {
@@ -24,11 +25,21 @@ const statusConfig: Record<HousekeepingStatus, { label: string; color: string }>
     DONE: { label: 'Completada', color: 'border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/20' },
 };
 
-export function MobileTaskCard({ task, room, onStatusChange }: MobileTaskCardProps) {
+export function MobileTaskCard({ task, room, onStatusChange, onEdit }: MobileTaskCardProps) {
     const [elapsedTime, setElapsedTime] = useState(0);
     const [isSwiped, setIsSwiped] = useState(false);
+    const [pendingAction, setPendingAction] = useState<'forward' | 'revert' | null>(null);
+    const confirmTimeoutRef = useRef<NodeJS.Timeout>();
     const touchStartX = useRef(0);
     const cardRef = useRef<HTMLDivElement>(null);
+
+    // Auto-dismiss confirmation after 4 seconds
+    useEffect(() => {
+        if (pendingAction) {
+            confirmTimeoutRef.current = setTimeout(() => setPendingAction(null), 4000);
+            return () => clearTimeout(confirmTimeoutRef.current);
+        }
+    }, [pendingAction]);
 
     const priority = task.priority || 'NORMAL';
     const priorityInfo = priorityConfig[priority];
@@ -68,20 +79,39 @@ export function MobileTaskCard({ task, room, onStatusChange }: MobileTaskCardPro
         const touchEndX = e.changedTouches[0].clientX;
         const diff = touchEndX - touchStartX.current;
 
-        if (diff > 80) {
-            // Swipe right - action
-            handleAction();
+        if (diff > 80 && task.status !== 'DONE') {
+            // Swipe right - request confirmation
+            setPendingAction('forward');
         } else if (diff < -80) {
-            // Swipe left - show details
             setIsSwiped(!isSwiped);
         }
     };
 
-    const handleAction = () => {
+    const handleForwardAction = () => {
+        if (!pendingAction || pendingAction !== 'forward') {
+            setPendingAction('forward');
+            return;
+        }
+        // Confirmed — execute
+        setPendingAction(null);
         if (task.status === 'TODO') {
             onStatusChange(task.id, 'IN_PROGRESS', new Date(), undefined);
         } else if (task.status === 'IN_PROGRESS') {
             onStatusChange(task.id, 'DONE', undefined, new Date());
+        }
+    };
+
+    const handleRevertAction = () => {
+        if (!pendingAction || pendingAction !== 'revert') {
+            setPendingAction('revert');
+            return;
+        }
+        // Confirmed — revert
+        setPendingAction(null);
+        if (task.status === 'DONE') {
+            onStatusChange(task.id, 'IN_PROGRESS');
+        } else if (task.status === 'IN_PROGRESS') {
+            onStatusChange(task.id, 'TODO');
         }
     };
 
@@ -121,6 +151,18 @@ export function MobileTaskCard({ task, room, onStatusChange }: MobileTaskCardPro
                         </div>
                     </div>
 
+                    {/* Edit button */}
+                    {onEdit && task.status !== 'DONE' && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={(e) => { e.stopPropagation(); onEdit(task); }}
+                        >
+                            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                        </Button>
+                    )}
+
                     {/* Timer (visible when IN_PROGRESS) */}
                     {task.status === 'IN_PROGRESS' && (
                         <div className="flex items-center gap-2 bg-amber-100 dark:bg-amber-900/30 px-3 py-2 rounded-xl">
@@ -157,36 +199,85 @@ export function MobileTaskCard({ task, room, onStatusChange }: MobileTaskCardPro
                     </p>
                 )}
 
-                {/* Action Button */}
+                {/* Confirmation bar */}
+                {pendingAction && (
+                    <div className={cn(
+                        "p-2.5 rounded-xl mb-3 text-center text-sm font-medium animate-in fade-in duration-200",
+                        pendingAction === 'forward'
+                            ? "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
+                            : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-700"
+                    )}>
+                        {pendingAction === 'forward'
+                            ? (task.status === 'TODO' ? '¿Empezar limpieza? Toca de nuevo para confirmar' : '¿Marcar como terminada? Toca de nuevo para confirmar')
+                            : (task.status === 'DONE' ? '¿Reabrir tarea? Toca de nuevo para confirmar' : '¿Volver a pendiente? Toca de nuevo para confirmar')
+                        }
+                    </div>
+                )}
+
+                {/* Action Buttons */}
                 {task.status !== 'DONE' && (
+                    <div className="flex gap-2">
+                        {/* Revert button for IN_PROGRESS */}
+                        {task.status === 'IN_PROGRESS' && (
+                            <Button
+                                onClick={handleRevertAction}
+                                variant="outline"
+                                className={cn(
+                                    "h-14 rounded-xl transition-all active:scale-95 shrink-0",
+                                    pendingAction === 'revert' && "ring-2 ring-blue-400 bg-blue-50 dark:bg-blue-950/30"
+                                )}
+                            >
+                                <Undo2 className="w-5 h-5" />
+                            </Button>
+                        )}
+                        <Button
+                            onClick={handleForwardAction}
+                            className={cn(
+                                "flex-1 h-14 text-base font-semibold rounded-xl shadow-lg transition-all active:scale-95",
+                                pendingAction === 'forward' && "ring-2 ring-offset-2",
+                                task.status === 'TODO'
+                                    ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+                                    : "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
+                            )}
+                        >
+                            {task.status === 'TODO' ? (
+                                <>
+                                    <Play className="w-5 h-5 mr-2" />
+                                    {pendingAction === 'forward' ? 'Confirmar' : 'Empezar Limpieza'}
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle2 className="w-5 h-5 mr-2" />
+                                    {pendingAction === 'forward' ? 'Confirmar' : 'Terminar Limpieza'}
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                )}
+
+                {/* Revert button for DONE tasks */}
+                {task.status === 'DONE' && (
                     <Button
-                        onClick={handleAction}
+                        onClick={handleRevertAction}
+                        variant="outline"
+                        size="sm"
                         className={cn(
-                            "w-full h-14 text-base font-semibold rounded-xl shadow-lg transition-all active:scale-95",
-                            task.status === 'TODO'
-                                ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
-                                : "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
+                            "w-full mt-2 rounded-xl transition-all",
+                            pendingAction === 'revert' && "ring-2 ring-blue-400 bg-blue-50 dark:bg-blue-950/30"
                         )}
                     >
-                        {task.status === 'TODO' ? (
-                            <>
-                                <Play className="w-5 h-5 mr-2" />
-                                Empezar Limpieza
-                            </>
-                        ) : (
-                            <>
-                                <CheckCircle2 className="w-5 h-5 mr-2" />
-                                Terminar Limpieza
-                            </>
-                        )}
+                        <Undo2 className="w-4 h-4 mr-2" />
+                        {pendingAction === 'revert' ? 'Toca para confirmar' : 'Reabrir tarea'}
                     </Button>
                 )}
 
-                {/* Swipe hint */}
-                <div className="flex items-center justify-center mt-3 text-xs text-muted-foreground opacity-60">
-                    <ChevronRight className="w-4 h-4 animate-pulse" />
-                    <span>Desliza para acciones</span>
-                </div>
+                {/* Swipe hint — only for actionable tasks */}
+                {task.status !== 'DONE' && (
+                    <div className="flex items-center justify-center mt-3 text-xs text-muted-foreground opacity-60">
+                        <ChevronRight className="w-4 h-4 animate-pulse" />
+                        <span>Desliza para acciones</span>
+                    </div>
+                )}
             </div>
         </div>
     );

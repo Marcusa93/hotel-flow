@@ -1,16 +1,15 @@
-import { useState } from 'react';
-import { Plus, Loader2 } from 'lucide-react';
-import { Room, TaskPriority } from '@/types/hotel';
+import { useState, useEffect, useMemo } from 'react';
+import { Pencil, Loader2, Save } from 'lucide-react';
+import { Room, TaskPriority, HousekeepingTask, HousekeepingStatus } from '@/types/hotel';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { StaffCombobox } from './StaffCombobox';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
@@ -21,17 +20,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { StaffCombobox } from './StaffCombobox';
 
-interface CreateTaskDialogProps {
+interface EditTaskDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  task: HousekeepingTask;
+  room: Room;
   rooms: Room[];
-  staffSuggestions?: string[];
-  onCreateTask: (data: {
-    roomId: string;
-    priority: TaskPriority;
-    assignedTo?: string;
-    notes?: string;
-  }) => Promise<void>;
-  isCreating?: boolean;
+  staffSuggestions: string[];
+  onSave: (taskId: string, data: Partial<HousekeepingTask>) => Promise<void>;
+  isUpdating?: boolean;
 }
 
 const priorityOptions: { value: TaskPriority; label: string; description: string }[] = [
@@ -41,41 +40,39 @@ const priorityOptions: { value: TaskPriority; label: string; description: string
   { value: 'CHECKOUT', label: 'Checkout', description: 'Post checkout' },
 ];
 
-export function CreateTaskDialog({ rooms, staffSuggestions = [], onCreateTask, isCreating }: CreateTaskDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [roomId, setRoomId] = useState('');
-  const [priority, setPriority] = useState<TaskPriority>('NORMAL');
-  const [assignedTo, setAssignedTo] = useState('');
-  const [notes, setNotes] = useState('');
+export function EditTaskDialog({
+  open,
+  onOpenChange,
+  task,
+  room,
+  rooms,
+  staffSuggestions,
+  onSave,
+  isUpdating,
+}: EditTaskDialogProps) {
+  const [priority, setPriority] = useState<TaskPriority>(task.priority || 'NORMAL');
+  const [assignedTo, setAssignedTo] = useState(task.assignedTo || '');
+  const [notes, setNotes] = useState(task.notes || '');
+  const [roomId, setRoomId] = useState(task.roomId);
 
-  // Only show rooms that could need cleaning (DIRTY, OCCUPIED, AVAILABLE)
-  const availableRooms = [...rooms].sort((a, b) => {
-    // DIRTY rooms first
-    const statusOrder: Record<string, number> = { DIRTY: 0, OCCUPIED: 1, AVAILABLE: 2, MAINTENANCE: 3 };
-    const diff = (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
-    if (diff !== 0) return diff;
-    return a.roomNumber.localeCompare(b.roomNumber);
-  });
-
-  const handleSubmit = async () => {
-    if (!roomId) return;
-    try {
-      await onCreateTask({
-        roomId,
-        priority,
-        assignedTo: assignedTo.trim() || undefined,
-        notes: notes || undefined,
-      });
-      // Reset form
-      setRoomId('');
-      setPriority('NORMAL');
-      setAssignedTo('');
-      setNotes('');
-      setOpen(false);
-    } catch {
-      // Error handled by parent
+  // Reset form when task changes
+  useEffect(() => {
+    if (open) {
+      setPriority(task.priority || 'NORMAL');
+      setAssignedTo(task.assignedTo || '');
+      setNotes(task.notes || '');
+      setRoomId(task.roomId);
     }
-  };
+  }, [open, task]);
+
+  const availableRooms = useMemo(() => {
+    return [...rooms].sort((a, b) => {
+      const statusOrder: Record<string, number> = { DIRTY: 0, OCCUPIED: 1, AVAILABLE: 2, MAINTENANCE: 3 };
+      const diff = (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
+      if (diff !== 0) return diff;
+      return a.roomNumber.localeCompare(b.roomNumber);
+    });
+  }, [rooms]);
 
   const statusLabel = (status: string) => {
     const labels: Record<string, string> = {
@@ -87,34 +84,52 @@ export function CreateTaskDialog({ rooms, staffSuggestions = [], onCreateTask, i
     return labels[status] || status;
   };
 
+  const hasChanges =
+    priority !== (task.priority || 'NORMAL') ||
+    assignedTo !== (task.assignedTo || '') ||
+    notes !== (task.notes || '') ||
+    roomId !== task.roomId;
+
+  const handleSave = async () => {
+    const updates: Partial<HousekeepingTask> = {};
+    if (priority !== (task.priority || 'NORMAL')) updates.priority = priority;
+    if (assignedTo !== (task.assignedTo || '')) updates.assignedTo = assignedTo.trim() || undefined;
+    if (notes !== (task.notes || '')) updates.notes = notes || undefined;
+    if (roomId !== task.roomId) updates.roomId = roomId;
+
+    try {
+      await onSave(task.id, updates);
+      onOpenChange(false);
+    } catch {
+      // Error handled by parent
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="gap-2">
-          <Plus className="w-4 h-4" />
-          Nueva Tarea
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Crear Tarea de Limpieza</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="w-4 h-4" />
+            Editar Tarea — Hab. {room.roomNumber}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           {/* Room Selection */}
           <div className="space-y-2">
-            <Label htmlFor="room">Habitación *</Label>
+            <Label>Habitación</Label>
             <Select value={roomId} onValueChange={setRoomId}>
-              <SelectTrigger id="room">
-                <SelectValue placeholder="Seleccionar habitación" />
+              <SelectTrigger>
+                <SelectValue />
               </SelectTrigger>
               <SelectContent className="max-h-[300px]">
-                {availableRooms.map((room) => (
-                  <SelectItem key={room.id} value={room.id}>
+                {availableRooms.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
                     <span className="flex items-center gap-2">
-                      <span className="font-semibold">Hab. {room.roomNumber}</span>
+                      <span className="font-semibold">Hab. {r.roomNumber}</span>
                       <span className="text-xs text-muted-foreground">
-                        Piso {room.floor} · {statusLabel(room.status)}
+                        Piso {r.floor} · {statusLabel(r.status)}
                       </span>
                     </span>
                   </SelectItem>
@@ -125,9 +140,9 @@ export function CreateTaskDialog({ rooms, staffSuggestions = [], onCreateTask, i
 
           {/* Priority */}
           <div className="space-y-2">
-            <Label htmlFor="priority">Prioridad</Label>
+            <Label>Prioridad</Label>
             <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
-              <SelectTrigger id="priority">
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -143,9 +158,9 @@ export function CreateTaskDialog({ rooms, staffSuggestions = [], onCreateTask, i
             </Select>
           </div>
 
-          {/* Assigned To */}
+          {/* Assigned To with autocomplete */}
           <div className="space-y-2">
-            <Label htmlFor="assignedTo">Asignar a</Label>
+            <Label>Asignar a</Label>
             <StaffCombobox
               value={assignedTo}
               onChange={setAssignedTo}
@@ -155,9 +170,8 @@ export function CreateTaskDialog({ rooms, staffSuggestions = [], onCreateTask, i
 
           {/* Notes */}
           <div className="space-y-2">
-            <Label htmlFor="notes">Notas</Label>
+            <Label>Notas</Label>
             <Textarea
-              id="notes"
               placeholder="Instrucciones adicionales..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -170,16 +184,16 @@ export function CreateTaskDialog({ rooms, staffSuggestions = [], onCreateTask, i
           <DialogClose asChild>
             <Button variant="outline">Cancelar</Button>
           </DialogClose>
-          <Button onClick={handleSubmit} disabled={!roomId || isCreating}>
-            {isCreating ? (
+          <Button onClick={handleSave} disabled={!hasChanges || isUpdating}>
+            {isUpdating ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Creando...
+                Guardando...
               </>
             ) : (
               <>
-                <Plus className="w-4 h-4 mr-2" />
-                Crear Tarea
+                <Save className="w-4 h-4 mr-2" />
+                Guardar Cambios
               </>
             )}
           </Button>

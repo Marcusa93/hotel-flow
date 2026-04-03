@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { ClipboardList, RefreshCw, Bell } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ClipboardList, RefreshCw, Bell, ChevronDown, ChevronUp } from 'lucide-react';
 import { HousekeepingTask, Room, HousekeepingStatus, TaskPriority } from '@/types/hotel';
 import { MobileTaskCard } from './MobileTaskCard';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ interface MobileTaskListProps {
     tasks: HousekeepingTask[];
     rooms: Room[];
     onStatusChange: (taskId: string, status: HousekeepingStatus, startedAt?: Date, completedAt?: Date) => void;
+    onEdit?: (task: HousekeepingTask) => void;
     onRefresh?: () => void;
     isRefreshing?: boolean;
 }
@@ -20,7 +21,56 @@ const priorityOrder: Record<TaskPriority, number> = {
     LOW: 3,
 };
 
-export function MobileTaskList({ tasks, rooms, onStatusChange, onRefresh, isRefreshing }: MobileTaskListProps) {
+function CompletedSection({ tasks, rooms, onStatusChange, onEdit }: {
+    tasks: HousekeepingTask[];
+    rooms: Room[];
+    onStatusChange: MobileTaskListProps['onStatusChange'];
+    onEdit?: MobileTaskListProps['onEdit'];
+}) {
+    const [expanded, setExpanded] = useState(false);
+    const displayed = expanded ? tasks : tasks.slice(0, 3);
+    const hasMore = tasks.length > 3;
+
+    return (
+        <div className="space-y-3">
+            <h3 className="text-sm font-medium text-emerald-600 dark:text-emerald-400 px-1 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Completadas ({tasks.length})
+            </h3>
+            <div className="space-y-3 opacity-70">
+                {displayed.map(task => {
+                    const room = rooms.find(r => r.id === task.roomId);
+                    if (!room) return null;
+                    return (
+                        <MobileTaskCard
+                            key={task.id}
+                            task={task}
+                            room={room}
+                            onStatusChange={onStatusChange}
+                            onEdit={onEdit}
+                        />
+                    );
+                })}
+                {hasMore && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setExpanded(!expanded)}
+                        className="w-full text-muted-foreground"
+                    >
+                        {expanded ? (
+                            <><ChevronUp className="w-4 h-4 mr-1" /> Mostrar menos</>
+                        ) : (
+                            <><ChevronDown className="w-4 h-4 mr-1" /> Ver las {tasks.length - 3} restantes</>
+                        )}
+                    </Button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+export function MobileTaskList({ tasks, rooms, onStatusChange, onEdit, onRefresh, isRefreshing }: MobileTaskListProps) {
     // Sort tasks by priority, then by status (TODO first), then by date
     const sortedTasks = useMemo(() => {
         return [...tasks].sort((a, b) => {
@@ -130,6 +180,7 @@ export function MobileTaskList({ tasks, rooms, onStatusChange, onRefresh, isRefr
                                     task={task}
                                     room={room}
                                     onStatusChange={onStatusChange}
+                                    onEdit={onEdit}
                                 />
                             );
                         })}
@@ -154,6 +205,7 @@ export function MobileTaskList({ tasks, rooms, onStatusChange, onRefresh, isRefr
                                     task={task}
                                     room={room}
                                     onStatusChange={onStatusChange}
+                                    onEdit={onEdit}
                                 />
                             );
                         })}
@@ -163,31 +215,12 @@ export function MobileTaskList({ tasks, rooms, onStatusChange, onRefresh, isRefr
 
             {/* Completed Section */}
             {doneTasks.length > 0 && (
-                <div className="space-y-3">
-                    <h3 className="text-sm font-medium text-emerald-600 dark:text-emerald-400 px-1 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                        Completadas ({doneTasks.length})
-                    </h3>
-                    <div className="space-y-3 opacity-70">
-                        {doneTasks.slice(0, 3).map(task => {
-                            const room = getRoomForTask(task);
-                            if (!room) return null;
-                            return (
-                                <MobileTaskCard
-                                    key={task.id}
-                                    task={task}
-                                    room={room}
-                                    onStatusChange={onStatusChange}
-                                />
-                            );
-                        })}
-                        {doneTasks.length > 3 && (
-                            <p className="text-center text-sm text-muted-foreground py-2">
-                                +{doneTasks.length - 3} más completadas hoy
-                            </p>
-                        )}
-                    </div>
-                </div>
+                <CompletedSection
+                    tasks={doneTasks}
+                    rooms={rooms}
+                    onStatusChange={onStatusChange}
+                    onEdit={onEdit}
+                />
             )}
         </div>
     );

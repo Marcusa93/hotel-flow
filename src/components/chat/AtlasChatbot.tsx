@@ -1,13 +1,46 @@
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, X, Send, Loader2 } from 'lucide-react';
+import { MessageSquare, X, Send, Loader2, Mic, MicOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { supabase } from '@/lib/supabase';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { ChatMarkdown } from './ChatMarkdown';
+
+// ── Web Speech API types ──
+interface SpeechRecognitionEvent extends Event {
+    results: SpeechRecognitionResultList;
+    resultIndex: number;
+}
+interface SpeechRecognitionErrorEvent extends Event {
+    error: string;
+    message?: string;
+}
+interface SpeechRecognitionInstance extends EventTarget {
+    lang: string;
+    continuous: boolean;
+    interimResults: boolean;
+    start(): void;
+    stop(): void;
+    abort(): void;
+    onresult: ((event: SpeechRecognitionEvent) => void) | null;
+    onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+    onend: (() => void) | null;
+    onstart: (() => void) | null;
+}
+declare global {
+    interface Window {
+        SpeechRecognition: new () => SpeechRecognitionInstance;
+        webkitSpeechRecognition: new () => SpeechRecognitionInstance;
+    }
+}
+
+const getSpeechRecognition = (): (new () => SpeechRecognitionInstance) | null => {
+    if (typeof window === 'undefined') return null;
+    return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+};
 
 interface ChatMessage {
     role: 'user' | 'assistant';
@@ -53,8 +86,84 @@ export function AtlasChatbot() {
     }, [messages]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isListening, setIsListening] = useState(false);
+    const [interimTranscript, setInterimTranscript] = useState('');
+    const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    const speechSupported = !!getSpeechRecognition();
+
+    const stopListening = useCallback(() => {
+        if (recognitionRef.current) {
+            recognitionRef.current.abort();
+            recognitionRef.current = null;
+        }
+        setIsListening(false);
+        setInterimTranscript('');
+    }, []);
+
+    const startListening = useCallback(() => {
+        const SpeechRecognition = getSpeechRecognition();
+        if (!SpeechRecognition) return;
+
+        // Stop any existing session
+        stopListening();
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'es-AR';
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognitionRef.current = recognition;
+
+        recognition.onstart = () => {
+            setIsListening(true);
+            setInterimTranscript('');
+        };
+
+        recognition.onresult = (event: SpeechRecognitionEvent) => {
+            let interim = '';
+            let final = '';
+
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    final += transcript;
+                } else {
+                    interim += transcript;
+                }
+            }
+
+            if (final) {
+                setInput(prev => (prev ? prev + ' ' : '') + final);
+                setInterimTranscript('');
+            } else {
+                setInterimTranscript(interim);
+            }
+        };
+
+        recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+            // 'no-speech' and 'aborted' are not real errors
+            if (event.error !== 'no-speech' && event.error !== 'aborted') {
+                console.warn('Speech recognition error:', event.error);
+            }
+            stopListening();
+        };
+
+        recognition.onend = () => {
+            setIsListening(false);
+            setInterimTranscript('');
+            recognitionRef.current = null;
+            inputRef.current?.focus();
+        };
+
+        recognition.start();
+    }, [stopListening]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => { stopListening(); };
+    }, [stopListening]);
 
     // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
@@ -173,20 +282,49 @@ export function AtlasChatbot() {
                 </ScrollArea>
 
                 {/* Input */}
-                <div className="p-4 bg-background border-t border-border mt-auto">
+                <div className="p-4 bg-background border-t border-border mt-auto space-y-1">
+                    {/* Listening indicator */}
+                    {isListening && (
+                        <div className="flex items-center gap-2 px-2 pb-1">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                            </span>
+                            <span className="text-[11px] text-muted-foreground italic truncate">
+                                {interimTranscript || 'Escuchando...'}
+                            </span>
+                        </div>
+                    )}
                     <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex gap-2">
                         <Input
                             ref={inputRef}
-                            placeholder="Escribe un mensaje..."
+                            placeholder={isListening ? 'Hablá, te escucho...' : 'Escribe un mensaje...'}
                             value={input}
                             onChange={e => setInput(e.target.value)}
                             className="flex-1"
                             disabled={isLoading}
                         />
+                        {/* Mic button — only shown if browser supports Web Speech API */}
+                        {speechSupported && (
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant={isListening ? "destructive" : "outline"}
+                                onClick={isListening ? stopListening : startListening}
+                                disabled={isLoading}
+                                className={cn(
+                                    "shrink-0 transition-all",
+                                    isListening && "animate-pulse"
+                                )}
+                                aria-label={isListening ? 'Detener micrófono' : 'Activar micrófono'}
+                            >
+                                {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                            </Button>
+                        )}
                         <Button
                             type="submit"
                             size="icon"
-                            className="bg-sidebar hover:bg-sidebar/80"
+                            className="bg-sidebar hover:bg-sidebar/80 shrink-0"
                             disabled={isLoading || !input.trim()}
                         >
                             {isLoading ? (

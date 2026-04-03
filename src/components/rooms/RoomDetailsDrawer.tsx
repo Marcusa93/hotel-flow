@@ -27,10 +27,6 @@ import {
     X,
     CheckCircle,
     AlertTriangle,
-    Bed,
-    Wifi,
-    Wind,
-    Tv,
     CalendarPlus,
     Sparkles
 } from 'lucide-react';
@@ -61,12 +57,7 @@ interface RoomDetailsDrawerProps {
     onStatusChange: (newStatus: RoomStatus, notes?: string) => void;
 }
 
-const amenities = [
-    { icon: Wifi, label: 'Wi-Fi Alta Velocidad' },
-    { icon: Wind, label: 'Aire Acondicionado' },
-    { icon: Tv, label: 'Smart TV 55"' },
-    { icon: Bed, label: 'Cama King Size' },
-];
+// Amenities section removed — was hardcoded and not reflecting real room type data
 
 export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, onStatusChange }: RoomDetailsDrawerProps) {
     const navigate = useNavigate();
@@ -141,10 +132,11 @@ export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, 
                                     </Button>
                                     <Button
                                         variant="outline"
-                                        className="h-auto py-4 flex flex-col gap-2 rounded-xl border-dashed opacity-50 hover:opacity-100"
+                                        className={cn("h-auto py-4 flex flex-col gap-2 rounded-xl", room.status === 'OUT_OF_ORDER' && "border-red-500 bg-red-50 dark:bg-red-800/50 text-red-900 dark:text-red-100")}
+                                        onClick={() => onStatusChange('OUT_OF_ORDER')}
                                     >
                                         <AlertTriangle className="w-5 h-5 mb-1" />
-                                        <span className="text-xs">Reportar Daño</span>
+                                        <span className="text-xs">Fuera de Servicio</span>
                                     </Button>
                                 </section>
 
@@ -192,20 +184,19 @@ export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, 
                                     </section>
                                 )}
 
-                                <Separator />
-
-                                {/* Amenities */}
-                                <section>
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">Amenidades</h3>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {amenities.map((item, i) => (
-                                            <div key={i} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                                                <item.icon className="w-4 h-4 text-primary/70" />
-                                                <span>{item.label}</span>
+                                {/* Room Info */}
+                                {roomTypeName && (
+                                    <>
+                                        <Separator />
+                                        <section>
+                                            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Información</h3>
+                                            <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                                                <Users className="w-4 h-4 text-primary/70" />
+                                                <span>Capacidad: {roomTypeName}</span>
                                             </div>
-                                        ))}
-                                    </div>
-                                </section>
+                                        </section>
+                                    </>
+                                )}
 
                             </div>
                         </ScrollArea>

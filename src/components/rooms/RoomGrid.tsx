@@ -12,9 +12,10 @@ interface RoomGridProps {
     onRoomClick: (room: Room) => void;
     onQuickAction: (room: Room, action: 'clean' | 'occupy') => void;
     selectedIds?: Set<string>;
+    isUpdating?: boolean;
 }
 
-export function RoomGrid({ rooms, roomTypes, guests, bookings, onRoomClick, onQuickAction, selectedIds }: RoomGridProps) {
+export function RoomGrid({ rooms, roomTypes, guests, bookings, onRoomClick, onQuickAction, selectedIds, isUpdating }: RoomGridProps) {
 
     const getGuest = (roomId: string) => {
         const activeBooking = bookings.find(b => b.roomId === roomId && (b.status === 'CHECKED_IN'));
@@ -60,6 +61,7 @@ export function RoomGrid({ rooms, roomTypes, guests, bookings, onRoomClick, onQu
                                 guest={getGuest(room.id)}
                                 onClick={() => onRoomClick(room)}
                                 onQuickAction={(action) => onQuickAction(room, action)}
+                                isUpdating={isUpdating}
                             />
                         </div>
                     </motion.div>

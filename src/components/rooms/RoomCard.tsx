@@ -1,6 +1,6 @@
 import { Room, RoomStatus, Guest } from '@/types/hotel';
 import { Button } from '@/components/ui/button';
-import { Sparkles, LogIn, Brush } from 'lucide-react';
+import { Sparkles, LogIn, Brush, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
@@ -11,6 +11,7 @@ interface RoomCardProps {
     onClick: () => void;
     onQuickAction: (action: 'clean' | 'occupy') => void;
     needsCleaning?: boolean;
+    isUpdating?: boolean;
 }
 
 const statusColorMap: Record<RoomStatus, string> = {
@@ -45,7 +46,7 @@ const statusLabels: Record<RoomStatus, string> = {
     OUT_OF_ORDER: 'Fuera de Servicio'
 };
 
-export function RoomCard({ room, guest, roomTypeName, onClick, onQuickAction, needsCleaning }: RoomCardProps) {
+export function RoomCard({ room, guest, roomTypeName, onClick, onQuickAction, needsCleaning, isUpdating }: RoomCardProps) {
     const showCleaningIndicator = needsCleaning || room.status === 'DIRTY';
     const hasQuickAction = room.status === 'DIRTY' || room.status === 'AVAILABLE';
 
@@ -115,8 +116,10 @@ export function RoomCard({ room, guest, roomTypeName, onClick, onQuickAction, ne
                                         size="sm"
                                         className="w-full h-8 rounded-xl text-xs bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95 transition-transform"
                                         onClick={(e) => { e.stopPropagation(); onQuickAction('clean'); }}
+                                        disabled={isUpdating}
                                     >
-                                        <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Marcar Limpia
+                                        {isUpdating ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
+                                        {isUpdating ? 'Actualizando...' : 'Marcar Limpia'}
                                     </Button>
                                 )}
                                 {room.status === 'AVAILABLE' && (
@@ -125,8 +128,10 @@ export function RoomCard({ room, guest, roomTypeName, onClick, onQuickAction, ne
                                         variant="outline"
                                         className="w-full h-8 rounded-xl text-xs border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 active:scale-95 transition-transform"
                                         onClick={(e) => { e.stopPropagation(); onQuickAction('occupy'); }}
+                                        disabled={isUpdating}
                                     >
-                                        <LogIn className="w-3.5 h-3.5 mr-1.5" /> Check-in
+                                        {isUpdating ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <LogIn className="w-3.5 h-3.5 mr-1.5" />}
+                                        {isUpdating ? 'Actualizando...' : 'Check-in'}
                                     </Button>
                                 )}
                             </div>

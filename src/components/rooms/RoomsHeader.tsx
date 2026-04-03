@@ -23,7 +23,7 @@ export function RoomsHeader({ totalRooms, occupiedCount, dirtyCount }: RoomsHead
 
             <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
                 <StatPill icon={BedDouble} label="Total" value={totalRooms} color="slate" />
-                <StatPill icon={CheckCircle2} label="Libres" value={availableCount} color="emerald" />
+                <StatPill icon={CheckCircle2} label="Disponibles" value={availableCount} color="emerald" />
                 <StatPill icon={AlertCircle} label="Ocupadas" value={occupiedCount} color="blue" />
                 <StatPill icon={Brush} label="Sucias" value={dirtyCount} color="amber" />
             </div>

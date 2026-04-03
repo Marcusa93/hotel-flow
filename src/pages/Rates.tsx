@@ -123,6 +123,21 @@ export default function Rates() {
     });
   };
 
+  // Detect overlapping promotions
+  const overlappingPromos = useMemo(() => {
+    if (!formData.startDate || !formData.endDate || !formData.roomTypeId) return [];
+    const newStart = new Date(formData.startDate);
+    const newEnd = new Date(formData.endDate);
+    return promotions.filter(r => {
+      if (editingRate && r.id === editingRate.id) return false; // Skip self
+      if (r.roomTypeId !== formData.roomTypeId) return false;
+      if (!r.isActive) return false;
+      const rStart = new Date(r.startDate);
+      const rEnd = new Date(r.endDate);
+      return newStart <= rEnd && newEnd >= rStart; // Date ranges overlap
+    });
+  }, [formData.startDate, formData.endDate, formData.roomTypeId, promotions, editingRate]);
+
   // Handle create/edit rate
   const handleSave = async () => {
     try {
@@ -320,9 +335,10 @@ export default function Rates() {
                 ) : (
                   <div
                     onClick={() => setEditingBasePrice({ id: type.id, price: type.basePrice })}
-                    className="text-3xl font-bold text-slate-900 dark:text-white cursor-pointer hover:text-purple-600 transition-colors"
+                    className="group flex items-center gap-2 text-3xl font-bold text-slate-900 dark:text-white cursor-pointer hover:text-purple-600 transition-colors"
                   >
                     ${type.basePrice.toLocaleString('es-AR')}
+                    <Edit className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />
                   </div>
                 )}
 
@@ -563,7 +579,15 @@ export default function Rates() {
                 <Input
                   type="date"
                   value={formData.startDate}
-                  onChange={e => setFormData({ ...formData, startDate: e.target.value })}
+                  onChange={e => {
+                    const newStart = e.target.value;
+                    setFormData(prev => ({
+                      ...prev,
+                      startDate: newStart,
+                      // Auto-clear end date if it's now before start
+                      endDate: prev.endDate && prev.endDate < newStart ? '' : prev.endDate,
+                    }));
+                  }}
                 />
               </div>
 
@@ -572,15 +596,31 @@ export default function Rates() {
                 <Input
                   type="date"
                   value={formData.endDate}
+                  min={formData.startDate || undefined}
                   onChange={e => setFormData({ ...formData, endDate: e.target.value })}
                 />
+                {formData.startDate && formData.endDate && formData.endDate < formData.startDate && (
+                  <p className="text-xs text-destructive mt-1">La fecha fin debe ser posterior a la fecha inicio</p>
+                )}
               </div>
 
-              <div className="col-span-2">
+              {/* Overlap warning */}
+              {overlappingPromos.length > 0 && (
+                <div className="col-span-1 sm:col-span-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-sm">
+                  <p className="font-medium">⚠ Se superpone con {overlappingPromos.length} promoción{overlappingPromos.length > 1 ? 'es' : ''} existente{overlappingPromos.length > 1 ? 's' : ''}:</p>
+                  <ul className="mt-1 text-xs space-y-0.5">
+                    {overlappingPromos.map(p => (
+                      <li key={p.id}>• "{p.label}" ({format(new Date(p.startDate), 'dd/MM')} - {format(new Date(p.endDate), 'dd/MM/yyyy')})</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="col-span-1 sm:col-span-2">
                 <Label>Tipo de descuento</Label>
                 <Select
                   value={formData.discountType}
-                  onValueChange={v => setFormData({ ...formData, discountType: v as DiscountType })}
+                  onValueChange={v => setFormData(prev => ({ ...prev, discountType: v as DiscountType }))}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -709,7 +749,7 @@ export default function Rates() {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={!formData.label || !formData.startDate || !formData.endDate || (formData.discountType === 'PERCENTAGE' ? !formData.discountPercent : !formData.discountAmount)}
+              disabled={!formData.label || !formData.startDate || !formData.endDate || formData.endDate < formData.startDate || (formData.discountType === 'PERCENTAGE' ? !formData.discountPercent : !formData.discountAmount)}
               className="bg-purple-600 hover:bg-purple-700"
             >
               {editingRate ? 'Guardar Cambios' : 'Crear Promoción'}

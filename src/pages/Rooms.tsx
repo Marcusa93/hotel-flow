@@ -20,7 +20,7 @@ import { BedDouble, CheckSquare, X, Sparkles, PaintBucket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function Rooms() {
-  const { rooms, roomTypes, updateRoomStatus } = useRoomOperations();
+  const { rooms, roomTypes, updateRoomStatus, isUpdating } = useRoomOperations();
   const { guests } = useGuestOperations();
   const { bookings } = useBookingOperations();
 
@@ -221,6 +221,7 @@ export default function Rooms() {
             onRoomClick={handleRoomClick}
             onQuickAction={handleQuickAction}
             selectedIds={bulkMode ? selectedIds : undefined}
+            isUpdating={isUpdating}
           />
         )}
       </div>

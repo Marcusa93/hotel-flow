@@ -579,40 +579,84 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                         {/* Danger Zone */}
                         <section>
                             <h3 className="text-xs font-bold uppercase tracking-wider text-red-500 mb-4">Zona de Peligro</h3>
-                            {!showDeleteConfirm ? (
-                                <Button
-                                    variant="outline"
-                                    className="w-full border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300"
-                                    onClick={() => setShowDeleteConfirm(true)}
-                                >
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Eliminar Huésped
-                                </Button>
-                            ) : (
-                                <div className="p-4 rounded-xl border-2 border-red-200 dark:border-red-800/30 bg-red-50 dark:bg-red-900/20 space-y-3">
-                                    <div className="flex items-start gap-2">
-                                        <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="font-semibold text-red-700 dark:text-red-400 text-sm">¿Eliminar a {guest.fullName}?</p>
-                                            <p className="text-xs text-red-600 dark:text-red-400/80 mt-1">
-                                                Esta acción no se puede deshacer. Si el huésped tiene reservas asociadas, la eliminación podría fallar.
-                                            </p>
+                            {(() => {
+                                const guestBookings = bookings.filter(b => b.guestId === guest.id);
+                                const activeBookings = guestBookings.filter(b => b.status !== 'CANCELLED' && b.status !== 'NO_SHOW' && b.status !== 'CHECKED_OUT');
+                                const hasActiveBookings = activeBookings.length > 0;
+
+                                if (!showDeleteConfirm) {
+                                    return (
+                                        <Button
+                                            variant="outline"
+                                            className="w-full border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300"
+                                            onClick={() => setShowDeleteConfirm(true)}
+                                        >
+                                            <Trash2 className="w-4 h-4 mr-2" />
+                                            Eliminar Huésped
+                                        </Button>
+                                    );
+                                }
+
+                                return (
+                                    <div className="p-4 rounded-xl border-2 border-red-200 dark:border-red-800/30 bg-red-50 dark:bg-red-900/20 space-y-3">
+                                        <div className="flex items-start gap-2">
+                                            <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="font-semibold text-red-700 dark:text-red-400 text-sm">¿Eliminar a {guest.fullName}?</p>
+                                                {hasActiveBookings ? (
+                                                    <div className="mt-2 p-2 rounded-lg bg-red-100 dark:bg-red-900/40 border border-red-300 dark:border-red-700">
+                                                        <p className="text-xs font-medium text-red-700 dark:text-red-300">
+                                                            ⚠ Este huésped tiene {activeBookings.length} reserva{activeBookings.length > 1 ? 's' : ''} activa{activeBookings.length > 1 ? 's' : ''} ({activeBookings.map(b => b.status === 'CHECKED_IN' ? 'Hospedado' : STATUS_LABELS[b.status]).join(', ')}).
+                                                        </p>
+                                                        <p className="text-xs text-red-600 dark:text-red-400/80 mt-1">
+                                                            No se puede eliminar hasta que las reservas estén finalizadas o canceladas.
+                                                        </p>
+                                                    </div>
+                                                ) : guestBookings.length > 0 ? (
+                                                    <p className="text-xs text-red-600 dark:text-red-400/80 mt-1">
+                                                        Este huésped tiene {guestBookings.length} reserva{guestBookings.length > 1 ? 's' : ''} en el historial. Se eliminará el huésped pero las reservas quedarán registradas.
+                                                    </p>
+                                                ) : (
+                                                    <p className="text-xs text-red-600 dark:text-red-400/80 mt-1">
+                                                        Esta acción no se puede deshacer.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                size="sm"
+                                                variant="destructive"
+                                                className="flex-1"
+                                                onClick={handleDeleteGuest}
+                                                disabled={deleteGuestMutation.isPending || hasActiveBookings}
+                                            >
+                                                {deleteGuestMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                                                {deleteGuestMutation.isPending ? 'Eliminando...' : hasActiveBookings ? 'No disponible' : 'Sí, eliminar'}
+                                            </Button>
+                                            <Button size="sm" variant="outline" className="flex-1" onClick={() => setShowDeleteConfirm(false)}>
+                                                Cancelar
+                                            </Button>
                                         </div>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <Button size="sm" variant="destructive" className="flex-1" onClick={handleDeleteGuest} disabled={deleteGuestMutation.isPending}>
-                                            {deleteGuestMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
-                                            {deleteGuestMutation.isPending ? 'Eliminando...' : 'Sí, eliminar'}
-                                        </Button>
-                                        <Button size="sm" variant="outline" className="flex-1" onClick={() => setShowDeleteConfirm(false)}>
-                                            Cancelar
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
+                                );
+                            })()}
                         </section>
                     </div>
                 </ScrollArea>
+
+                {/* Sticky footer when editing */}
+                {isEditing && (
+                    <div className="sticky bottom-0 p-4 border-t bg-background/95 backdrop-blur-sm flex gap-3 z-10">
+                        <Button onClick={handleSaveEdit} className="flex-1 bg-emerald-500 hover:bg-emerald-600" disabled={updateGuestMutation.isPending}>
+                            {updateGuestMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                            {updateGuestMutation.isPending ? 'Guardando...' : 'Guardar Cambios'}
+                        </Button>
+                        <Button variant="outline" onClick={handleCancelEdit}>
+                            Cancelar
+                        </Button>
+                    </div>
+                )}
             </SheetContent>
         </Sheet>
     );

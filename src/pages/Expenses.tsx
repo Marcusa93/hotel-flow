@@ -30,12 +30,8 @@ import {
     Plus,
     Receipt,
     TrendingUp,
-    Calendar,
     Filter,
     ShoppingCart,
-    Wrench,
-    Zap,
-    Package,
     Trash2,
     ChevronLeft,
     ChevronRight,
@@ -142,11 +138,14 @@ export default function Expenses() {
         const topCategory = Object.entries(byType)
             .sort(([, a], [, b]) => b - a)[0];
 
+        const avg = expenses.length > 0 ? Math.round(total / expenses.length) : 0;
+
         return {
             total,
             count: expenses.length,
             topCategory: topCategory ? topCategory[0] as ExpenseType : null,
-            topCategoryAmount: topCategory ? topCategory[1] : 0
+            topCategoryAmount: topCategory ? topCategory[1] : 0,
+            average: avg
         };
     }, [expenses]);
 
@@ -234,12 +233,12 @@ export default function Expenses() {
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-3">
                             <div className="p-2.5 rounded-xl bg-amber-100 dark:bg-amber-900/40 shadow-sm">
-                                <Calendar className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                                <TrendingUp className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground font-medium">Período</p>
-                                <p className="text-base font-bold capitalize">
-                                    {format(selectedMonth, 'MMMM yyyy', { locale: es })}
+                                <p className="text-xs text-muted-foreground font-medium">Promedio</p>
+                                <p className="text-xl font-extrabold tracking-tight">
+                                    {stats.count > 0 ? `$${stats.average.toLocaleString('es-AR')}` : '-'}
                                 </p>
                             </div>
                         </div>
@@ -327,7 +326,8 @@ export default function Expenses() {
                                                     <AlertDialogHeader>
                                                         <AlertDialogTitle>¿Eliminar gasto?</AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                            Esta acción no se puede deshacer. El gasto de ${expense.amount.toLocaleString('es-AR')} será eliminado permanentemente.
+                                                            Se eliminará permanentemente el gasto de <strong>{expenseTypeIcons[expense.expenseType]} {expenseTypeLabels[expense.expenseType]}</strong> por <strong>${expense.amount.toLocaleString('es-AR')}</strong> del {format(new Date(expense.date), 'd MMM yyyy', { locale: es })}.
+                                                            {expense.description && <><br /><span className="text-xs italic">"{expense.description}"</span></>}
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>

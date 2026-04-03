@@ -534,12 +534,12 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
                   />
 
                   {/* Tipo Doc + Nro Documento */}
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
                     <FormField
                       control={form.control}
                       name="newGuestDocumentType"
                       render={({ field }) => (
-                        <FormItem className="col-span-2">
+                        <FormItem className="sm:col-span-2">
                           <FormLabel>Tipo Doc</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value || 'DNI'}>
                             <FormControl>
@@ -563,7 +563,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
                       control={form.control}
                       name="newGuestDocumentId"
                       render={({ field }) => (
-                        <FormItem className="col-span-3">
+                        <FormItem className="sm:col-span-3">
                           <FormLabel>Nro. Documento</FormLabel>
                           <FormControl>
                             <Input placeholder="12345678" {...field} />
@@ -575,7 +575,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
                   </div>
 
                   {/* Teléfono + Email */}
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <FormField
                       control={form.control}
                       name="newGuestPhone"

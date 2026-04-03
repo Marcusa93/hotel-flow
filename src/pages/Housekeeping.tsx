@@ -166,6 +166,13 @@ export default function Housekeeping() {
   const inProgressCount = todaysTasks.filter(t => t.status === 'IN_PROGRESS').length;
   const pendingCount = todaysTasks.filter(t => t.status === 'TODO').length;
 
+  // Dirty rooms that don't have a task yet
+  const dirtyRooms = rooms.filter(r => r.status === 'DIRTY');
+  const dirtyWithoutTask = useMemo(() => {
+    const roomsWithTask = new Set(todaysTasks.map(t => t.roomId));
+    return dirtyRooms.filter(r => !roomsWithTask.has(r.id));
+  }, [dirtyRooms, todaysTasks]);
+
   return (
     <div className="space-y-6">
       {/* Alert Banner */}
@@ -177,72 +184,94 @@ export default function Housekeeping() {
         enableSound={true}
       />
 
-      <PageHeader
-        title="Operaciones de Limpieza"
-        description={isMobileView ? "Tu lista de tareas" : "Tablero visual de estado de habitaciones"}
-        actions={
+      {/* Compact Header */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100">
+              Limpieza
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              {dirtyRooms.length} habitaciones sucias · {todaysTasks.length} tareas hoy
+            </p>
+          </div>
           <div className="flex gap-2">
-            {/* Create Task Button */}
             <CreateTaskDialog
               rooms={rooms}
               onCreateTask={handleCreateTask}
               isCreating={isCreating}
             />
-
-            {/* View Toggle */}
             <div className="hidden md:flex bg-card/80 backdrop-blur-sm rounded-lg p-1 border">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(!isMobileView && "bg-background shadow-sm")}
-                onClick={() => setIsMobileView(false)}
-              >
+              <Button variant="ghost" size="sm" className={cn(!isMobileView && "bg-background shadow-sm")} onClick={() => setIsMobileView(false)}>
                 <Monitor className="w-4 h-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(isMobileView && "bg-background shadow-sm")}
-                onClick={() => setIsMobileView(true)}
-              >
+              <Button variant="ghost" size="sm" className={cn(isMobileView && "bg-background shadow-sm")} onClick={() => setIsMobileView(true)}>
                 <Smartphone className="w-4 h-4" />
               </Button>
             </div>
-
             {!isMobileView && (
               <Select value={floorFilter} onValueChange={setFloorFilter}>
-                <SelectTrigger className="w-[140px] bg-card/80 backdrop-blur-sm border">
+                <SelectTrigger className="w-[130px] rounded-xl">
                   <SelectValue placeholder="Piso" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">Todos los pisos</SelectItem>
                   {availableFloors.map((floor) => (
-                    <SelectItem key={floor} value={floor.toString()}>
-                      Piso {floor}
-                    </SelectItem>
+                    <SelectItem key={floor} value={floor.toString()}>Piso {floor}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
           </div>
-        }
-      />
+        </div>
 
-      {/* Quick Stats (visible in both views) */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-rose-50 dark:bg-rose-950/20 rounded-xl p-3 text-center border border-rose-200/50 dark:border-rose-800/30">
-          <p className="text-2xl font-bold text-rose-600">{pendingCount}</p>
-          <p className="text-xs text-rose-600/70 font-medium">Pendientes</p>
-        </div>
-        <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-3 text-center border border-amber-200/50 dark:border-amber-800/30">
-          <p className="text-2xl font-bold text-amber-600">{inProgressCount}</p>
-          <p className="text-xs text-amber-600/70 font-medium">En progreso</p>
-        </div>
-        <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-3 text-center border border-emerald-200/50 dark:border-emerald-800/30">
-          <p className="text-2xl font-bold text-emerald-600">{completedToday}</p>
-          <p className="text-xs text-emerald-600/70 font-medium">Listas hoy</p>
+        {/* Stats row */}
+        <div className="grid grid-cols-4 gap-2">
+          <div className="bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/20 dark:to-slate-900 rounded-2xl p-3 text-center shadow-sm">
+            <p className="text-2xl font-extrabold text-orange-600 dark:text-orange-400">{dirtyRooms.length}</p>
+            <p className="text-[10px] text-orange-600/70 dark:text-orange-400/70 font-semibold">Sucias</p>
+          </div>
+          <div className="bg-gradient-to-br from-rose-50 to-white dark:from-rose-950/20 dark:to-slate-900 rounded-2xl p-3 text-center shadow-sm">
+            <p className="text-2xl font-extrabold text-rose-600 dark:text-rose-400">{pendingCount}</p>
+            <p className="text-[10px] text-rose-600/70 dark:text-rose-400/70 font-semibold">Pendientes</p>
+          </div>
+          <div className="bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/20 dark:to-slate-900 rounded-2xl p-3 text-center shadow-sm">
+            <p className="text-2xl font-extrabold text-amber-600 dark:text-amber-400">{inProgressCount}</p>
+            <p className="text-[10px] text-amber-600/70 dark:text-amber-400/70 font-semibold">Limpiando</p>
+          </div>
+          <div className="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-slate-900 rounded-2xl p-3 text-center shadow-sm">
+            <p className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">{completedToday}</p>
+            <p className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 font-semibold">Listas</p>
+          </div>
         </div>
       </div>
+
+      {/* Dirty rooms without tasks — alert banner */}
+      {dirtyWithoutTask.length > 0 && (
+        <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200/60 dark:border-orange-800/30 rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-orange-800 dark:text-orange-300 flex items-center gap-2">
+              <Filter className="w-4 h-4" />
+              {dirtyWithoutTask.length} habitaciones sucias sin tarea asignada
+            </h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {dirtyWithoutTask.sort((a, b) => parseInt(a.roomNumber) - parseInt(b.roomNumber)).map(room => (
+              <button
+                key={room.id}
+                onClick={() => {
+                  handleCreateTask({ roomId: room.id, priority: 'NORMAL' });
+                }}
+                className="flex items-center gap-1.5 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-800/50 rounded-xl px-3 py-2 text-sm font-bold text-orange-700 dark:text-orange-300 hover:shadow-md hover:scale-[1.03] transition-all active:scale-95"
+              >
+                <span className="text-lg">{room.roomNumber}</span>
+                <span className="text-[10px] text-muted-foreground">P{room.floor}</span>
+                <span className="text-[10px] text-orange-500">+ Crear</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Mobile View */}
       {isMobileView ? (

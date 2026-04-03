@@ -33,6 +33,7 @@ import { Progress } from '@/components/ui/progress';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BookingStatus } from '@/types/hotel';
+import { cn, formatLastNameFirst, getInitials } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -111,12 +112,12 @@ export default function BookingDetail() {
           </Button>
           <Avatar className="h-16 w-16 border-2 border-primary/20 shadow-lg">
             <AvatarFallback className="text-lg bg-primary/10 text-primary">
-              {booking.guest.fullName.slice(0, 2).toUpperCase()}
+              {getInitials(booking.guest.fullName)}
             </AvatarFallback>
           </Avatar>
           <div>
             <div className="flex flex-wrap items-center gap-2 md:gap-3">
-              <h1 className="text-xl md:text-2xl font-bold tracking-tight">{booking.guest.fullName}</h1>
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight">{formatLastNameFirst(booking.guest.fullName)}</h1>
               <StatusBadge status={booking.status} />
             </div>
             <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm mt-1">
@@ -146,7 +147,7 @@ export default function BookingDetail() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Confirmar Check-in</AlertDialogTitle>
                   <AlertDialogDescription>
-                    ¿Registrar el ingreso de <strong>{booking.guest.fullName}</strong> a la habitación <strong>{booking.room.roomNumber}</strong>?
+                    ¿Registrar el ingreso de <strong>{formatLastNameFirst(booking.guest.fullName)}</strong> a la habitación <strong>{booking.room.roomNumber}</strong>?
                     La habitación pasará a estado Ocupada.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -176,7 +177,7 @@ export default function BookingDetail() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>¿Cancelar esta reserva?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Se cancelará la reserva de <strong>{booking.guest.fullName}</strong> (Hab. {booking.room.roomNumber}, {nights} noches, ${booking.totalAmount.toLocaleString()}).
+                    Se cancelará la reserva de <strong>{formatLastNameFirst(booking.guest.fullName)}</strong> (Hab. {booking.room.roomNumber}, {nights} noches, ${booking.totalAmount.toLocaleString()}).
                     Esta acción no se puede deshacer.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -227,7 +228,7 @@ export default function BookingDetail() {
         })}
 
         {/* Estado de Cuenta */}
-        <div className="flex items-center gap-3 pl-4 border-l ml-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 pl-0 sm:pl-4 border-t sm:border-t-0 sm:border-l pt-3 sm:pt-0 mt-3 sm:mt-0 sm:ml-4 w-full sm:w-auto">
           <div className="text-right">
             <p className="text-[10px] text-muted-foreground uppercase font-bold">Alojamiento</p>
             <p className="text-sm font-bold">${booking.totalAmount.toLocaleString()}</p>
@@ -308,12 +309,12 @@ export default function BookingDetail() {
                   <div className="space-y-1">
                     <span className="text-xs text-muted-foreground">Entrada</span>
                     <div className="font-semibold">{format(new Date(booking.checkInDate), "EEE d MMM", { locale: es })}</div>
-                    <div className="text-xs text-muted-foreground">14:00 PM</div>
+                    <div className="text-xs text-muted-foreground">desde 14:00 hs</div>
                   </div>
                   <div className="space-y-1 text-right">
                     <span className="text-xs text-muted-foreground">Salida</span>
                     <div className="font-semibold">{format(new Date(booking.checkOutDate), "EEE d MMM", { locale: es })}</div>
-                    <div className="text-xs text-muted-foreground">11:00 AM</div>
+                    <div className="text-xs text-muted-foreground">hasta 11:00 hs</div>
                   </div>
                 </div>
 

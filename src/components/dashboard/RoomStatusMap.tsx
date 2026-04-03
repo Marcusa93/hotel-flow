@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
+import { cn, formatLastNameFirst } from '@/lib/utils';
 import { Room, Booking, Guest, RoomType } from '@/types/hotel';
 import { useNavigate } from 'react-router-dom';
 import { BedDouble, User, Wrench, Sparkles, Ban } from 'lucide-react';
@@ -134,7 +134,7 @@ export function RoomStatusMap({ rooms, bookings, guests, roomTypes }: RoomStatus
                                     const config = STATUS_CONFIG[room.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.AVAILABLE;
                                     const occupant = roomGuestMap.get(room.id);
                                     const Icon = config.icon;
-                                    const guestName = occupant?.guest.fullName.split(' ').slice(0, 2).join(' ');
+                                    const guestName = occupant ? formatLastNameFirst(occupant.guest.fullName) : null;
                                     const checkoutDate = occupant?.booking.checkOutDate
                                         ? format(new Date(occupant.booking.checkOutDate), 'dd/MM')
                                         : null;
@@ -144,36 +144,43 @@ export function RoomStatusMap({ rooms, bookings, guests, roomTypes }: RoomStatus
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
                                                     <button
-                                                        onClick={() => navigate('/rooms')}
+                                                        onClick={() => {
+                                                            const occ = roomGuestMap.get(room.id);
+                                                            if (occ) navigate(`/bookings/${occ.booking.id}`);
+                                                            else navigate('/rooms');
+                                                        }}
                                                         className={cn(
-                                                            'relative flex flex-col items-start rounded-xl border-2 p-3 min-h-[80px] transition-all hover:scale-[1.03] hover:shadow-lg cursor-pointer w-full text-left',
+                                                            'relative flex flex-col items-start rounded-2xl border-2 p-3.5 min-h-[88px] transition-all hover:scale-[1.04] hover:shadow-xl cursor-pointer w-full text-left group',
                                                             config.bg,
                                                         )}
                                                     >
-                                                        {/* Room number + type */}
-                                                        <div className="flex items-center justify-between w-full mb-1">
-                                                            <span className={cn('text-lg font-bold leading-none', config.text)}>
+                                                        {/* Status dot indicator */}
+                                                        <div className={cn('absolute top-2 right-2 w-2 h-2 rounded-full', config.dot, occupant && 'animate-pulse')} />
+
+                                                        {/* Room number + capacity */}
+                                                        <div className="flex items-baseline gap-1.5 mb-1.5">
+                                                            <span className={cn('text-2xl font-extrabold leading-none tracking-tight', config.text)}>
                                                                 {room.roomNumber}
                                                             </span>
-                                                            <span className="text-[9px] text-muted-foreground font-medium uppercase">
-                                                                {typeMap.get(room.roomTypeId)?.slice(0, 6) || ''}
+                                                            <span className="text-[9px] text-muted-foreground font-medium">
+                                                                {typeMap.get(room.roomTypeId) || ''}
                                                             </span>
                                                         </div>
 
                                                         {/* Content by status */}
                                                         {occupant ? (
                                                             <div className="flex flex-col gap-0.5 w-full min-w-0">
-                                                                <span className={cn('text-[11px] font-semibold truncate', config.text)}>
+                                                                <span className={cn('text-[12px] font-semibold truncate', config.text)}>
                                                                     {guestName}
                                                                 </span>
-                                                                <span className="text-[10px] text-muted-foreground">
-                                                                    sale {checkoutDate}
+                                                                <span className="text-[10px] text-muted-foreground font-medium">
+                                                                    checkout {checkoutDate}
                                                                 </span>
                                                             </div>
                                                         ) : (
-                                                            <div className="flex items-center gap-1.5 mt-1">
-                                                                <Icon className={cn('w-3.5 h-3.5 opacity-50', config.text)} />
-                                                                <span className={cn('text-[11px] opacity-70', config.text)}>
+                                                            <div className="flex items-center gap-1.5 mt-auto">
+                                                                <Icon className={cn('w-3.5 h-3.5 opacity-40 group-hover:opacity-70 transition-opacity', config.text)} />
+                                                                <span className={cn('text-[11px] opacity-60 group-hover:opacity-90 transition-opacity', config.text)}>
                                                                     {config.label}
                                                                 </span>
                                                             </div>
@@ -185,7 +192,7 @@ export function RoomStatusMap({ rooms, bookings, guests, roomTypes }: RoomStatus
                                                     <p>Estado: {config.label}</p>
                                                     {occupant && (
                                                         <>
-                                                            <p className="font-medium">{occupant.guest.fullName}</p>
+                                                            <p className="font-medium">{formatLastNameFirst(occupant.guest.fullName)}</p>
                                                             <p>Checkout: {checkoutDate}</p>
                                                         </>
                                                     )}

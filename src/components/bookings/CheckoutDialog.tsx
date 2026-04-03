@@ -153,7 +153,7 @@ export function CheckoutDialog({
                                 <div className="flex justify-between text-amber-600">
                                     <span className="text-sm flex items-center gap-1">
                                         <Clock className="w-3 h-3" />
-                                        Late checkout
+                                        Check-out tardío
                                     </span>
                                     <span className="font-medium">+${lateCharge.toLocaleString('es-AR')}</span>
                                 </div>
@@ -213,7 +213,7 @@ export function CheckoutDialog({
                             />
                             <label htmlFor="lateCheckout" className="text-sm cursor-pointer flex items-center gap-2">
                                 <Clock className="w-4 h-4 text-amber-500" />
-                                Late checkout (cargo adicional)
+                                Check-out tardío (cargo adicional)
                             </label>
                         </div>
 

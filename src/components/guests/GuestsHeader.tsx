@@ -1,4 +1,4 @@
-import { Plus, FileSpreadsheet, Download } from 'lucide-react';
+import { Plus, Download, FileSpreadsheet, Users, BedDouble, Repeat, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -10,16 +10,19 @@ import { Guest } from '@/types/hotel';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from '@/hooks/use-toast';
-import { escapeHtml } from '@/lib/utils';
+import { escapeHtml, cn } from '@/lib/utils';
 
 interface GuestsHeaderProps {
     guestCount: number;
     guests: Guest[];
     hotelName: string;
     onNewGuest: () => void;
+    hostedCount?: number;
+    frequentCount?: number;
+    totalSpend?: number;
 }
 
-export function GuestsHeader({ guestCount, guests, hotelName, onNewGuest }: GuestsHeaderProps) {
+export function GuestsHeader({ guestCount, guests, hotelName, onNewGuest, hostedCount = 0, frequentCount = 0, totalSpend = 0 }: GuestsHeaderProps) {
     const hotelSlug = hotelName.toLowerCase().replace(/\s+/g, '_');
 
     const handleExportCSV = () => {
@@ -57,7 +60,7 @@ export function GuestsHeader({ guestCount, guests, hotelName, onNewGuest }: Gues
     const handlePrintList = () => {
         const printWindow = window.open('', '', 'width=900,height=700');
         if (!printWindow) {
-            toast({ title: 'Error', description: 'No se pudo abrir la ventana de impresión. Verifique el bloqueador de popups.', variant: 'destructive' });
+            toast({ title: 'Error', description: 'No se pudo abrir la ventana de impresión.', variant: 'destructive' });
             return;
         }
         const h = escapeHtml;
@@ -85,91 +88,89 @@ export function GuestsHeader({ guestCount, guests, hotelName, onNewGuest }: Gues
             </head>
             <body>
                 <div class="header">
-                    <div>
-                        <div class="logo">${h(hotelName)}</div>
-                        <div class="logo-sub">Listado de Huéspedes</div>
-                    </div>
-                    <div class="date">
-                        <div>Generado: ${format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: es })}</div>
-                        <div class="count">${guests.length} huéspedes registrados</div>
-                    </div>
+                    <div><div class="logo">${h(hotelName)}</div><div class="logo-sub">Listado de Huéspedes</div></div>
+                    <div class="date"><div>Generado: ${format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: es })}</div><div class="count">${guests.length} huéspedes</div></div>
                 </div>
-
                 <table>
-                    <thead>
-                        <tr>
-                            <th>Nombre</th>
-                            <th>Email</th>
-                            <th>Teléfono</th>
-                            <th>Documento</th>
-                            <th>País</th>
-                            <th>Registro</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Documento</th><th>País</th><th>Registro</th></tr></thead>
                     <tbody>
-                        ${guests.map(g => `
-                            <tr>
-                                <td class="name">${h(g.fullName)}</td>
-                                <td>${h(g.email) || '-'}</td>
-                                <td>${h(g.phone)}</td>
-                                <td>${g.documentId ? `${h(g.documentType)} ${h(g.documentId)}` : '-'}</td>
-                                <td>${h(g.country) || '-'}</td>
-                                <td>${format(new Date(g.createdAt), 'dd/MM/yyyy')}</td>
-                            </tr>
-                        `).join('')}
+                        ${guests.map(g => `<tr><td class="name">${h(g.fullName)}</td><td>${h(g.email) || '-'}</td><td>${h(g.phone)}</td><td>${g.documentId ? `${h(g.documentType)} ${h(g.documentId)}` : '-'}</td><td>${h(g.country) || '-'}</td><td>${format(new Date(g.createdAt), 'dd/MM/yyyy')}</td></tr>`).join('')}
                     </tbody>
                 </table>
-
-                <div class="footer">
-                    ${h(hotelName)} - Sistema de Gestión Hotelera
-                </div>
-            </body>
-            </html>
+                <div class="footer">${h(hotelName)} - Sistema de Gestión Hotelera</div>
+            </body></html>
         `);
-
         printWindow.document.close();
         printWindow.focus();
         setTimeout(() => printWindow.print(), 250);
     };
 
     return (
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
-                    Huéspedes
-                </h1>
-                <p className="text-muted-foreground mt-1 text-sm font-medium">
-                    Base de datos de fidelización ({guestCount} registrados)
-                </p>
+        <div className="space-y-3 mb-2">
+            <div className="flex items-center justify-between gap-3">
+                <div>
+                    <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100">
+                        Huéspedes
+                    </h1>
+                    <p className="text-muted-foreground text-sm">
+                        {guestCount} registrados en el sistema
+                    </p>
+                </div>
+                <div className="flex gap-2">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon" className="rounded-xl h-9 w-9 shrink-0">
+                                <Download className="w-4 h-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={handleExportCSV}>
+                                <FileSpreadsheet className="w-4 h-4 mr-2" /> Exportar CSV
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={handlePrintList}>
+                                <Download className="w-4 h-4 mr-2" /> Imprimir
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Button onClick={onNewGuest} className="rounded-xl px-5 shadow-lg shadow-primary/20 shrink-0">
+                        <Plus className="w-4 h-4 mr-1.5" />
+                        <span className="hidden sm:inline">Nuevo Huésped</span>
+                        <span className="sm:hidden">Nuevo</span>
+                    </Button>
+                </div>
             </div>
-            <div className="flex gap-2">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="rounded-full px-4">
-                            <Download className="w-4 h-4 mr-2" />
-                            Exportar
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={handleExportCSV}>
-                            <FileSpreadsheet className="w-4 h-4 mr-2" />
-                            Exportar a Excel (CSV)
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handlePrintList}>
-                            <Download className="w-4 h-4 mr-2" />
-                            Imprimir Listado
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                <Button
-                    onClick={onNewGuest}
-                    className="rounded-full px-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all"
-                    size="lg"
-                >
-                    <Plus className="w-5 h-5 mr-2" />
-                    Nuevo Huésped
-                </Button>
+
+            {/* Stats pills */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                <StatPill icon={Users} value={guestCount} label="Total" color="slate" />
+                <StatPill icon={BedDouble} value={hostedCount} label="Hospedados" color="emerald" />
+                <StatPill icon={Repeat} value={frequentCount} label="Frecuentes" color="amber" />
+                <StatPill icon={DollarSign} value={`$${totalSpend > 1000 ? `${(totalSpend / 1000).toFixed(0)}k` : totalSpend}`} label="Facturado" color="violet" />
             </div>
+        </div>
+    );
+}
+
+function StatPill({ icon: Icon, value, label, color }: {
+    icon: typeof Users;
+    value: string | number;
+    label: string;
+    color: 'slate' | 'emerald' | 'amber' | 'violet';
+}) {
+    const colors = {
+        slate: 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400',
+        emerald: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400',
+        amber: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400',
+        violet: 'bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400',
+    };
+    return (
+        <div className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0',
+            colors[color],
+        )}>
+            <Icon className="w-3.5 h-3.5" />
+            <span className="font-extrabold text-sm">{value}</span>
+            <span className="opacity-70 hidden sm:inline">{label}</span>
         </div>
     );
 }

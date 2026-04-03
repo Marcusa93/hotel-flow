@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Sparkles, LogIn, LogOut, AlertTriangle, BedDouble, Users, CreditCard, Star } from 'lucide-react';
 import { Booking, Room, Guest, Payment } from '@/types/hotel';
 import { isToday, isTomorrow, format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, formatLastNameFirst } from '@/lib/utils';
 
 interface AIBriefingProps {
     bookings: Booking[];
@@ -32,7 +32,7 @@ export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProp
             const names = todayCheckIns.slice(0, 3).map(b => {
                 const guest = guests.find(g => g.id === b.guestId);
                 const room = rooms.find(r => r.id === b.roomId);
-                return `**${guest?.fullName || 'Huésped'}** (Hab ${room?.roomNumber || '?'})`;
+                return `**${guest ? formatLastNameFirst(guest.fullName) : 'Huésped'}** (Hab ${room?.roomNumber || '?'})`;
             });
             const extra = todayCheckIns.length > 3 ? ` y ${todayCheckIns.length - 3} más` : '';
             result.push({
@@ -50,7 +50,7 @@ export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProp
         if (todayCheckOuts.length > 0) {
             const names = todayCheckOuts.slice(0, 3).map(b => {
                 const guest = guests.find(g => g.id === b.guestId);
-                return `**${guest?.fullName || 'Huésped'}**`;
+                return `**${guest ? formatLastNameFirst(guest.fullName) : 'Huésped'}**`;
             });
             result.push({
                 icon: LogOut,
@@ -81,14 +81,14 @@ export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProp
             });
         }
 
-        // 4. VIP arriving today or tomorrow
-        const upcomingVIPs = bookings
+        // 4. Frequent guests arriving today or tomorrow
+        const upcomingFrequent = bookings
             .filter(b => (isToday(new Date(b.checkInDate)) || isTomorrow(new Date(b.checkInDate))) && (b.status === 'CONFIRMED' || b.status === 'PENDING'))
             .map(b => {
                 const guest = guests.find(g => g.id === b.guestId);
                 if (!guest) return null;
                 const guestBookings = bookings.filter(bb => bb.guestId === guest.id).length;
-                if (guestBookings < 5) return null;
+                if (guestBookings < 3) return null;
                 const totalSpend = bookings.filter(bb => bb.guestId === guest.id).reduce((s, bb) => s + bb.totalAmount, 0);
                 const room = rooms.find(r => r.id === b.roomId);
                 const when = isToday(new Date(b.checkInDate)) ? 'hoy' : 'mañana';
@@ -96,12 +96,12 @@ export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProp
             })
             .filter(Boolean);
 
-        for (const vip of upcomingVIPs) {
-            if (!vip) continue;
+        for (const freq of upcomingFrequent) {
+            if (!freq) continue;
             result.push({
                 icon: Star,
-                text: `**VIP**: **${vip.guest.fullName}** llega ${vip.when} (${vip.guestBookings} visitas, $${(vip.totalSpend / 1000).toFixed(0)}k gastados) → Hab ${vip.room?.roomNumber || '?'}`,
-                color: 'text-amber-500',
+                text: `**Frecuente**: **${formatLastNameFirst(freq.guest.fullName)}** llega ${freq.when} (${freq.guestBookings} visitas, $${(freq.totalSpend / 1000).toFixed(0)}k) → Hab ${freq.room?.roomNumber || '?'}`,
+                color: 'text-indigo-500',
                 priority: 1,
             });
         }

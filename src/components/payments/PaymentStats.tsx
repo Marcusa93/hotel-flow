@@ -19,7 +19,7 @@ export function PaymentStats({ totalPaid, totalPending, totalFailed = 0 }: Payme
                         <TrendingUp className="w-4 h-4" />
                         <span>Ingresos Totales</span>
                     </div>
-                    <p className="text-3xl font-bold tracking-tight text-emerald-900 dark:text-emerald-100">
+                    <p className="text-3xl font-extrabold tracking-tight text-emerald-900 dark:text-emerald-100">
                         ${totalPaid.toLocaleString('es-AR')}
                     </p>
                     <p className="text-sm text-emerald-600/60 dark:text-emerald-400/60 mt-1">
@@ -37,7 +37,7 @@ export function PaymentStats({ totalPaid, totalPending, totalFailed = 0 }: Payme
                         <Clock className="w-4 h-4" />
                         <span>Pendiente de Cobro</span>
                     </div>
-                    <p className="text-3xl font-bold tracking-tight text-amber-900 dark:text-amber-100">
+                    <p className="text-3xl font-extrabold tracking-tight text-amber-900 dark:text-amber-100">
                         ${totalPending.toLocaleString('es-AR')}
                     </p>
                     <p className="text-sm text-amber-600/60 dark:text-amber-400/60 mt-1">

@@ -12,8 +12,7 @@ import {
 } from '@/components/guests';
 import { NewGuestDialog } from '@/components/guests/NewGuestDialog';
 import { EmptyState } from '@/components/shared';
-import { Badge } from '@/components/ui/badge';
-import { Search, Users, BedDouble, Star } from 'lucide-react';
+import { Search, Users, BedDouble, Repeat, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function Guests() {
@@ -24,7 +23,7 @@ export default function Guests() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('recent');
-  const [quickFilter, setQuickFilter] = useState<'all' | 'hosted' | 'vip'>('all');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'hosted' | 'frequent' | 'new'>('all');
   const [selectedGuest, setSelectedGuest] = useState<Guest | undefined>(undefined);
   const [isNewGuestDialogOpen, setIsNewGuestDialogOpen] = useState(false);
 
@@ -63,14 +62,27 @@ export default function Guests() {
     return ids;
   }, [bookings]);
 
-  // VIP guest IDs (5+ bookings)
-  const vipGuestIds = useMemo(() => {
+  // Frequent guest IDs (3+ bookings)
+  const frequentGuestIds = useMemo(() => {
     const ids = new Set<string>();
     for (const [id, stats] of Object.entries(guestStatsMap)) {
-      if (stats.bookingsCount >= 5) ids.add(id);
+      if (stats.bookingsCount >= 3) ids.add(id);
     }
     return ids;
   }, [guestStatsMap]);
+
+  // New guest IDs (1 booking only)
+  const newGuestIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const [id, stats] of Object.entries(guestStatsMap)) {
+      if (stats.bookingsCount <= 1) ids.add(id);
+    }
+    // Also include guests with 0 bookings
+    for (const g of guests) {
+      if (!guestStatsMap[g.id]) ids.add(g.id);
+    }
+    return ids;
+  }, [guestStatsMap, guests]);
 
   const getGuestStats = (guestId: string) =>
     guestStatsMap[guestId] || { bookingsCount: 0, totalSpend: 0 };
@@ -86,7 +98,8 @@ export default function Guests() {
 
       // Quick filters
       if (quickFilter === 'hosted' && !hostedGuestIds.has(guest.id)) return false;
-      if (quickFilter === 'vip' && !vipGuestIds.has(guest.id)) return false;
+      if (quickFilter === 'frequent' && !frequentGuestIds.has(guest.id)) return false;
+      if (quickFilter === 'new' && !newGuestIds.has(guest.id)) return false;
 
       return matchesSearch;
     });
@@ -101,7 +114,7 @@ export default function Guests() {
     }
 
     return result;
-  }, [guests, search, sortBy, quickFilter, guestStatsMap, hostedGuestIds, vipGuestIds]);
+  }, [guests, search, sortBy, quickFilter, guestStatsMap, hostedGuestIds, frequentGuestIds, newGuestIds]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden">
@@ -111,6 +124,9 @@ export default function Guests() {
           guests={guests}
           hotelName={hotelName}
           onNewGuest={() => setIsNewGuestDialogOpen(true)}
+          hostedCount={hostedGuestIds.size}
+          frequentCount={frequentGuestIds.size}
+          totalSpend={Object.values(guestStatsMap).reduce((s, g) => s + g.totalSpend, 0)}
         />
         <GuestsFilters
           search={search}
@@ -132,14 +148,18 @@ export default function Guests() {
             onClick={() => setQuickFilter('hosted')}
             icon={BedDouble}
             label={`Hospedados (${hostedGuestIds.size})`}
-            color="emerald"
           />
           <FilterChip
-            active={quickFilter === 'vip'}
-            onClick={() => setQuickFilter('vip')}
-            icon={Star}
-            label={`VIP (${vipGuestIds.size})`}
-            color="amber"
+            active={quickFilter === 'frequent'}
+            onClick={() => setQuickFilter('frequent')}
+            icon={Repeat}
+            label={`Frecuentes (${frequentGuestIds.size})`}
+          />
+          <FilterChip
+            active={quickFilter === 'new'}
+            onClick={() => setQuickFilter('new')}
+            icon={UserPlus}
+            label={`Nuevos (${newGuestIds.size})`}
           />
           <span className="text-xs text-muted-foreground ml-auto">
             {filteredGuests.length} resultado{filteredGuests.length !== 1 ? 's' : ''}
@@ -184,26 +204,21 @@ export default function Guests() {
 }
 
 function FilterChip({
-  active, onClick, icon: Icon, label, color = 'slate'
+  active, onClick, icon: Icon, label,
 }: {
   active: boolean;
   onClick: () => void;
   icon: typeof Users;
   label: string;
-  color?: 'slate' | 'emerald' | 'amber';
 }) {
-  const colors = {
-    slate: active ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400',
-    emerald: active ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400',
-    amber: active ? 'bg-amber-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400',
-  };
   return (
     <button
       onClick={onClick}
       className={cn(
-        'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all hover:shadow-sm',
-        colors[color],
-        active ? 'border-transparent shadow-sm' : 'border-slate-200 dark:border-slate-700'
+        'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all',
+        active
+          ? 'bg-primary text-primary-foreground shadow-sm'
+          : 'bg-slate-100 dark:bg-slate-800/50 text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-700/50',
       )}
     >
       <Icon className="w-3 h-3" />

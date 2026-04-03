@@ -19,8 +19,7 @@ import { NewGuestDialog } from '@/components/guests/NewGuestDialog';
 import { NewPaymentDialog } from '@/components/payments/NewPaymentDialog';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useRevenueStats } from '@/hooks/useRevenueStats';
-import { format, isToday, startOfDay } from 'date-fns';
+import { format, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,13 +54,6 @@ export default function Dashboard() {
     return { todayCheckIns: checkIns, todayCheckOuts: checkOuts };
   }, [bookings]);
 
-  // Revenue chart data
-  const { data: revenueStats, isLoading: isLoadingRevenue } = useRevenueStats(7);
-  const revenueData = useMemo(() => revenueStats?.map(stat => ({
-    name: format(new Date(stat.date), 'EEE', { locale: es }),
-    value: stat.revenue
-  })) || [], [revenueStats]);
-
   // ADR
   const adr = useMemo(() => {
     const recent = bookings.filter(b => b.status === 'CHECKED_IN' || b.status === 'CHECKED_OUT');
@@ -92,18 +84,18 @@ export default function Dashboard() {
 
         {/* ── COMPACT HEADER ── */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-50 to-blue-50/40 dark:from-slate-900/80 dark:to-slate-800/40 border border-slate-200/60 dark:border-slate-700/40 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/30">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/40 dark:to-orange-900/30 shadow-sm">
                 <GreetingIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground font-medium">{greeting}</p>
-                <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+                <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                   {hotelSettings?.hotelName || 'Hotel'}
                 </h1>
               </div>
-              <span className="text-xs text-muted-foreground ml-2 hidden sm:block">
+              <span className="text-xs text-muted-foreground/70 ml-2 hidden sm:block capitalize">
                 {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
               </span>
             </div>
@@ -192,7 +184,7 @@ export default function Dashboard() {
         {/* ── BOTTOM GRID: Revenue + Arrivals ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }}>
-            <RevenueChart data={revenueData} isLoading={isLoadingRevenue} />
+            <RevenueChart />
           </motion.div>
           <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
             <UpcomingArrivalsWidget />
@@ -217,26 +209,28 @@ function MiniStat({
   onClick?: () => void;
 }) {
   const colors = {
-    blue: 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400',
-    emerald: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400',
-    amber: 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400',
-    violet: 'bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400',
+    blue: { bg: 'bg-blue-50 dark:bg-blue-950/30', text: 'text-blue-600 dark:text-blue-400', ring: 'ring-blue-200/50 dark:ring-blue-800/30' },
+    emerald: { bg: 'bg-emerald-50 dark:bg-emerald-950/30', text: 'text-emerald-600 dark:text-emerald-400', ring: 'ring-emerald-200/50 dark:ring-emerald-800/30' },
+    amber: { bg: 'bg-amber-50 dark:bg-amber-950/30', text: 'text-amber-600 dark:text-amber-400', ring: 'ring-amber-200/50 dark:ring-amber-800/30' },
+    violet: { bg: 'bg-violet-50 dark:bg-violet-950/30', text: 'text-violet-600 dark:text-violet-400', ring: 'ring-violet-200/50 dark:ring-violet-800/30' },
   };
+  const c = colors[color];
   const Component = onClick ? 'button' : 'div';
   return (
     <Component
       onClick={onClick}
       className={cn(
-        'flex items-center gap-3 p-3 rounded-xl border bg-white/60 dark:bg-slate-900/40 backdrop-blur transition-all',
-        onClick && 'hover:shadow-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer',
+        'flex items-center gap-3 p-3.5 rounded-2xl border bg-white/80 dark:bg-slate-900/50 backdrop-blur-sm shadow-sm transition-all ring-1',
+        c.ring,
+        onClick && 'hover:shadow-lg hover:scale-[1.03] active:scale-[0.97] cursor-pointer',
       )}
     >
-      <div className={cn('p-2 rounded-lg', colors[color])}>
-        <Icon className="w-4 h-4" />
+      <div className={cn('p-2.5 rounded-xl shadow-sm', c.bg)}>
+        <Icon className={cn('w-4 h-4', c.text)} />
       </div>
       <div className="min-w-0">
-        <p className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{value}</p>
-        <p className="text-[11px] text-muted-foreground truncate">{sub}</p>
+        <p className="text-xl font-extrabold text-slate-900 dark:text-white leading-none tracking-tight">{value}</p>
+        <p className="text-[11px] text-muted-foreground truncate mt-0.5">{sub}</p>
       </div>
     </Component>
   );

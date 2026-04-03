@@ -185,41 +185,41 @@ export default function Expenses() {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                <Card>
+                <Card className="border-none shadow-md bg-gradient-to-br from-rose-50 to-white dark:from-rose-950/20 dark:to-slate-900">
                     <CardContent className="pt-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 rounded-full bg-rose-100">
-                                <Receipt className="w-6 h-6 text-rose-600" />
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-xl bg-rose-100 dark:bg-rose-900/40 shadow-sm">
+                                <Receipt className="w-5 h-5 text-rose-600 dark:text-rose-400" />
                             </div>
                             <div>
-                                <p className="text-sm text-muted-foreground">Total del Mes</p>
-                                <p className="text-2xl font-bold">${stats.total.toLocaleString('es-AR')}</p>
+                                <p className="text-xs text-muted-foreground font-medium">Total del Mes</p>
+                                <p className="text-xl font-extrabold tracking-tight">${stats.total.toLocaleString('es-AR')}</p>
                             </div>
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="border-none shadow-md bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/20 dark:to-slate-900">
                     <CardContent className="pt-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 rounded-full bg-blue-100">
-                                <ShoppingCart className="w-6 h-6 text-blue-600" />
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-900/40 shadow-sm">
+                                <ShoppingCart className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                             </div>
                             <div>
-                                <p className="text-sm text-muted-foreground">Compras</p>
-                                <p className="text-2xl font-bold">{stats.count}</p>
+                                <p className="text-xs text-muted-foreground font-medium">Compras</p>
+                                <p className="text-xl font-extrabold tracking-tight">{stats.count}</p>
                             </div>
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="border-none shadow-md bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-slate-900">
                     <CardContent className="pt-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 rounded-full bg-emerald-100">
-                                <TrendingUp className="w-6 h-6 text-emerald-600" />
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 shadow-sm">
+                                <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                             </div>
                             <div>
-                                <p className="text-sm text-muted-foreground">Mayor Categoría</p>
-                                <p className="text-lg font-bold">
+                                <p className="text-xs text-muted-foreground font-medium">Mayor Categoría</p>
+                                <p className="text-base font-bold">
                                     {stats.topCategory ? (
                                         <span className="flex items-center gap-1">
                                             {expenseTypeIcons[stats.topCategory]} {expenseTypeLabels[stats.topCategory]}
@@ -230,16 +230,16 @@ export default function Expenses() {
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="border-none shadow-md bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/20 dark:to-slate-900">
                     <CardContent className="pt-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 rounded-full bg-amber-100">
-                                <Calendar className="w-6 h-6 text-amber-600" />
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-xl bg-amber-100 dark:bg-amber-900/40 shadow-sm">
+                                <Calendar className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                             </div>
                             <div>
-                                <p className="text-sm text-muted-foreground">Período</p>
-                                <p className="text-lg font-bold capitalize">
-                                    {format(new Date(), 'MMMM yyyy', { locale: es })}
+                                <p className="text-xs text-muted-foreground font-medium">Período</p>
+                                <p className="text-base font-bold capitalize">
+                                    {format(selectedMonth, 'MMMM yyyy', { locale: es })}
                                 </p>
                             </div>
                         </div>
@@ -284,12 +284,12 @@ export default function Expenses() {
                         </div>
                     ) : (
                         <div className="overflow-x-auto -mx-6 px-6">
-                        <Table className="min-w-[600px]">
+                        <Table className="min-w-[400px] sm:min-w-[600px]">
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Fecha</TableHead>
                                     <TableHead>Tipo</TableHead>
-                                    <TableHead>Descripción</TableHead>
+                                    <TableHead className="hidden sm:table-cell">Descripción</TableHead>
                                     <TableHead className="text-right">Monto</TableHead>
                                     <TableHead className="w-16"></TableHead>
                                 </TableRow>
@@ -305,7 +305,7 @@ export default function Expenses() {
                                                 {expenseTypeIcons[expense.expenseType]} {expenseTypeLabels[expense.expenseType]}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
+                                        <TableCell className="text-muted-foreground hidden sm:table-cell">
                                             {expense.description || '-'}
                                         </TableCell>
                                         <TableCell className="text-right font-semibold">

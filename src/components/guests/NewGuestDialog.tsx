@@ -146,12 +146,12 @@ export function NewGuestDialog({ open, onOpenChange }: NewGuestDialogProps) {
                         />
 
                         {/* Document Type + Document ID */}
-                        <div className="grid grid-cols-5 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
                             <FormField
                                 control={form.control}
                                 name="documentType"
                                 render={({ field }) => (
-                                    <FormItem className="col-span-2">
+                                    <FormItem className="sm:col-span-2">
                                         <FormLabel>Tipo Doc.</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl>
@@ -175,7 +175,7 @@ export function NewGuestDialog({ open, onOpenChange }: NewGuestDialogProps) {
                                 control={form.control}
                                 name="documentId"
                                 render={({ field }) => (
-                                    <FormItem className="col-span-3">
+                                    <FormItem className="sm:col-span-3">
                                         <FormLabel>Nro. Documento</FormLabel>
                                         <FormControl>
                                             <div className="relative">

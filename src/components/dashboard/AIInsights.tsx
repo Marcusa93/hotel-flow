@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Brain, TrendingUp, TrendingDown, AlertTriangle, Lightbulb, ChevronDown, ChevronUp, Zap } from 'lucide-react';
 import { Booking, Room, Payment, Guest } from '@/types/hotel';
 import { isToday, isTomorrow, subDays, isAfter, isBefore, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, formatLastNameFirst } from '@/lib/utils';
 
 interface AIInsightsProps {
     bookings: Booking[];
@@ -58,7 +58,7 @@ export function AIInsights({ bookings, rooms, payments, guests, monthlyRevenue, 
         if (overdueCheckouts.length > 0) {
             const names = overdueCheckouts.slice(0, 2).map(b => {
                 const guest = guests.find(g => g.id === b.guestId);
-                return guest?.fullName.split(' ')[0] || '?';
+                return guest ? formatLastNameFirst(guest.fullName).split(',')[0] : '?';
             }).join(', ');
             result.push({
                 icon: AlertTriangle,

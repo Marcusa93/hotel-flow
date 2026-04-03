@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CalendarCheck, ArrowRight, BedDouble, Users, AlertCircle } from 'lucide-react';
+import { formatLastNameFirst, getInitials } from '@/lib/utils';
 import { Link, useNavigate } from 'react-router-dom';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
@@ -52,7 +53,7 @@ export function UpcomingArrivalsWidget() {
 
                 return {
                     id: booking.id,
-                    guestName: guest?.fullName || 'Huésped',
+                    guestName: guest ? formatLastNameFirst(guest.fullName) : 'Huésped',
                     guestEmail: guest?.email || '',
                     roomNumber: room?.roomNumber || '-',
                     roomId: room?.id || '',

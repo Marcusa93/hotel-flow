@@ -30,7 +30,7 @@ import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { COUNTRIES, DOCUMENT_TYPES } from '@/lib/constants';
 import { toast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
-import { cn, escapeHtml } from '@/lib/utils';
+import { cn, escapeHtml, formatLastNameFirst, getInitials } from '@/lib/utils';
 
 const STATUS_LABELS: Record<string, string> = {
     PENDING: 'Pendiente',
@@ -93,12 +93,8 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
 
     if (!guest) return null;
 
-    const initials = guest.fullName
-        .split(' ')
-        .map(n => n[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase();
+    const initials = getInitials(guest.fullName);
+    const displayName = formatLastNameFirst(guest.fullName);
 
     const handleStartEdit = () => {
         setEditData({
@@ -293,7 +289,7 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                                     className="text-2xl font-bold bg-white/20 border-white/30 text-white placeholder:text-white/50"
                                 />
                             ) : (
-                                <h2 className="text-3xl font-bold tracking-tight">{guest.fullName}</h2>
+                                <h2 className="text-3xl font-bold tracking-tight">{displayName}</h2>
                             )}
                             <p className="text-white/70 font-mono text-sm mt-1">{guest.email || 'Sin email'}</p>
                         </div>
@@ -330,7 +326,7 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                         {/* Personal Info */}
                         <section>
                             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">Información Personal</h3>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="p-4 rounded-xl border bg-muted/30">
                                     <Label className="text-xs text-muted-foreground mb-1 block">Documento</Label>
                                     {isEditing ? (
@@ -431,7 +427,7 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                                         <Label className="cursor-pointer text-sm">Tiene vehículo</Label>
                                     </div>
                                     {editData.hasVehicle && (
-                                        <div className="grid grid-cols-2 gap-3 p-3 rounded-xl border bg-muted/30">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl border bg-muted/30">
                                             <div>
                                                 <Label className="text-xs text-muted-foreground mb-1 block">Descripción</Label>
                                                 <Input
@@ -545,7 +541,7 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                         {/* Payment Summary */}
                         <section>
                             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">Resumen de Pagos</h3>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-3"> {/* 2 cols OK here — small cards */}
                                 <div className="p-3 rounded-xl border bg-emerald-50 dark:bg-emerald-900/20 text-center">
                                     <p className="text-xs text-muted-foreground mb-1">Total Pagado</p>
                                     <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">

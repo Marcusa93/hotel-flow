@@ -16,7 +16,7 @@ import {
 import { NewBookingDialog } from '@/components/bookings/NewBookingDialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { cn, formatLastNameFirst, getInitials } from '@/lib/utils';
 import {
   LayoutGrid, List, CheckCircle, AlertCircle, XCircle,
   CreditCard, Calendar, BedDouble,
@@ -125,49 +125,48 @@ export default function Bookings() {
     <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden">
       {/* Top Section */}
       <div className="flex-none px-4 md:px-6 pt-4 md:pt-6 pb-3">
-        <ReservationsHeader onNewBooking={() => setIsNewDialogOpen(true)} />
+        <ReservationsHeader onNewBooking={() => setIsNewDialogOpen(true)} stats={stats} />
 
-        <div className="flex items-center gap-3 mt-3">
-          <div className="flex-1">
-            <ReservationsFilters
-              search={search}
-              onSearchChange={setSearch}
-              statusFilter={statusFilter}
-              onStatusFilterChange={(v) => { setStatusFilter(v); setTodayFilter(null); }}
-            />
+        <div className="mt-3">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex-1">
+              <ReservationsFilters
+                search={search}
+                onSearchChange={setSearch}
+                statusFilter={statusFilter}
+                onStatusFilterChange={(v) => { setStatusFilter(v); setTodayFilter(null); }}
+              />
+            </div>
           </div>
 
-          {/* View toggle — hidden on mobile (always list on mobile) */}
-          <div className="hidden md:flex items-center bg-muted/50 rounded-xl p-1 shrink-0">
-            <Button
-              variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-              size="icon"
-              className="h-8 w-8 rounded-lg"
-              onClick={() => setViewMode('kanban')}
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
-              size="icon"
-              className="h-8 w-8 rounded-lg"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="w-4 h-4" />
-            </Button>
+          {/* View toggle + active filters */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {todayFilter && (
+                <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/10 rounded-lg" onClick={() => setTodayFilter(null)}>
+                  {todayFilter === 'checkin-today' ? 'Check-ins de hoy' : 'Check-outs de hoy'} ✕
+                </Badge>
+              )}
+            </div>
+            <div className="hidden md:flex items-center bg-muted/50 rounded-xl p-1 shrink-0">
+              <Button
+                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8 rounded-lg"
+                onClick={() => setViewMode('kanban')}
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8 rounded-lg"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
-        </div>
-
-        {/* Active filter chips */}
-        <div className="flex items-center gap-2 mt-2 flex-wrap">
-          {todayFilter && (
-            <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/10" onClick={() => setTodayFilter(null)}>
-              {todayFilter === 'checkin-today' ? 'Check-ins de hoy' : 'Check-outs de hoy'} ✕
-            </Badge>
-          )}
-          <span className="text-xs text-muted-foreground ml-auto">
-            {stats.total} reserva{stats.total !== 1 ? 's' : ''}
-          </span>
         </div>
       </div>
 
@@ -289,7 +288,7 @@ function BookingListView({
               >
                 <td className="p-3">
                   <p className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[180px]">
-                    {guest?.fullName || 'Desconocido'}
+                    {guest ? formatLastNameFirst(guest.fullName) : 'Desconocido'}
                   </p>
                 </td>
                 <td className="p-3">
@@ -369,24 +368,46 @@ function MobileBookingCards({
         const ratio = b.totalAmount > 0 ? paid / b.totalAmount : 0;
         const payStatus = ratio >= 1 ? 'paid' : ratio > 0 ? 'partial' : 'unpaid';
         const status = STATUS_LABELS[b.status] || STATUS_LABELS.PENDING;
+        const isCheckInToday = isToday(new Date(b.checkInDate));
+        const isCheckOutToday = isToday(new Date(b.checkOutDate));
 
         return (
           <button
             key={b.id}
             onClick={() => onCardClick(b.id)}
-            className="w-full text-left bg-white dark:bg-slate-900 rounded-xl border p-4 hover:shadow-md transition-all active:scale-[0.98]"
+            className={cn(
+              "w-full text-left rounded-2xl border p-4 hover:shadow-lg transition-all active:scale-[0.98] relative overflow-hidden",
+              "bg-white dark:bg-slate-900 shadow-sm",
+            )}
           >
-            <div className="flex items-center justify-between mb-2">
-              <p className="font-bold text-[15px] text-slate-800 dark:text-slate-100 truncate flex-1 mr-2">
-                {guest?.fullName || 'Desconocido'}
-              </p>
-              <Badge className={cn('text-[10px] font-semibold shrink-0', status.color)}>
+            {/* Colored left accent bar */}
+            <div className={cn(
+              'absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl',
+              status.color.includes('emerald') ? 'bg-emerald-500' :
+              status.color.includes('blue') ? 'bg-blue-500' :
+              status.color.includes('amber') ? 'bg-amber-500' :
+              status.color.includes('red') ? 'bg-red-500' :
+              'bg-slate-400'
+            )} />
+
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-2 flex-1 min-w-0 mr-2">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shrink-0">
+                  <span className="text-[11px] font-bold text-white">
+                    {getInitials(guest?.fullName || '?')}
+                  </span>
+                </div>
+                <p className="font-bold text-[15px] text-slate-800 dark:text-slate-100 truncate">
+                  {guest ? formatLastNameFirst(guest.fullName) : 'Desconocido'}
+                </p>
+              </div>
+              <Badge className={cn('text-[10px] font-semibold shrink-0 rounded-lg', status.color)}>
                 {status.label}
               </Badge>
             </div>
 
-            <div className="flex items-center gap-4 text-xs text-muted-foreground mb-2">
-              <span className="flex items-center gap-1">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3 pl-10">
+              <span className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/50 px-2 py-0.5 rounded-md">
                 <BedDouble className="w-3 h-3" />
                 <span className="font-bold text-slate-700 dark:text-slate-300">{room?.roomNumber || '?'}</span>
               </span>
@@ -394,18 +415,20 @@ function MobileBookingCards({
                 <Calendar className="w-3 h-3" />
                 {format(new Date(b.checkInDate), 'dd/MM')} → {format(new Date(b.checkOutDate), 'dd/MM')}
               </span>
-              <span className="font-semibold">{nights}N</span>
+              <span className="font-bold text-slate-600 dark:text-slate-400">{nights}N</span>
+              {isCheckInToday && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded-md">LLEGA HOY</span>}
+              {isCheckOutToday && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-md">SALE HOY</span>}
             </div>
 
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-sm text-slate-800 dark:text-slate-200">
+            <div className="flex items-center justify-between pl-10">
+              <span className="font-extrabold text-base text-slate-900 dark:text-white">
                 ${b.totalAmount.toLocaleString()}
               </span>
               <span className={cn(
-                'flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full',
-                payStatus === 'paid' ? 'bg-emerald-50 text-emerald-600' :
-                payStatus === 'partial' ? 'bg-amber-50 text-amber-600' :
-                'bg-red-50 text-red-500'
+                'flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg',
+                payStatus === 'paid' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
+                payStatus === 'partial' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' :
+                'bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400'
               )}>
                 {payStatus === 'paid' ? <CheckCircle className="w-3 h-3" /> :
                  payStatus === 'partial' ? <AlertCircle className="w-3 h-3" /> :

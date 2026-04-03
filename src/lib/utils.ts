@@ -13,6 +13,33 @@ export function formatLocalDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/**
+ * Format a full name as "Apellido, Nombre" for hotel display.
+ * "María García López" → "García López, María"
+ * "Juan Pérez" → "Pérez, Juan"
+ * "Ana" → "Ana" (single word unchanged)
+ */
+export function formatLastNameFirst(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length <= 1) return fullName;
+  const firstName = parts[0];
+  const lastNames = parts.slice(1).join(' ');
+  return `${lastNames}, ${firstName}`;
+}
+
+/**
+ * Get initials from a full name (first letter of first and last word).
+ */
+export function getInitials(fullName: string): string {
+  return fullName
+    .trim()
+    .split(/\s+/)
+    .map(n => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+}
+
 /** Escape HTML special characters to prevent XSS in document.write() contexts */
 export function escapeHtml(str: string | null | undefined): string {
   if (!str) return '';

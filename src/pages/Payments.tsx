@@ -1,5 +1,5 @@
 import { useState, useMemo, lazy, Suspense } from 'react';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Download } from 'lucide-react';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
@@ -18,6 +18,9 @@ import {
 } from '@/components/ui/select';
 import { Payment, PaymentStatus, PaymentMethod } from '@/types/hotel';
 import { PaymentStats, TransactionTable, NewPaymentDialog, PaymentReceipt } from '@/components/payments';
+import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from '@/lib/constants';
+import { format } from 'date-fns';
+import { toast } from '@/hooks/use-toast';
 
 const BillingContent = lazy(() => import('./Billing'));
 
@@ -77,6 +80,31 @@ export default function Payments() {
     setIsReceiptOpen(true);
   };
 
+  const handleExportCSV = () => {
+    if (filteredPayments.length === 0) return;
+    const headers = ['Fecha', 'Huésped', 'Método', 'Monto', 'Estado', 'Referencia'];
+    const rows = filteredPayments.map(p => {
+      const info = getBookingInfo(p.bookingId);
+      return [
+        format(new Date(p.date), 'dd/MM/yyyy'),
+        info.guest?.fullName || 'N/A',
+        PAYMENT_METHOD_LABELS[p.method] || p.method,
+        p.amount.toString(),
+        PAYMENT_STATUS_LABELS[p.status] || p.status,
+        p.reference || '',
+      ];
+    });
+    const csvContent = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pagos_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Exportado', description: `${filteredPayments.length} pagos exportados a CSV` });
+  };
+
   const totalPaid = payments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + p.amount, 0);
   const totalPending = payments.filter(p => p.status === 'PENDING').reduce((sum, p) => sum + p.amount, 0);
   const totalFailed = payments.filter(p => p.status === 'FAILED').length;
@@ -86,15 +114,25 @@ export default function Payments() {
       <PageHeader
         title="Finanzas"
         description="Pagos, cobros y facturación"
-        actions={canWrite ? (
-          <Button
-            size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            onClick={() => setIsNewPaymentOpen(true)}
-          >
-            Nuevo Cobro
-          </Button>
-        ) : undefined}
+        actions={
+          <div className="flex items-center gap-2">
+            {filteredPayments.length > 0 && (
+              <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                <Download className="w-4 h-4 mr-2" />
+                Exportar
+              </Button>
+            )}
+            {canWrite && (
+              <Button
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => setIsNewPaymentOpen(true)}
+              >
+                Nuevo Cobro
+              </Button>
+            )}
+          </div>
+        }
       />
 
       <NewPaymentDialog open={isNewPaymentOpen} onOpenChange={setIsNewPaymentOpen} />

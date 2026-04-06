@@ -1,8 +1,11 @@
 import { useLocation, Link } from 'react-router-dom';
-import { LayoutDashboard, CalendarDays, BedDouble, ClipboardList, Settings, Sparkles } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, BedDouble, ClipboardList, Settings, Sparkles, CreditCard, MoreHorizontal } from 'lucide-react';
 import { useAppRole } from '@/context/AppRoleContext';
 import { cn } from '@/lib/utils';
 import type { UserRole } from '@/types/hotel';
+import { useState } from 'react';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Receipt, Percent, Shield, Bell } from 'lucide-react';
 
 interface TabItem {
     label: string;
@@ -16,7 +19,7 @@ const tabs: TabItem[] = [
     { label: 'Reservas', href: '/bookings', icon: CalendarDays, roles: ['admin', 'reception'] },
     { label: 'Habitaciones', href: '/rooms', icon: BedDouble, roles: ['admin', 'reception', 'housekeeping'] },
     { label: 'Limpieza', href: '/housekeeping', icon: Sparkles, roles: ['admin', 'housekeeping'] },
-    { label: 'Config', href: '/settings', icon: Settings, roles: ['admin', 'reception', 'housekeeping', 'auditor'] },
+    { label: 'Finanzas', href: '/payments', icon: CreditCard, roles: ['admin', 'reception', 'auditor'] },
 ];
 
 export function MobileTabBar() {

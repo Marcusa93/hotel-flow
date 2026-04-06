@@ -236,6 +236,8 @@ export interface HotelSettings {
   logoUrl: string;
   currency: string;
   timezone: string;
+  checkInTime?: string;   // e.g. "14:00"
+  checkOutTime?: string;  // e.g. "11:00"
   notificationEmailEnabled: boolean;
   notificationWhatsappEnabled: boolean;
   notificationSendOnBooking: boolean;

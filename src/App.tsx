@@ -74,7 +74,7 @@ const AnimatedRoutes = () => {
         <Route path="/audit-log" element={<RoleGuard allowedRoles={['admin', 'auditor']}><PageWrapper><AuditLog /></PageWrapper></RoleGuard>} />
 
         {/* Sistema */}
-        <Route path="/notifications" element={<RoleGuard allowedRoles={['admin']}><PageWrapper><Notifications /></PageWrapper></RoleGuard>} />
+        <Route path="/notifications" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Notifications /></PageWrapper></RoleGuard>} />
         <Route path="/settings" element={<PageWrapper><Settings /></PageWrapper>} />
 
         {/* Redirects */}

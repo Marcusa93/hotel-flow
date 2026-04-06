@@ -20,6 +20,7 @@ import {
   Car,
   Pencil
 } from 'lucide-react';
+import { PAYMENT_METHOD_LABELS } from '@/lib/constants';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
@@ -51,6 +52,7 @@ import { CheckoutDialog } from '@/components/bookings/CheckoutDialog';
 import { EditBookingDialog } from '@/components/bookings/EditBookingDialog';
 import { BookingChargesSection } from '@/components/bookings/BookingChargesSection';
 import { useBookingCharges } from '@/hooks/useBookingCharges';
+import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { motion } from 'framer-motion';
 
 export default function BookingDetail() {
@@ -66,6 +68,9 @@ export default function BookingDetail() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const { data: bookingCharges = [] } = useBookingCharges(id);
+  const { data: hotelSettings } = useHotelSettings();
+  const checkInTime = hotelSettings?.checkInTime || '14:00';
+  const checkOutTime = hotelSettings?.checkOutTime || '11:00';
 
   const booking = id ? getBookingWithDetails(id, guests, rooms, roomTypes, payments) : undefined;
 
@@ -168,15 +173,31 @@ export default function BookingDetail() {
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Confirmar Check-in</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    ¿Registrar el ingreso de <strong>{formatLastNameFirst(booking.guest.fullName)}</strong> a la habitación <strong>{booking.room.roomNumber}</strong>?
-                    La habitación pasará a estado Ocupada.
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-3">
+                      <p>
+                        ¿Registrar el ingreso de <strong>{formatLastNameFirst(booking.guest.fullName)}</strong> a la habitación <strong>{booking.room.roomNumber}</strong>?
+                        La habitación pasará a estado Ocupada.
+                      </p>
+                      {booking.room.status === 'DIRTY' && (
+                        <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-sm flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 shrink-0" />
+                          <span>⚠ La habitación está marcada como <strong>sucia</strong>. Se recomienda limpiarla antes del ingreso.</span>
+                        </div>
+                      )}
+                      {booking.room.status === 'MAINTENANCE' && (
+                        <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 text-sm flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 shrink-0" />
+                          <span>⚠ La habitación está en <strong>mantenimiento</strong>. Verifique que esté habilitada antes del ingreso.</span>
+                        </div>
+                      )}
+                    </div>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Volver</AlertDialogCancel>
                   <AlertDialogAction onClick={() => handleStatusChange('CHECKED_IN')} className="bg-emerald-600 hover:bg-emerald-700">
-                    Confirmar Check-in
+                    {booking.room.status === 'DIRTY' || booking.room.status === 'MAINTENANCE' ? 'Check-in de todas formas' : 'Confirmar Check-in'}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -368,12 +389,12 @@ export default function BookingDetail() {
                   <div className="space-y-1">
                     <span className="text-xs text-muted-foreground">Entrada</span>
                     <div className="font-semibold">{format(new Date(booking.checkInDate), "EEE d MMM", { locale: es })}</div>
-                    <div className="text-xs text-muted-foreground">desde 14:00 hs</div>
+                    <div className="text-xs text-muted-foreground">desde {checkInTime} hs</div>
                   </div>
                   <div className="space-y-1 text-right">
                     <span className="text-xs text-muted-foreground">Salida</span>
                     <div className="font-semibold">{format(new Date(booking.checkOutDate), "EEE d MMM", { locale: es })}</div>
-                    <div className="text-xs text-muted-foreground">hasta 11:00 hs</div>
+                    <div className="text-xs text-muted-foreground">hasta {checkOutTime} hs</div>
                   </div>
                 </div>
 
@@ -552,6 +573,7 @@ export default function BookingDetail() {
             <CardContent>
               {bookingPayments.length === 0 ? (
                 <div className="text-center py-8 border-2 border-dashed rounded-xl">
+                  <CreditCard className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
                   <p className="text-muted-foreground">No hay pagos registrados</p>
                 </div>
               ) : (
@@ -563,7 +585,7 @@ export default function BookingDetail() {
                           ${i + 1}
                         </div>
                         <div>
-                          <p className="font-medium">{payment.method}</p>
+                          <p className="font-medium">{PAYMENT_METHOD_LABELS[payment.method] || payment.method}</p>
                           <p className="text-xs text-muted-foreground flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             {format(new Date(payment.date), "d MMM yyyy, HH:mm", { locale: es })}

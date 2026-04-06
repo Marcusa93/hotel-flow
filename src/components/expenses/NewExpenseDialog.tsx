@@ -31,15 +31,15 @@ interface NewExpenseDialogProps {
 }
 
 const expenseTypeLabels: Record<ExpenseType, string> = {
-    PANADERIA: '🥐 Panadería',
-    SUPERMERCADO: '🛒 Supermercado',
-    VERDULERIA: '🥬 Verdulería',
-    CARNICERIA: '🥩 Carnicería',
-    BEBIDAS: '🍷 Bebidas',
-    LIMPIEZA: '🧹 Limpieza',
-    MANTENIMIENTO: '🔧 Mantenimiento',
-    SERVICIOS: '💡 Servicios (Luz, Gas, Agua)',
-    OTROS: '📦 Otros'
+    PANADERIA: 'Panadería',
+    SUPERMERCADO: 'Supermercado',
+    VERDULERIA: 'Verdulería',
+    CARNICERIA: 'Carnicería',
+    BEBIDAS: 'Bebidas',
+    LIMPIEZA: 'Limpieza',
+    MANTENIMIENTO: 'Mantenimiento',
+    SERVICIOS: 'Servicios (Luz, Gas, Agua)',
+    OTROS: 'Otros'
 };
 
 export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDialogProps) {

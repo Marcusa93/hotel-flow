@@ -35,7 +35,16 @@ import {
     Trash2,
     ChevronLeft,
     ChevronRight,
-    Edit
+    Edit,
+    Download,
+    Croissant,
+    Salad,
+    Beef,
+    Wine,
+    Sparkles,
+    Wrench,
+    Zap,
+    Package
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -62,17 +71,22 @@ const expenseTypeLabels: Record<ExpenseType, string> = {
     OTROS: 'Otros'
 };
 
-const expenseTypeIcons: Record<ExpenseType, string> = {
-    PANADERIA: '🥐',
-    SUPERMERCADO: '🛒',
-    VERDULERIA: '🥬',
-    CARNICERIA: '🥩',
-    BEBIDAS: '🍷',
-    LIMPIEZA: '🧹',
-    MANTENIMIENTO: '🔧',
-    SERVICIOS: '💡',
-    OTROS: '📦'
+const expenseTypeIcons: Record<ExpenseType, typeof ShoppingCart> = {
+    PANADERIA: Croissant,
+    SUPERMERCADO: ShoppingCart,
+    VERDULERIA: Salad,
+    CARNICERIA: Beef,
+    BEBIDAS: Wine,
+    LIMPIEZA: Sparkles,
+    MANTENIMIENTO: Wrench,
+    SERVICIOS: Zap,
+    OTROS: Package,
 };
+
+function ExpenseIcon({ type, className = "w-4 h-4" }: { type: ExpenseType; className?: string }) {
+    const Icon = expenseTypeIcons[type];
+    return <Icon className={className} />;
+}
 
 const expenseTypeColors: Record<ExpenseType, string> = {
     PANADERIA: 'bg-amber-100 text-amber-800',
@@ -109,6 +123,26 @@ export default function Expenses() {
     });
 
     const deleteExpense = useDeleteExpense();
+
+    const handleExportCSV = () => {
+        if (expenses.length === 0) return;
+        const headers = ['Fecha', 'Tipo', 'Descripción', 'Monto'];
+        const rows = expenses.map(e => [
+            format(e.date, 'dd/MM/yyyy'),
+            expenseTypeLabels[e.expenseType],
+            e.description || '',
+            e.amount.toString(),
+        ]);
+        const csvContent = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `gastos_${format(selectedMonth, 'yyyy-MM')}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast({ title: 'Exportado', description: `${expenses.length} gastos exportados a CSV` });
+    };
 
     const handleDelete = async (id: string) => {
         try {
@@ -154,12 +188,22 @@ export default function Expenses() {
             <PageHeader
                 title="Gastos"
                 description="Control de gastos operativos del hotel"
-                actions={canWrite ? (
-                    <Button onClick={() => setDialogOpen(true)}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Nuevo Gasto
-                    </Button>
-                ) : undefined}
+                actions={
+                    <div className="flex items-center gap-2">
+                        {expenses.length > 0 && (
+                            <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                                <Download className="w-4 h-4 mr-2" />
+                                Exportar
+                            </Button>
+                        )}
+                        {canWrite && (
+                            <Button onClick={() => setDialogOpen(true)}>
+                                <Plus className="w-4 h-4 mr-2" />
+                                Nuevo Gasto
+                            </Button>
+                        )}
+                    </div>
+                }
             />
 
             {/* Month Navigation */}
@@ -220,8 +264,8 @@ export default function Expenses() {
                                 <p className="text-xs text-muted-foreground font-medium">Mayor Categoría</p>
                                 <p className="text-base font-bold">
                                     {stats.topCategory ? (
-                                        <span className="flex items-center gap-1">
-                                            {expenseTypeIcons[stats.topCategory]} {expenseTypeLabels[stats.topCategory]}
+                                        <span className="flex items-center gap-1.5">
+                                            <ExpenseIcon type={stats.topCategory} className="w-4 h-4" /> {expenseTypeLabels[stats.topCategory]}
                                         </span>
                                     ) : '-'}
                                 </p>
@@ -262,7 +306,7 @@ export default function Expenses() {
                                 <SelectItem value="ALL">Todos los tipos</SelectItem>
                                 {Object.entries(expenseTypeLabels).map(([value, label]) => (
                                     <SelectItem key={value} value={value}>
-                                        {expenseTypeIcons[value as ExpenseType]} {label}
+                                        <span className="flex items-center gap-1.5"><ExpenseIcon type={value as ExpenseType} className="w-3.5 h-3.5" /> {label}</span>
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -301,7 +345,7 @@ export default function Expenses() {
                                         </TableCell>
                                         <TableCell>
                                             <Badge className={expenseTypeColors[expense.expenseType]}>
-                                                {expenseTypeIcons[expense.expenseType]} {expenseTypeLabels[expense.expenseType]}
+                                                <span className="flex items-center gap-1.5"><ExpenseIcon type={expense.expenseType} className="w-3.5 h-3.5" /> {expenseTypeLabels[expense.expenseType]}</span>
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground hidden sm:table-cell">
@@ -326,7 +370,7 @@ export default function Expenses() {
                                                     <AlertDialogHeader>
                                                         <AlertDialogTitle>¿Eliminar gasto?</AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                            Se eliminará permanentemente el gasto de <strong>{expenseTypeIcons[expense.expenseType]} {expenseTypeLabels[expense.expenseType]}</strong> por <strong>${expense.amount.toLocaleString('es-AR')}</strong> del {format(new Date(expense.date), 'd MMM yyyy', { locale: es })}.
+                                                            Se eliminará permanentemente el gasto de <strong>{expenseTypeLabels[expense.expenseType]}</strong> por <strong>${expense.amount.toLocaleString('es-AR')}</strong> del {format(new Date(expense.date), 'd MMM yyyy', { locale: es })}.
                                                             {expense.description && <><br /><span className="text-xs italic">"{expense.description}"</span></>}
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>

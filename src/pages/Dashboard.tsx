@@ -17,6 +17,7 @@ import {
 import { NewBookingDialog } from '@/components/bookings/NewBookingDialog';
 import { NewGuestDialog } from '@/components/guests/NewGuestDialog';
 import { NewPaymentDialog } from '@/components/payments/NewPaymentDialog';
+import { NewExpenseDialog } from '@/components/expenses/NewExpenseDialog';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format, isToday } from 'date-fns';
@@ -24,12 +25,12 @@ import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  Sun, Moon, CloudSun, CalendarPlus, UserPlus, CreditCard, Sparkles,
+  Sun, Moon, CloudSun, CalendarPlus, UserPlus, CreditCard, Sparkles, Receipt,
   BedDouble, TrendingUp, Users, DollarSign, LogIn, LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type DialogKey = 'booking' | 'guest' | 'payment' | null;
+type DialogKey = 'booking' | 'guest' | 'payment' | 'expense' | null;
 
 export default function Dashboard() {
   const { stats } = useDashboardStats();
@@ -112,6 +113,9 @@ export default function Dashboard() {
                   </Button>
                   <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setOpenDialog('payment')}>
                     <CreditCard className="w-4 h-4 mr-1.5" /> Pago
+                  </Button>
+                  <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setOpenDialog('expense')}>
+                    <Receipt className="w-4 h-4 mr-1.5" /> Gasto
                   </Button>
                 </>
               )}
@@ -196,6 +200,7 @@ export default function Dashboard() {
       <NewBookingDialog open={openDialog === 'booking'} onOpenChange={(open) => !open && setOpenDialog(null)} />
       <NewGuestDialog open={openDialog === 'guest'} onOpenChange={(open) => !open && setOpenDialog(null)} />
       <NewPaymentDialog open={openDialog === 'payment'} onOpenChange={(open) => !open && setOpenDialog(null)} />
+      <NewExpenseDialog open={openDialog === 'expense'} onOpenChange={(open) => !open && setOpenDialog(null)} />
     </div>
   );
 }

@@ -70,6 +70,8 @@ export default function Settings() {
     email: '',
     currency: 'ARS',
     timezone: 'America/Buenos_Aires',
+    checkInTime: '14:00',
+    checkOutTime: '11:00',
   });
 
   // Sync forms when settings load
@@ -82,6 +84,8 @@ export default function Settings() {
         email: settings.email,
         currency: settings.currency,
         timezone: settings.timezone,
+        checkInTime: settings.checkInTime || '14:00',
+        checkOutTime: settings.checkOutTime || '11:00',
       });
     }
   }, [settings]);
@@ -220,6 +224,24 @@ export default function Settings() {
                           <SelectItem value="UTC">UTC</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="checkInTime">Hora de Check-in</Label>
+                      <Input
+                        id="checkInTime"
+                        type="time"
+                        value={hotelForm.checkInTime}
+                        onChange={(e) => setHotelForm(prev => ({ ...prev, checkInTime: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="checkOutTime">Hora de Check-out</Label>
+                      <Input
+                        id="checkOutTime"
+                        type="time"
+                        value={hotelForm.checkOutTime}
+                        onChange={(e) => setHotelForm(prev => ({ ...prev, checkOutTime: e.target.value }))}
+                      />
                     </div>
                   </div>
                   <div className="flex justify-end pt-4 border-t">

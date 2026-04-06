@@ -38,7 +38,7 @@ export function RoomGrid({ rooms, roomTypes, guests, bookings, onRoomClick, onQu
                         key={room.id}
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: index * 0.03 }}
+                        transition={{ delay: Math.min(index * 0.03, 0.3) }}
                         className="relative"
                     >
                         {/* Selection indicator */}

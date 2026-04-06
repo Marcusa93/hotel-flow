@@ -329,8 +329,10 @@ function BookingListView({
           })}
           {bookings.length === 0 && (
             <tr>
-              <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                No se encontraron reservas
+              <td colSpan={7} className="p-12 text-center">
+                <CalendarDays className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+                <p className="text-muted-foreground font-medium">No se encontraron reservas</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Ajustá los filtros o creá una nueva reserva</p>
               </td>
             </tr>
           )}
@@ -355,7 +357,13 @@ function MobileBookingCards({
   const getRoom = (id: string) => rooms.find(r => r.id === id);
 
   if (bookings.length === 0) {
-    return <p className="text-center text-muted-foreground py-12">No se encontraron reservas</p>;
+    return (
+      <div className="text-center py-12">
+        <CalendarDays className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+        <p className="text-muted-foreground font-medium">No se encontraron reservas</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">Ajustá los filtros o creá una nueva reserva</p>
+      </div>
+    );
   }
 
   return (

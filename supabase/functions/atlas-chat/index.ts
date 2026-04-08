@@ -985,6 +985,20 @@ async function executeAction(
     const params = JSON.parse(paramsJson);
     switch (type) {
       case "create_booking": {
+        // Validate availability before creating
+        const { data: isAvailable, error: availErr } = await supabase.rpc(
+          "check_room_availability",
+          {
+            p_room_id: params.room_id,
+            p_check_in: params.check_in_date,
+            p_check_out: params.check_out_date,
+          }
+        );
+        if (availErr)
+          return `Error al verificar disponibilidad: ${availErr.message}`;
+        if (!isAvailable)
+          return `⚠️ La habitación ya tiene una reserva activa en esas fechas (${params.check_in_date} a ${params.check_out_date}). Elegí otras fechas u otra habitación.`;
+
         const { data, error } = await supabase
           .from("bookings")
           .insert({

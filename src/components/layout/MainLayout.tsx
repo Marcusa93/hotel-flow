@@ -4,6 +4,7 @@ import { Topbar } from './Topbar';
 import { MobileTabBar } from './MobileTabBar';
 import { AtlasChatbot } from '@/components/chat/AtlasChatbot';
 import { useNotificationToast } from '@/hooks/useNotificationToast';
+import { PWAInstallPrompt } from '@/components/pwa/PWAInstallPrompt';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -22,6 +23,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         </main>
         <AtlasChatbot />
         <MobileTabBar />
+        <PWAInstallPrompt />
       </div>
     </div>
   );

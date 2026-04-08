@@ -1,12 +1,13 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, X, Send, Loader2, Mic, MicOff } from 'lucide-react';
+import { MessageSquare, X, Send, Loader2, Mic, MicOff, Plus, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { supabase } from '@/lib/supabase';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
+import { useChatHistory } from '@/hooks/useChatHistory';
 import { ChatMarkdown } from './ChatMarkdown';
 
 // ── Web Speech API types ──
@@ -52,38 +53,22 @@ function getInitialGreeting(hotelName?: string) {
     return `¡Hola! Soy Atlas, tu asistente de ${name}. Tengo acceso a todos los datos del sistema en tiempo real. ¿En qué puedo ayudarte?`;
 }
 
-const CHAT_STORAGE_KEY = 'atlas_chat_history';
-
-function loadChatHistory(): ChatMessage[] | null {
-    try {
-        const saved = sessionStorage.getItem(CHAT_STORAGE_KEY);
-        if (saved) return JSON.parse(saved);
-    } catch { /* ignore */ }
-    return null;
-}
-
-function saveChatHistory(messages: ChatMessage[]) {
-    try { sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages)); } catch { /* ignore */ }
-}
-
 export function AtlasChatbot() {
     const { data: hotelSettings } = useHotelSettings();
+    const {
+        messages, setMessages, addMessage,
+        conversations, switchConversation, newConversation,
+        loadingHistory,
+    } = useChatHistory();
     const [isOpen, setIsOpen] = useState(false);
-    const [messages, setMessages] = useState<ChatMessage[]>(() => {
-        return loadChatHistory() || [{ role: 'assistant', content: getInitialGreeting() }];
-    });
+    const [showHistory, setShowHistory] = useState(false);
 
-    // Update initial greeting when hotel settings load (only if no chat history)
+    // Add greeting when no messages and hotel name is loaded
     useEffect(() => {
-        if (hotelSettings?.hotelName && messages.length === 1 && messages[0].role === 'assistant' && !loadChatHistory()) {
-            setMessages([{ role: 'assistant', content: getInitialGreeting(hotelSettings.hotelName) }]);
+        if (!loadingHistory && messages.length === 0) {
+            setMessages([{ role: 'assistant', content: getInitialGreeting(hotelSettings?.hotelName) }]);
         }
-    }, [hotelSettings?.hotelName]);
-
-    // Persist messages to sessionStorage
-    useEffect(() => {
-        if (messages.length > 1) saveChatHistory(messages);
-    }, [messages]);
+    }, [loadingHistory, hotelSettings?.hotelName]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isListening, setIsListening] = useState(false);
@@ -189,32 +174,28 @@ export function AtlasChatbot() {
         if (!trimmed || isLoading) return;
 
         const userMessage: ChatMessage = { role: 'user', content: trimmed };
-        setMessages(prev => [...prev, userMessage]);
+        await addMessage(userMessage);
         setInput('');
         setIsLoading(true);
 
         try {
-            // Send to Edge Function with conversation history
             const { data, error } = await supabase.functions.invoke('atlas-chat', {
                 body: {
                     message: trimmed,
-                    history: messages.slice(-20), // Last 20 messages for context
+                    history: messages.slice(-20),
                 },
             });
 
             if (error) throw error;
 
             const reply = data?.reply || 'Lo siento, no pude procesar tu consulta.';
-            setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+            await addMessage({ role: 'assistant', content: reply });
         } catch (err) {
             console.error('Atlas chat error:', err);
-            setMessages(prev => [
-                ...prev,
-                {
-                    role: 'assistant',
-                    content: 'Disculpá, tuve un problema de conexión. ¿Podés intentar de nuevo?',
-                },
-            ]);
+            await addMessage({
+                role: 'assistant',
+                content: 'Disculpá, tuve un problema de conexión. ¿Podés intentar de nuevo?',
+            });
         } finally {
             setIsLoading(false);
         }
@@ -243,10 +224,53 @@ export function AtlasChatbot() {
                             </span>
                         </div>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={toggleChat} className="text-white/70 hover:text-white h-8 w-8">
-                        <X className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                        <Button
+                            variant="ghost" size="icon"
+                            onClick={() => setShowHistory(!showHistory)}
+                            className="text-white/70 hover:text-white h-8 w-8"
+                            title="Historial"
+                        >
+                            <History className="w-4 h-4" />
+                        </Button>
+                        <Button
+                            variant="ghost" size="icon"
+                            onClick={() => { newConversation(); setShowHistory(false); }}
+                            className="text-white/70 hover:text-white h-8 w-8"
+                            title="Nueva conversación"
+                        >
+                            <Plus className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={toggleChat} className="text-white/70 hover:text-white h-8 w-8">
+                            <X className="w-4 h-4" />
+                        </Button>
+                    </div>
                 </div>
+
+                {/* Conversation History Panel */}
+                {showHistory && (
+                    <div className="border-b border-border bg-background px-3 py-2 max-h-48 overflow-y-auto">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Conversaciones recientes</p>
+                        {conversations.length === 0 ? (
+                            <p className="text-xs text-muted-foreground py-2">Sin conversaciones previas</p>
+                        ) : (
+                            <div className="space-y-1">
+                                {conversations.map(conv => (
+                                    <button
+                                        key={conv.id}
+                                        onClick={() => { switchConversation(conv.id); setShowHistory(false); }}
+                                        className="w-full text-left px-2 py-1.5 rounded-md hover:bg-muted text-xs truncate transition-colors"
+                                    >
+                                        <span className="font-medium">{conv.title || 'Conversación'}</span>
+                                        <span className="text-muted-foreground ml-2">
+                                            {new Date(conv.updatedAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Messages */}
                 <ScrollArea className="flex-1 p-4 bg-slate-50 dark:bg-slate-900/50" ref={scrollRef}>

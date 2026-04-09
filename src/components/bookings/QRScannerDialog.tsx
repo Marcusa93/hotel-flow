@@ -11,19 +11,19 @@ interface QRScannerDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const SCANNER_ID = 'qr-scanner-reader';
+
 export function QRScannerDialog({ open, onOpenChange }: QRScannerDialogProps) {
   const navigate = useNavigate();
-  const scannerRef = useRef<HTMLDivElement>(null);
   const html5QrCodeRef = useRef<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
     if (!open) {
-      // Cleanup when dialog closes
       if (html5QrCodeRef.current) {
         html5QrCodeRef.current.stop().catch(() => {});
-        html5QrCodeRef.current.clear();
+        html5QrCodeRef.current.clear().catch(() => {});
         html5QrCodeRef.current = null;
       }
       setError(null);
@@ -31,31 +31,47 @@ export function QRScannerDialog({ open, onOpenChange }: QRScannerDialogProps) {
       return;
     }
 
-    // Dynamic import to avoid loading the library upfront
     let cancelled = false;
 
     const startScanner = async () => {
       try {
         const { Html5Qrcode } = await import('html5-qrcode');
 
-        if (cancelled || !scannerRef.current) return;
+        if (cancelled) return;
 
-        const scannerId = 'qr-scanner-reader';
-        // Ensure element exists
-        if (!document.getElementById(scannerId)) {
-          const el = document.createElement('div');
-          el.id = scannerId;
-          scannerRef.current.appendChild(el);
-        }
+        // Wait for the DOM element to exist
+        const el = document.getElementById(SCANNER_ID);
+        if (!el) return;
 
-        const html5QrCode = new Html5Qrcode(scannerId);
+        const html5QrCode = new Html5Qrcode(SCANNER_ID);
         html5QrCodeRef.current = html5QrCode;
 
+        // Get available cameras and pick the best one
+        let cameraId: string | { facingMode: string } = { facingMode: 'environment' };
+        try {
+          const cameras = await Html5Qrcode.getCameras();
+          if (cameras.length > 0) {
+            // Prefer back camera, fallback to first available
+            const backCam = cameras.find(c =>
+              c.label.toLowerCase().includes('back') ||
+              c.label.toLowerCase().includes('rear') ||
+              c.label.toLowerCase().includes('trasera') ||
+              c.label.toLowerCase().includes('environment')
+            );
+            cameraId = backCam?.id || cameras[cameras.length - 1].id;
+          }
+        } catch {
+          // getCameras failed, use facingMode fallback
+        }
+
+        if (cancelled) return;
+
         await html5QrCode.start(
-          { facingMode: 'environment' },
+          cameraId,
           {
             fps: 10,
-            qrbox: { width: 250, height: 250 },
+            qrbox: { width: 220, height: 220 },
+            aspectRatio: 1,
           },
           (decodedText: string) => {
             // Check if it's a valid check-in URL
@@ -69,27 +85,30 @@ export function QRScannerDialog({ open, onOpenChange }: QRScannerDialogProps) {
           () => { /* ignore scan failures */ }
         );
 
-        setScanning(true);
+        if (!cancelled) setScanning(true);
       } catch (err: any) {
         if (!cancelled) {
-          setError(
-            err?.message?.includes('NotAllowed')
-              ? 'Permiso de cámara denegado. Habilitá el acceso en la configuración del navegador.'
-              : 'No se pudo iniciar la cámara. Verificá que tu dispositivo tenga cámara disponible.'
-          );
+          const msg = err?.message || '';
+          if (msg.includes('NotAllowed') || msg.includes('Permission')) {
+            setError('Permiso de cámara denegado. Habilitá el acceso en la configuración del navegador.');
+          } else if (msg.includes('NotFound') || msg.includes('Requested device not found')) {
+            setError('No se encontró ninguna cámara. Verificá que tu dispositivo tenga una cámara disponible.');
+          } else {
+            setError('No se pudo iniciar la cámara. Intentá cerrar y volver a abrir el escáner.');
+          }
         }
       }
     };
 
-    // Small delay to let dialog animate open
-    const timer = setTimeout(startScanner, 300);
+    // Delay to let dialog animate open and DOM render
+    const timer = setTimeout(startScanner, 500);
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
       if (html5QrCodeRef.current) {
         html5QrCodeRef.current.stop().catch(() => {});
-        html5QrCodeRef.current.clear();
+        html5QrCodeRef.current.clear().catch(() => {});
         html5QrCodeRef.current = null;
       }
     };
@@ -116,12 +135,10 @@ export function QRScannerDialog({ open, onOpenChange }: QRScannerDialogProps) {
             </div>
           ) : (
             <>
-              <div
-                ref={scannerRef}
-                className="rounded-lg overflow-hidden bg-black min-h-[300px] flex items-center justify-center"
-              >
+              <div className="rounded-lg overflow-hidden bg-black min-h-[300px] relative">
+                <div id={SCANNER_ID} className="w-full" />
                 {!scanning && (
-                  <div className="flex flex-col items-center gap-2 text-white/60">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/60">
                     <Camera className="w-8 h-8 animate-pulse" />
                     <p className="text-sm">Iniciando cámara...</p>
                   </div>

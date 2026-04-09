@@ -1,9 +1,10 @@
-import { Plus, CalendarCheck, Clock, LogIn, XCircle } from 'lucide-react';
+import { Plus, CalendarCheck, Clock, LogIn, XCircle, ScanLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface ReservationsHeaderProps {
     onNewBooking: () => void;
+    onScanQR?: () => void;
     stats?: {
         total: number;
         pending: number;
@@ -12,7 +13,7 @@ interface ReservationsHeaderProps {
     };
 }
 
-export function ReservationsHeader({ onNewBooking, stats }: ReservationsHeaderProps) {
+export function ReservationsHeader({ onNewBooking, onScanQR, stats }: ReservationsHeaderProps) {
     return (
         <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
@@ -24,14 +25,27 @@ export function ReservationsHeader({ onNewBooking, stats }: ReservationsHeaderPr
                         Gestión de todas las reservas del hotel
                     </p>
                 </div>
-                <Button
-                    onClick={onNewBooking}
-                    className="rounded-xl px-5 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all shrink-0"
-                >
-                    <Plus className="w-4 h-4 mr-1.5" />
-                    <span className="hidden sm:inline">Nueva Reserva</span>
-                    <span className="sm:hidden">Nueva</span>
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                    {onScanQR && (
+                        <Button
+                            variant="outline"
+                            onClick={onScanQR}
+                            className="rounded-xl"
+                            title="Escanear QR de check-in"
+                        >
+                            <ScanLine className="w-4 h-4 mr-1.5" />
+                            <span className="hidden sm:inline">Escanear QR</span>
+                        </Button>
+                    )}
+                    <Button
+                        onClick={onNewBooking}
+                        className="rounded-xl px-5 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all"
+                    >
+                        <Plus className="w-4 h-4 mr-1.5" />
+                        <span className="hidden sm:inline">Nueva Reserva</span>
+                        <span className="sm:hidden">Nueva</span>
+                    </Button>
+                </div>
             </div>
 
             {/* Mini stats */}

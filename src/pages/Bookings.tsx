@@ -22,6 +22,7 @@ import {
   CreditCard, Calendar, BedDouble, CalendarRange,
 } from 'lucide-react';
 import { BookingTimeline } from '@/components/bookings/BookingTimeline';
+import { QRScannerDialog } from '@/components/bookings/QRScannerDialog';
 
 type ViewMode = 'kanban' | 'list' | 'timeline';
 
@@ -40,6 +41,7 @@ export default function Bookings() {
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
+  const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
 
   // Handle query params from Dashboard
   useEffect(() => {
@@ -126,7 +128,7 @@ export default function Bookings() {
     <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden">
       {/* Top Section */}
       <div className="flex-none px-4 md:px-6 pt-4 md:pt-6 pb-3">
-        <ReservationsHeader onNewBooking={() => setIsNewDialogOpen(true)} stats={stats} />
+        <ReservationsHeader onNewBooking={() => setIsNewDialogOpen(true)} onScanQR={() => setIsQRScannerOpen(true)} stats={stats} />
 
         <div className="mt-3">
           <div className="flex items-center gap-2 mb-3">
@@ -246,6 +248,8 @@ export default function Bookings() {
         room={selectedRoom}
         roomType={selectedRoomType}
       />
+
+      <QRScannerDialog open={isQRScannerOpen} onOpenChange={setIsQRScannerOpen} />
     </div>
   );
 }

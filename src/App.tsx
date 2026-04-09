@@ -28,6 +28,7 @@ const Notifications = lazy(() => import("./pages/Notifications"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Expenses = lazy(() => import("./pages/Expenses"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
+const QuickCheckin = lazy(() => import("./pages/QuickCheckin"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -55,6 +56,7 @@ const AnimatedRoutes = () => {
         {/* Operaciones — admin, reception */}
         <Route path="/bookings" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Bookings /></PageWrapper></RoleGuard>} />
         <Route path="/bookings/:id" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><BookingDetail /></PageWrapper></RoleGuard>} />
+        <Route path="/quick-checkin/:id" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><QuickCheckin /></PageWrapper></RoleGuard>} />
         <Route path="/guests" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Guests /></PageWrapper></RoleGuard>} />
         <Route path="/guests/:id" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Guests /></PageWrapper></RoleGuard>} />
         {/* Availability removed — room map on Dashboard */}

@@ -51,6 +51,7 @@ import { RegisterPaymentDialog } from '@/components/payments/RegisterPaymentDial
 import { CheckoutDialog } from '@/components/bookings/CheckoutDialog';
 import { EditBookingDialog } from '@/components/bookings/EditBookingDialog';
 import { BookingChargesSection } from '@/components/bookings/BookingChargesSection';
+import { BookingQRCode } from '@/components/bookings/BookingQRCode';
 import { useBookingCharges } from '@/hooks/useBookingCharges';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { motion } from 'framer-motion';
@@ -560,6 +561,16 @@ export default function BookingDetail() {
               )}
             </CardContent>
           </Card>
+
+          {/* QR Check-in — only for bookings awaiting check-in */}
+          {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && guest && room && (
+            <BookingQRCode
+              bookingId={booking.id}
+              guestName={guest.fullName}
+              roomNumber={room.roomNumber}
+              checkInDate={format(new Date(booking.checkInDate), 'dd/MM/yyyy')}
+            />
+          )}
 
           {/* Booking Charges */}
           <BookingChargesSection bookingId={booking.id} />

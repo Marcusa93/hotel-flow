@@ -1276,7 +1276,7 @@ Deno.serve(async (req: Request) => {
     );
 
     // 3. Parse request body
-    const { message, history = [] } = await req.json();
+    const { message, history = [], pageContext } = await req.json();
     if (!message || typeof message !== "string") {
       return new Response(
         JSON.stringify({ error: "Se requiere un mensaje" }),
@@ -1298,17 +1298,28 @@ Deno.serve(async (req: Request) => {
     );
 
     // 6. Build messages for LLM
-    const llmMessages = [
+    const llmMessages: any[] = [
       { role: "system", content: systemPrompt },
       {
         role: "system",
         content: `CONTEXTO ACTUAL DEL HOTEL:\n${snapshot}`,
       },
+    ];
+
+    // Add page context if the user is on a specific page
+    if (pageContext && typeof pageContext === "string") {
+      llmMessages.push({
+        role: "system",
+        content: `CONTEXTO DE NAVEGACIÓN: El usuario ${pageContext}. Si la pregunta es ambigua, asumí que se refiere a lo que está viendo en pantalla. Si mencionan un ID de reserva o huésped, usá [QUERY:get_booking:ID] o [QUERY:search_guest:...] para obtener los datos.`,
+      });
+    }
+
+    llmMessages.push(
       ...history
         .slice(-20)
         .map((h: any) => ({ role: h.role, content: h.content })),
       { role: "user", content: message },
-    ];
+    );
 
     // 7. First LLM call
     let llmResponse = await callLLM(llmMessages);

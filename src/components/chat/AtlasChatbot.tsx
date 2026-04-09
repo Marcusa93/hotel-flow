@@ -1,5 +1,6 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { MessageSquare, X, Send, Loader2, Mic, MicOff, Plus, History, Check, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -66,8 +67,39 @@ function needsConfirmation(messages: ChatMessage[]): boolean {
     return CONFIRM_PATTERNS.some(p => p.test(last.content));
 }
 
+const PAGE_LABELS: Record<string, string> = {
+    '/': 'Dashboard',
+    '/bookings': 'Lista de reservas',
+    '/guests': 'Lista de huéspedes',
+    '/rooms': 'Habitaciones',
+    '/housekeeping': 'Housekeeping',
+    '/payments': 'Pagos',
+    '/expenses': 'Gastos',
+    '/rates': 'Tarifas',
+    '/notifications': 'Notificaciones',
+    '/settings': 'Configuración',
+    '/audit-log': 'Auditoría',
+};
+
+function getPageContext(pathname: string): string | null {
+    // Specific booking detail
+    const bookingMatch = pathname.match(/^\/bookings\/([a-f0-9-]+)$/i);
+    if (bookingMatch) return `Estoy viendo el detalle de la reserva ID: ${bookingMatch[1]}`;
+
+    // Specific guest detail
+    const guestMatch = pathname.match(/^\/guests\/([a-f0-9-]+)$/i);
+    if (guestMatch) return `Estoy viendo el perfil del huésped ID: ${guestMatch[1]}`;
+
+    // Generic page
+    const label = PAGE_LABELS[pathname];
+    if (label) return `Estoy en la página: ${label}`;
+
+    return null;
+}
+
 export function AtlasChatbot() {
     const { data: hotelSettings } = useHotelSettings();
+    const location = useLocation();
     const {
         messages, setMessages, addMessage, persistMessage,
         conversations, switchConversation, newConversation,
@@ -227,6 +259,7 @@ export function AtlasChatbot() {
                     body: JSON.stringify({
                         message: text,
                         history: messages.slice(-20),
+                        pageContext: getPageContext(location.pathname),
                     }),
                 }
             );

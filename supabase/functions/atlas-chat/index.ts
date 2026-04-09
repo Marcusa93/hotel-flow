@@ -159,6 +159,8 @@ Tenés acceso a datos reales del PMS. En cada mensaje recibís un snapshot actua
 3. **Huéspedes alojados**: Cuando te pregunten por huéspedes alojados, hospedados, "quién está en el hotel" o "cuántos huéspedes hay", usá EXCLUSIVAMENTE la sección "HUÉSPEDES ALOJADOS ACTUALMENTE" del snapshot. Si muestra 0, respondé que no hay huéspedes alojados. NUNCA inventes nombres de huéspedes.
 4. **Verificá antes de responder**: Cuando no estés 100% seguro de un dato, usá un comando [QUERY] para verificar antes de responder. Es preferible hacer una consulta de más que inventar un dato.
 5. **Búsqueda por nombre**: Cuando el usuario pida las reservas de un huésped por nombre, usá directamente [QUERY:get_guest_bookings:nombre] — acepta nombres, no solo IDs. Para buscar datos generales de un huésped, usá [QUERY:search_guest:nombre].
+  - **Nombres mal escritos o dictados por audio**: Los nombres pueden venir distorsionados (por dictado de voz, errores ortográficos, o apellidos difíciles). Si la query devuelve sugerencias de nombres similares ("Quizás quisiste decir..."), SIEMPRE presentá esas opciones al usuario de forma amigable, por ejemplo: "No encontré a *Ezequiel Specht*, pero encontré estos nombres parecidos: **Ezequiel Espeche**. ¿Es alguno de ellos?"
+  - Intentá buscar con variantes: si el usuario dice "Specht", probá también con partes del nombre (ej: solo "Ezequiel").
 6. **Confirmación obligatoria**: Antes de ejecutar CUALQUIER acción de escritura, describí exactamente qué vas a hacer y pedí confirmación explícita al usuario. Solo incluí el tag [ACTION:...] cuando el usuario confirme.
 7. **Concisión**: Respondé de forma clara y directa. Usá bullets y formato cuando mejore la legibilidad.
 8. **Proactividad**: Si detectás oportunidades de mejora, upselling o problemas potenciales, mencionalos.
@@ -630,28 +632,90 @@ async function executeQuery(
   try {
     switch (type) {
       case "search_guest": {
+        // First try exact substring match
         const { data } = await supabase
           .from("guests")
           .select("*")
           .ilike("full_name", `%${params}%`)
           .limit(10);
-        if (!data?.length)
-          return `No se encontraron huéspedes con el nombre "${params}".`;
-        return (
-          `Huéspedes encontrados (${data.length}):\n` +
-          data
-            .map(
+
+        if (data?.length) {
+          return (
+            `Huéspedes encontrados (${data.length}):\n` +
+            data
+              .map(
+                (g: any, i: number) => {
+                  const lines = [`[Huésped ${i + 1}]`, `  Nombre: ${g.full_name}`];
+                  if (g.email) lines.push(`  Email: ${g.email}`);
+                  if (g.phone) lines.push(`  Tel: ${g.phone}`);
+                  if (g.country) lines.push(`  País: ${g.country}`);
+                  lines.push(`  ID: ${g.id}`);
+                  return lines.join("\n");
+                }
+              )
+              .join("\n\n")
+          );
+        }
+
+        // No exact match — try fuzzy: search by each word individually
+        const words = params.trim().split(/\s+/).filter((w: string) => w.length >= 3);
+        const fuzzyResults: any[] = [];
+        const seenIds = new Set<string>();
+
+        for (const word of words) {
+          const { data: partial } = await supabase
+            .from("guests")
+            .select("*")
+            .ilike("full_name", `%${word}%`)
+            .limit(10);
+          if (partial) {
+            for (const g of partial) {
+              if (!seenIds.has(g.id)) {
+                seenIds.add(g.id);
+                fuzzyResults.push(g);
+              }
+            }
+          }
+        }
+
+        // Also try with soundex-like: first 3 chars of each word
+        if (fuzzyResults.length === 0) {
+          for (const word of words) {
+            if (word.length >= 3) {
+              const prefix = word.substring(0, 3);
+              const { data: prefixMatch } = await supabase
+                .from("guests")
+                .select("*")
+                .ilike("full_name", `%${prefix}%`)
+                .limit(15);
+              if (prefixMatch) {
+                for (const g of prefixMatch) {
+                  if (!seenIds.has(g.id)) {
+                    seenIds.add(g.id);
+                    fuzzyResults.push(g);
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (fuzzyResults.length > 0) {
+          return (
+            `No se encontró un huésped con el nombre exacto "${params}", pero se encontraron estos nombres similares (quizás quisiste decir alguno de ellos):\n` +
+            fuzzyResults.slice(0, 8).map(
               (g: any, i: number) => {
-                const lines = [`[Huésped ${i + 1}]`, `  Nombre: ${g.full_name}`];
+                const lines = [`[Sugerencia ${i + 1}]`, `  Nombre: ${g.full_name}`];
                 if (g.email) lines.push(`  Email: ${g.email}`);
                 if (g.phone) lines.push(`  Tel: ${g.phone}`);
-                if (g.country) lines.push(`  País: ${g.country}`);
                 lines.push(`  ID: ${g.id}`);
                 return lines.join("\n");
               }
-            )
-            .join("\n\n")
-        );
+            ).join("\n\n")
+          );
+        }
+
+        return `No se encontraron huéspedes con el nombre "${params}" ni nombres similares.`;
       }
       case "check_availability": {
         const [checkIn, checkOut] = params.split(":");
@@ -850,7 +914,7 @@ async function executeQuery(
         let guestName = "";
 
         if (!isUUID) {
-          // Search for guest by name first
+          // Search for guest by name first (exact substring)
           const { data: matchingGuests } = await supabase
             .from("guests")
             .select("id, full_name")
@@ -858,7 +922,58 @@ async function executeQuery(
             .limit(5);
 
           if (!matchingGuests?.length) {
-            return `No se encontró ningún huésped con el nombre "${params}".`;
+            // Fuzzy fallback: search by each word individually
+            const words = params.trim().split(/\s+/).filter((w: string) => w.length >= 3);
+            const fuzzyGuests: any[] = [];
+            const seenIds = new Set<string>();
+
+            for (const word of words) {
+              const { data: partial } = await supabase
+                .from("guests")
+                .select("id, full_name")
+                .ilike("full_name", `%${word}%`)
+                .limit(10);
+              if (partial) {
+                for (const g of partial) {
+                  if (!seenIds.has(g.id)) {
+                    seenIds.add(g.id);
+                    fuzzyGuests.push(g);
+                  }
+                }
+              }
+            }
+
+            // Also try prefix matching (first 3 chars of each word)
+            if (fuzzyGuests.length === 0) {
+              for (const word of words) {
+                if (word.length >= 3) {
+                  const prefix = word.substring(0, 3);
+                  const { data: prefixMatch } = await supabase
+                    .from("guests")
+                    .select("id, full_name")
+                    .ilike("full_name", `%${prefix}%`)
+                    .limit(10);
+                  if (prefixMatch) {
+                    for (const g of prefixMatch) {
+                      if (!seenIds.has(g.id)) {
+                        seenIds.add(g.id);
+                        fuzzyGuests.push(g);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            if (fuzzyGuests.length > 0) {
+              return (
+                `No se encontró ningún huésped con el nombre "${params}", pero quizás quisiste decir:\n` +
+                fuzzyGuests.slice(0, 8).map((g: any) => `- ${g.full_name} (ID: ${g.id})`).join("\n") +
+                `\n\nDecime cuál es y te busco sus reservas.`
+              );
+            }
+
+            return `No se encontró ningún huésped con el nombre "${params}" ni nombres similares.`;
           }
 
           if (matchingGuests.length > 1) {

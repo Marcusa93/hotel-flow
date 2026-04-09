@@ -75,15 +75,34 @@ export function AtlasChatbot() {
     } = useChatHistory();
     const [isOpen, setIsOpen] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
-
-    // Add greeting when no messages and hotel name is loaded
-    useEffect(() => {
-        if (!loadingHistory && messages.length === 0) {
-            setMessages([{ role: 'assistant', content: getInitialGreeting(hotelSettings?.hotelName) }]);
-        }
-    }, [loadingHistory, hotelSettings?.hotelName]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const briefingFetched = useRef(false);
+
+    // Add greeting + auto-briefing when starting a new conversation
+    useEffect(() => {
+        if (!loadingHistory && messages.length === 0 && !briefingFetched.current) {
+            briefingFetched.current = true;
+            setMessages([{ role: 'assistant', content: getInitialGreeting(hotelSettings?.hotelName) }]);
+
+            // Auto-fetch daily briefing
+            (async () => {
+                try {
+                    setIsLoading(true);
+                    const { data, error } = await supabase.functions.invoke('atlas-chat', {
+                        body: {
+                            message: 'Dame un resumen breve del día de hoy: check-ins, check-outs, habitaciones sucias, pagos pendientes. Sé conciso, usá bullets.',
+                            history: [],
+                        },
+                    });
+                    if (!error && data?.reply) {
+                        await addMessage({ role: 'assistant', content: data.reply });
+                    }
+                } catch { /* silently skip briefing on error */ }
+                finally { setIsLoading(false); }
+            })();
+        }
+    }, [loadingHistory, hotelSettings?.hotelName]);
     const [isListening, setIsListening] = useState(false);
     const [interimTranscript, setInterimTranscript] = useState('');
     const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);

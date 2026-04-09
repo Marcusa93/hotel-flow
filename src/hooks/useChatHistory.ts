@@ -20,16 +20,26 @@ export function useChatHistory() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const savingRef = useRef(false);
+  const tableAvailable = useRef(true); // Assume available, flip on first 406/404
 
   // Load conversations list
   const loadConversations = useCallback(async () => {
-    if (!user) return;
-    const { data } = await supabase
+    if (!user || !tableAvailable.current) return;
+    const { data, error } = await supabase
       .from('chat_conversations')
       .select('id, title, updated_at')
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false })
       .limit(20);
+
+    if (error) {
+      // 406 = table doesn't exist in PostgREST, 404 = not found
+      if (error.code === '42P01' || error.message?.includes('406') || (error as any).status === 406) {
+        console.warn('chat_conversations table not found — chat history disabled');
+        tableAvailable.current = false;
+      }
+      return;
+    }
 
     if (data) {
       setConversations(data.map(c => ({
@@ -59,8 +69,16 @@ export function useChatHistory() {
       setLoadingHistory(true);
       await loadConversations();
 
+      // If table doesn't exist, skip DB queries
+      if (!tableAvailable.current) {
+        setConversationId(null);
+        setMessages([]);
+        setLoadingHistory(false);
+        return;
+      }
+
       // Try to resume the most recent conversation from today
-      const { data: recent } = await supabase
+      const { data: recent, error } = await supabase
         .from('chat_conversations')
         .select('id')
         .eq('user_id', user.id)
@@ -69,14 +87,19 @@ export function useChatHistory() {
         .limit(1)
         .single();
 
-      if (recent) {
-        const msgs = await loadMessages(recent.id);
-        if (msgs.length > 0) {
-          setConversationId(recent.id);
-          setMessages(msgs);
-          setLoadingHistory(false);
-          return;
-        }
+      if (error || !recent) {
+        setConversationId(null);
+        setMessages([]);
+        setLoadingHistory(false);
+        return;
+      }
+
+      const msgs = await loadMessages(recent.id);
+      if (msgs.length > 0) {
+        setConversationId(recent.id);
+        setMessages(msgs);
+        setLoadingHistory(false);
+        return;
       }
 
       // No recent conversation — start fresh (messages will be empty, greeting added by component)
@@ -90,7 +113,7 @@ export function useChatHistory() {
 
   // Create new conversation
   const createConversation = useCallback(async (firstMessage: string): Promise<string | null> => {
-    if (!user) return null;
+    if (!user || !tableAvailable.current) return null;
     const title = firstMessage.length > 60 ? firstMessage.slice(0, 57) + '...' : firstMessage;
 
     const { data, error } = await supabase
@@ -110,6 +133,7 @@ export function useChatHistory() {
 
   // Save a message to the DB (fire-and-forget, non-blocking)
   const saveMessage = useCallback(async (convId: string, message: ChatMessage) => {
+    if (!tableAvailable.current) return;
     await supabase
       .from('chat_messages')
       .insert({

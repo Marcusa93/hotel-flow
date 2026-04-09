@@ -1165,6 +1165,80 @@ async function callLLM(messages: any[]): Promise<string> {
   );
 }
 
+/** Stream LLM response as Server-Sent Events */
+function callLLMStream(messages: any[]): ReadableStream {
+  const encoder = new TextEncoder();
+
+  return new ReadableStream({
+    async start(controller) {
+      try {
+        const response = await fetch(
+          "https://openrouter.ai/api/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+              "Content-Type": "application/json",
+              "HTTP-Referer": "https://home-hotel.app",
+              "X-Title": "HoMe Hotel Management - Atlas Bot",
+            },
+            body: JSON.stringify({
+              model: OPENROUTER_MODEL,
+              messages,
+              max_tokens: 4096,
+              temperature: 0.5,
+              stream: true,
+            }),
+          }
+        );
+
+        if (!response.ok || !response.body) {
+          const errText = await response.text();
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: errText })}\n\n`));
+          controller.close();
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith("data: ")) continue;
+            const payload = trimmed.slice(6);
+            if (payload === "[DONE]") continue;
+
+            try {
+              const parsed = JSON.parse(payload);
+              const delta = parsed.choices?.[0]?.delta?.content;
+              if (delta) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: delta })}\n\n`));
+              }
+            } catch { /* skip malformed chunks */ }
+          }
+        }
+
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      } catch (err) {
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ error: String(err) })}\n\n`)
+        );
+      } finally {
+        controller.close();
+      }
+    },
+  });
+}
+
 // ─── CORS headers helper ─────────────────────────────────────────────────
 
 const CORS_HEADERS = {
@@ -1246,7 +1320,11 @@ Deno.serve(async (req: Request) => {
       permissions
     );
 
-    // 9. If there were commands, do a second LLM call with the results
+    // 9. Check if client requested streaming
+    const url = new URL(req.url);
+    const wantStream = url.searchParams.get("stream") === "1";
+
+    // 10. If there were commands, do a second LLM call with the results
     if (results.length > 0) {
       const secondPassMessages = [
         { role: "system", content: systemPrompt },
@@ -1273,12 +1351,34 @@ Deno.serve(async (req: Request) => {
 9. Respondé directamente sin preámbulos innecesarios.`,
         },
       ];
+
+      if (wantStream) {
+        return new Response(callLLMStream(secondPassMessages), {
+          headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", ...CORS_HEADERS },
+        });
+      }
+
       llmResponse = await callLLM(secondPassMessages);
     } else {
+      // No commands — stream the clean response or return directly
+      if (wantStream && cleanText) {
+        // Already have the text, no need to stream — send as single SSE
+        const encoder = new TextEncoder();
+        const body = new ReadableStream({
+          start(controller) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: cleanText })}\n\n`));
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+          },
+        });
+        return new Response(body, {
+          headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", ...CORS_HEADERS },
+        });
+      }
       llmResponse = cleanText;
     }
 
-    // 10. Return response
+    // 11. Return response (non-streaming fallback)
     return new Response(JSON.stringify({ reply: llmResponse }), {
       headers: { "Content-Type": "application/json", ...CORS_HEADERS },
     });

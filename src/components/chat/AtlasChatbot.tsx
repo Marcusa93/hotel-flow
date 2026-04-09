@@ -69,7 +69,7 @@ function needsConfirmation(messages: ChatMessage[]): boolean {
 export function AtlasChatbot() {
     const { data: hotelSettings } = useHotelSettings();
     const {
-        messages, setMessages, addMessage,
+        messages, setMessages, addMessage, persistMessage,
         conversations, switchConversation, newConversation,
         loadingHistory,
     } = useChatHistory();
@@ -201,50 +201,96 @@ export function AtlasChatbot() {
 
     const showQuickActions = !isLoading && needsConfirmation(messages);
 
-    const sendQuickReply = async (text: string) => {
+    // Streaming assistant index — tracks which message to update during streaming
+    const streamingIdx = useRef<number | null>(null);
+
+    const sendToAtlas = async (text: string) => {
         if (isLoading) return;
         const userMessage: ChatMessage = { role: 'user', content: text };
         await addMessage(userMessage);
         setIsLoading(true);
 
         try {
-            const { data, error } = await supabase.functions.invoke('atlas-chat', {
-                body: { message: text, history: messages.slice(-20) },
-            });
-            if (error) throw error;
-            const reply = data?.reply || 'Lo siento, no pude procesar tu consulta.';
-            await addMessage({ role: 'assistant', content: reply });
-        } catch (err) {
-            console.error('Atlas chat error:', err);
-            await addMessage({ role: 'assistant', content: 'Disculpá, tuve un problema de conexión. ¿Podés intentar de nuevo?' });
-        } finally {
-            setIsLoading(false);
-        }
-    };
+            const { data: { session } } = await supabase.auth.getSession();
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-    const toggleChat = () => setIsOpen(!isOpen);
+            const response = await fetch(
+                `${supabaseUrl}/functions/v1/atlas-chat?stream=1`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session?.access_token || anonKey}`,
+                        'apikey': anonKey,
+                    },
+                    body: JSON.stringify({
+                        message: text,
+                        history: messages.slice(-20),
+                    }),
+                }
+            );
 
-    const handleSend = async () => {
-        const trimmed = input.trim();
-        if (!trimmed || isLoading) return;
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-        const userMessage: ChatMessage = { role: 'user', content: trimmed };
-        await addMessage(userMessage);
-        setInput('');
-        setIsLoading(true);
+            const contentType = response.headers.get('content-type') || '';
 
-        try {
-            const { data, error } = await supabase.functions.invoke('atlas-chat', {
-                body: {
-                    message: trimmed,
-                    history: messages.slice(-20),
-                },
-            });
+            if (contentType.includes('text/event-stream') && response.body) {
+                // Streaming response
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let fullText = '';
 
-            if (error) throw error;
+                // Add empty assistant message to stream into
+                setMessages(prev => {
+                    streamingIdx.current = prev.length;
+                    return [...prev, { role: 'assistant', content: '' }];
+                });
 
-            const reply = data?.reply || 'Lo siento, no pude procesar tu consulta.';
-            await addMessage({ role: 'assistant', content: reply });
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed || !trimmed.startsWith('data: ')) continue;
+                        const payload = trimmed.slice(6);
+                        if (payload === '[DONE]') continue;
+
+                        try {
+                            const parsed = JSON.parse(payload);
+                            if (parsed.token) {
+                                fullText += parsed.token;
+                                const text = fullText; // capture for closure
+                                setMessages(prev => {
+                                    const idx = streamingIdx.current;
+                                    if (idx === null) return prev;
+                                    const updated = [...prev];
+                                    updated[idx] = { role: 'assistant', content: text };
+                                    return updated;
+                                });
+                            }
+                            if (parsed.error) throw new Error(parsed.error);
+                        } catch { /* skip malformed */ }
+                    }
+                }
+
+                // Persist final message to DB (state already has it from streaming)
+                if (fullText) {
+                    await persistMessage({ role: 'assistant', content: fullText });
+                    streamingIdx.current = null;
+                }
+            } else {
+                // Non-streaming JSON fallback
+                const data = await response.json();
+                const reply = data?.reply || 'Lo siento, no pude procesar tu consulta.';
+                await addMessage({ role: 'assistant', content: reply });
+            }
         } catch (err) {
             console.error('Atlas chat error:', err);
             await addMessage({
@@ -253,7 +299,19 @@ export function AtlasChatbot() {
             });
         } finally {
             setIsLoading(false);
+            streamingIdx.current = null;
         }
+    };
+
+    const sendQuickReply = (text: string) => sendToAtlas(text);
+
+    const toggleChat = () => setIsOpen(!isOpen);
+
+    const handleSend = () => {
+        const trimmed = input.trim();
+        if (!trimmed || isLoading) return;
+        setInput('');
+        sendToAtlas(trimmed);
     };
 
     return (

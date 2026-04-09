@@ -151,6 +151,17 @@ export function useChatHistory() {
     loadConversations();
   }, [loadConversations]);
 
+  // Persist a message without appending to state (for streaming where state is managed externally)
+  const persistMessage = useCallback(async (message: ChatMessage) => {
+    let convId = conversationId;
+    if (!convId && message.role === 'user') {
+      convId = await createConversation(message.content);
+    }
+    if (convId) {
+      saveMessage(convId, message);
+    }
+  }, [conversationId, createConversation, saveMessage]);
+
   return {
     messages,
     setMessages,
@@ -158,6 +169,7 @@ export function useChatHistory() {
     conversations,
     loadingHistory,
     addMessage,
+    persistMessage,
     switchConversation,
     newConversation,
     loadConversations,

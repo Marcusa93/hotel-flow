@@ -384,7 +384,26 @@ export function AtlasChatbot() {
                 </ScrollArea>
 
                 {/* Input */}
-                <div className="p-4 bg-background border-t border-border mt-auto space-y-1">
+                <div className="p-4 bg-background border-t border-border mt-auto space-y-2">
+                    {/* Suggestion chips — show when no user messages yet */}
+                    {!isLoading && !messages.some(m => m.role === 'user') && (
+                        <div className="flex flex-wrap gap-1.5">
+                            {[
+                                '¿Quién está alojado?',
+                                'Habitaciones disponibles',
+                                'Resumen de pagos pendientes',
+                                'Tareas de limpieza hoy',
+                            ].map(suggestion => (
+                                <button
+                                    key={suggestion}
+                                    onClick={() => sendQuickReply(suggestion)}
+                                    className="text-[11px] px-2.5 py-1 rounded-full border border-border bg-muted/50 hover:bg-primary/10 hover:border-primary/30 text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                    {suggestion}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     {/* Listening indicator */}
                     {isListening && (
                         <div className="flex items-center gap-2 px-2 pb-1">

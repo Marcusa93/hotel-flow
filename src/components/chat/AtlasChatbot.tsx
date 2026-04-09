@@ -1,7 +1,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, X, Send, Loader2, Mic, MicOff, Plus, History } from 'lucide-react';
+import { MessageSquare, X, Send, Loader2, Mic, MicOff, Plus, History, Check, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -51,6 +51,19 @@ interface ChatMessage {
 function getInitialGreeting(hotelName?: string) {
     const name = hotelName || 'tu hotel';
     return `¡Hola! Soy Atlas, tu asistente de ${name}. Tengo acceso a todos los datos del sistema en tiempo real. ¿En qué puedo ayudarte?`;
+}
+
+const CONFIRM_PATTERNS = [
+    /¿(?:confirmo|procedemos|lo hago|lo creo|la creo|lo registro|la registro|querés que)/i,
+    /¿(?:está bien|lo ejecuto|seguimos|lo aplico)/i,
+    /¿(?:deseas|quiere|querés) (?:que |confirmar|proceder|continuar)/i,
+];
+
+function needsConfirmation(messages: ChatMessage[]): boolean {
+    if (messages.length === 0) return false;
+    const last = messages[messages.length - 1];
+    if (last.role !== 'assistant') return false;
+    return CONFIRM_PATTERNS.some(p => p.test(last.content));
 }
 
 export function AtlasChatbot() {
@@ -166,6 +179,29 @@ export function AtlasChatbot() {
             setTimeout(() => inputRef.current?.focus(), 300);
         }
     }, [isOpen]);
+
+    const showQuickActions = !isLoading && needsConfirmation(messages);
+
+    const sendQuickReply = async (text: string) => {
+        if (isLoading) return;
+        const userMessage: ChatMessage = { role: 'user', content: text };
+        await addMessage(userMessage);
+        setIsLoading(true);
+
+        try {
+            const { data, error } = await supabase.functions.invoke('atlas-chat', {
+                body: { message: text, history: messages.slice(-20) },
+            });
+            if (error) throw error;
+            const reply = data?.reply || 'Lo siento, no pude procesar tu consulta.';
+            await addMessage({ role: 'assistant', content: reply });
+        } catch (err) {
+            console.error('Atlas chat error:', err);
+            await addMessage({ role: 'assistant', content: 'Disculpá, tuve un problema de conexión. ¿Podés intentar de nuevo?' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const toggleChat = () => setIsOpen(!isOpen);
 
@@ -290,6 +326,29 @@ export function AtlasChatbot() {
                                 </div>
                             </div>
                         ))}
+
+                        {/* Quick action buttons */}
+                        {showQuickActions && (
+                            <div className="flex justify-start gap-2 pl-1">
+                                <Button
+                                    size="sm"
+                                    onClick={() => sendQuickReply('Sí, confirmá')}
+                                    className="text-xs h-7 gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+                                >
+                                    <Check className="w-3.5 h-3.5" />
+                                    Confirmar
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => sendQuickReply('No, cancelá')}
+                                    className="text-xs h-7 gap-1.5"
+                                >
+                                    <XCircle className="w-3.5 h-3.5" />
+                                    Cancelar
+                                </Button>
+                            </div>
+                        )}
 
                         {/* Loading indicator */}
                         {isLoading && (

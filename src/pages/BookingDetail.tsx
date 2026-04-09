@@ -563,11 +563,11 @@ export default function BookingDetail() {
           </Card>
 
           {/* QR Check-in — only for bookings awaiting check-in */}
-          {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && guest && room && (
+          {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && booking.guest && booking.room && (
             <BookingQRCode
               bookingId={booking.id}
-              guestName={guest.fullName}
-              roomNumber={room.roomNumber}
+              guestName={booking.guest.fullName}
+              roomNumber={booking.room.roomNumber}
               checkInDate={format(new Date(booking.checkInDate), 'dd/MM/yyyy')}
             />
           )}

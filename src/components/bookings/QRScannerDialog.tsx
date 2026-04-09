@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -16,16 +16,34 @@ const SCANNER_ID = 'qr-scanner-reader';
 export function QRScannerDialog({ open, onOpenChange }: QRScannerDialogProps) {
   const navigate = useNavigate();
   const html5QrCodeRef = useRef<any>(null);
+  const navigateRef = useRef(navigate);
+  const onOpenChangeRef = useRef(onOpenChange);
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
 
+  // Keep refs in sync without triggering effect re-runs
+  navigateRef.current = navigate;
+  onOpenChangeRef.current = onOpenChange;
+
+  const stopScanner = useCallback(async () => {
+    const scanner = html5QrCodeRef.current;
+    if (!scanner) return;
+    html5QrCodeRef.current = null;
+    try {
+      const state = scanner.getState?.();
+      // State 2 = SCANNING, 3 = PAUSED
+      if (state === 2 || state === 3) {
+        await scanner.stop();
+      }
+    } catch {
+      // ignore stop errors
+    }
+    // Don't call clear() — it removes DOM elements and confuses React
+  }, []);
+
   useEffect(() => {
     if (!open) {
-      if (html5QrCodeRef.current) {
-        html5QrCodeRef.current.stop().catch(() => {});
-        html5QrCodeRef.current.clear().catch(() => {});
-        html5QrCodeRef.current = null;
-      }
+      stopScanner();
       setError(null);
       setScanning(false);
       return;
@@ -39,7 +57,6 @@ export function QRScannerDialog({ open, onOpenChange }: QRScannerDialogProps) {
 
         if (cancelled) return;
 
-        // Wait for the DOM element to exist
         const el = document.getElementById(SCANNER_ID);
         if (!el) return;
 
@@ -51,7 +68,6 @@ export function QRScannerDialog({ open, onOpenChange }: QRScannerDialogProps) {
         try {
           const cameras = await Html5Qrcode.getCameras();
           if (cameras.length > 0) {
-            // Prefer back camera, fallback to first available
             const backCam = cameras.find(c =>
               c.label.toLowerCase().includes('back') ||
               c.label.toLowerCase().includes('rear') ||
@@ -74,12 +90,17 @@ export function QRScannerDialog({ open, onOpenChange }: QRScannerDialogProps) {
             aspectRatio: 1,
           },
           (decodedText: string) => {
-            // Check if it's a valid check-in URL
             const match = decodedText.match(/\/quick-checkin\/([a-f0-9-]+)/i);
             if (match) {
-              html5QrCode.stop().catch(() => {});
-              onOpenChange(false);
-              navigate(`/quick-checkin/${match[1]}`);
+              // Stop scanner first, then close dialog, then navigate
+              html5QrCode.stop().catch(() => {}).finally(() => {
+                html5QrCodeRef.current = null;
+                onOpenChangeRef.current(false);
+                // Use setTimeout to navigate AFTER dialog closes
+                setTimeout(() => {
+                  navigateRef.current(`/quick-checkin/${match[1]}`);
+                }, 100);
+              });
             }
           },
           () => { /* ignore scan failures */ }
@@ -100,23 +121,21 @@ export function QRScannerDialog({ open, onOpenChange }: QRScannerDialogProps) {
       }
     };
 
-    // Delay to let dialog animate open and DOM render
-    const timer = setTimeout(startScanner, 500);
+    // Delay to let dialog animate and DOM render
+    const timer = setTimeout(startScanner, 600);
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
-      if (html5QrCodeRef.current) {
-        html5QrCodeRef.current.stop().catch(() => {});
-        html5QrCodeRef.current.clear().catch(() => {});
-        html5QrCodeRef.current = null;
-      }
+      stopScanner();
     };
-  }, [open, navigate, onOpenChange]);
+  // Only re-run when open changes — refs handle the rest
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, stopScanner]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ScanLine className="w-5 h-5" />

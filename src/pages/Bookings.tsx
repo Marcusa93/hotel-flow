@@ -19,10 +19,11 @@ import { Badge } from '@/components/ui/badge';
 import { cn, formatLastNameFirst, getInitials } from '@/lib/utils';
 import {
   LayoutGrid, List, CheckCircle, AlertCircle, XCircle,
-  CreditCard, Calendar, BedDouble,
+  CreditCard, Calendar, BedDouble, CalendarRange,
 } from 'lucide-react';
+import { BookingTimeline } from '@/components/bookings/BookingTimeline';
 
-type ViewMode = 'kanban' | 'list';
+type ViewMode = 'kanban' | 'list' | 'timeline';
 
 export default function Bookings() {
   const { bookings, updateBookingStatus } = useBookingOperations();
@@ -165,6 +166,15 @@ export default function Bookings() {
               >
                 <List className="w-4 h-4" />
               </Button>
+              <Button
+                variant={viewMode === 'timeline' ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8 rounded-lg"
+                onClick={() => setViewMode('timeline')}
+                title="Timeline"
+              >
+                <CalendarRange className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         </div>
@@ -175,7 +185,7 @@ export default function Bookings() {
         <div className="absolute inset-0 bg-slate-50/50 dark:bg-slate-950/50 -z-10" />
 
         <div className="h-full px-4 md:px-6 pb-6">
-          {/* Desktop: Kanban or List based on toggle. Mobile: always cards */}
+          {/* Desktop: Kanban, List, or Timeline based on toggle. Mobile: always cards */}
           <div className="hidden md:block h-full">
             {viewMode === 'kanban' ? (
               <ReservationBoard
@@ -186,6 +196,16 @@ export default function Bookings() {
                 payments={payments}
                 onStatusChange={handleStatusChange}
                 onCardClick={setSelectedBookingId}
+              />
+            ) : viewMode === 'timeline' ? (
+              <BookingTimeline
+                bookings={bookings}
+                rooms={rooms}
+                guests={(() => {
+                  const map = new Map<string, typeof guests[0]>();
+                  for (const g of guests) map.set(g.id, g);
+                  return map;
+                })()}
               />
             ) : (
               <BookingListView

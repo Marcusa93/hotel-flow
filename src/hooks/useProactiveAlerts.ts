@@ -16,6 +16,16 @@ import { useAppRole } from '@/context/AppRoleContext';
 const CHECK_INTERVAL = 10 * 60 * 1000; // 10 minutes
 const ALERT_PREFIX = '[AUTO]'; // Prefix to identify auto-generated alerts
 
+async function sendPushNotification(title: string, body: string, url?: string) {
+  try {
+    await supabase.functions.invoke('send-push', {
+      body: { title, body, url, tag: 'proactive-alert' },
+    });
+  } catch (err) {
+    console.warn('[ProactiveAlerts] Push send failed:', err);
+  }
+}
+
 async function createAlertIfNew(
   category: string,
   title: string,
@@ -43,6 +53,11 @@ async function createAlertIfNew(
     metadata: { ...metadata, autoAlert: true, dedupeKey },
     is_read: false,
   });
+
+  // Also send push notification for warning/error alerts
+  if (type === 'warning' || type === 'error') {
+    await sendPushNotification(title.replace(ALERT_PREFIX + ' ', ''), message, '/notifications');
+  }
 }
 
 async function runProactiveChecks() {

@@ -20,8 +20,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { UserRole, HotelSettings } from '@/types/hotel';
 import {
   Building2, Users, Palette, Shield, User,
-  ClipboardList, Eye, Save, Loader2, Sun, Moon, Monitor
+  ClipboardList, Eye, Save, Loader2, Sun, Moon, Monitor, Bell
 } from 'lucide-react';
+import { PushNotificationSettings } from '@/components/settings/PushNotificationSettings';
 
 // --- Role Configuration ---
 const roles: { value: UserRole; label: string; description: string; icon: React.ReactNode; permissions: string[] }[] = [
@@ -108,10 +109,14 @@ export default function Settings() {
       />
 
       <Tabs defaultValue="hotel" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:w-auto lg:inline-grid">
           <TabsTrigger value="hotel" className="gap-2">
             <Building2 className="w-4 h-4 hidden sm:block" />
             Hotel
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-2">
+            <Bell className="w-4 h-4 hidden sm:block" />
+            Notificaciones
           </TabsTrigger>
           <TabsTrigger value="roles" className="gap-2">
             <Users className="w-4 h-4 hidden sm:block" />
@@ -260,7 +265,12 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        {/* TAB 2: Users & Roles */}
+        {/* TAB 2: Notifications */}
+        <TabsContent value="notifications">
+          <PushNotificationSettings />
+        </TabsContent>
+
+        {/* TAB 3: Users & Roles */}
         <TabsContent value="roles" className="space-y-6">
           <Card>
             <CardHeader>

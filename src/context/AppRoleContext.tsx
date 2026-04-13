@@ -27,14 +27,19 @@ export function AppRoleProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error) {
-        if (error.code === 'PGRST116') {
+        // PGRST116 = row not found, 42P01 = table doesn't exist
+        if (error.code === 'PGRST116' || error.code === '42P01' || error.message?.includes('does not exist')) {
           return {
             role: (user.user_metadata?.role as UserRole) || 'reception',
             fullName: (user.user_metadata?.full_name as string) || null,
           };
         }
         console.warn('Error fetching profile:', error.message);
-        return null;
+        // Fallback to user metadata instead of null (prevents everyone defaulting to reception)
+        return {
+          role: (user.user_metadata?.role as UserRole) || 'reception',
+          fullName: (user.user_metadata?.full_name as string) || null,
+        };
       }
 
       return {

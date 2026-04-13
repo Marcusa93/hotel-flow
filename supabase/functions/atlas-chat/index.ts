@@ -1,8 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const OPENROUTER_API_KEY =
-  "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";
+const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 const OPENROUTER_MODEL = "anthropic/claude-sonnet-4";
 
 // ─── Role Types & Permissions ─────────────────────────────────────────────
@@ -1356,8 +1355,22 @@ function callLLMStream(messages: any[]): ReadableStream {
 
 // ─── CORS headers helper ─────────────────────────────────────────────────
 
+const ALLOWED_ORIGINS = ["https://homeapp.com.ar", "https://www.homeapp.com.ar", "http://localhost:4000", "http://localhost:5173"];
+
+function makeCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") || "";
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Vary": "Origin",
+  };
+}
+
+// Default static headers (overridden per-request in handler)
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://homeapp.com.ar",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
@@ -1366,9 +1379,10 @@ const CORS_HEADERS = {
 // ─── Main Handler ────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
+  const CORS = makeCorsHeaders(req);
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: CORS_HEADERS });
+    return new Response("ok", { headers: CORS });
   }
 
   try {
@@ -1397,7 +1411,7 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({ error: "Se requiere un mensaje" }),
         {
           status: 400,
-          headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+          headers: { "Content-Type": "application/json", ...CORS },
         }
       );
     }
@@ -1480,7 +1494,7 @@ Deno.serve(async (req: Request) => {
 
       if (wantStream) {
         return new Response(callLLMStream(secondPassMessages), {
-          headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", ...CORS_HEADERS },
+          headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", ...CORS },
         });
       }
 
@@ -1498,7 +1512,7 @@ Deno.serve(async (req: Request) => {
           },
         });
         return new Response(body, {
-          headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", ...CORS_HEADERS },
+          headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", ...CORS },
         });
       }
       llmResponse = cleanText;
@@ -1506,7 +1520,7 @@ Deno.serve(async (req: Request) => {
 
     // 11. Return response (non-streaming fallback)
     return new Response(JSON.stringify({ reply: llmResponse }), {
-      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      headers: { "Content-Type": "application/json", ...CORS },
     });
   } catch (error) {
     console.error("Atlas chat error:", error);
@@ -1519,7 +1533,7 @@ Deno.serve(async (req: Request) => {
       }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+        headers: { "Content-Type": "application/json", ...CORS },
       }
     );
   }

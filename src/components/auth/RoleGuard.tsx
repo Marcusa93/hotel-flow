@@ -17,8 +17,14 @@ interface RoleGuardProps {
 export function RoleGuard({ allowedRoles, children, fallback }: RoleGuardProps) {
     const { currentRole, profileLoading } = useAppRole();
 
-    // While profile is loading, don't redirect — wait
-    if (profileLoading) return null;
+    // While profile is loading, show a loading spinner
+    if (profileLoading) {
+        return (
+            <div className="flex items-center justify-center h-[60vh]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+        );
+    }
 
     if (!allowedRoles.includes(currentRole)) {
         // Redirect to a page the user CAN access

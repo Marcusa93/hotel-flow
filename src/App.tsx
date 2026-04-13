@@ -77,7 +77,7 @@ const AnimatedRoutes = () => {
 
         {/* Sistema */}
         <Route path="/notifications" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Notifications /></PageWrapper></RoleGuard>} />
-        <Route path="/settings" element={<PageWrapper><Settings /></PageWrapper>} />
+        <Route path="/settings" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Settings /></PageWrapper></RoleGuard>} />
 
         {/* Redirects */}
         <Route path="/calendar" element={<Navigate to="/" replace />} />

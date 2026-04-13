@@ -26,13 +26,13 @@ export const useUpdateBooking = () => {
             const updateData: Record<string, unknown> = {};
 
             if (fields.status !== undefined) updateData.status = fields.status;
-            if (fields.checkInDate !== undefined) updateData.checkInDate = fields.checkInDate;
-            if (fields.checkOutDate !== undefined) updateData.checkOutDate = fields.checkOutDate;
-            if (fields.roomId !== undefined) updateData.roomId = fields.roomId;
+            if (fields.checkInDate !== undefined) updateData.check_in_date = fields.checkInDate;
+            if (fields.checkOutDate !== undefined) updateData.check_out_date = fields.checkOutDate;
+            if (fields.roomId !== undefined) updateData.room_id = fields.roomId;
             if (fields.adults !== undefined) updateData.adults = fields.adults;
             if (fields.children !== undefined) updateData.children = fields.children;
             if (fields.notes !== undefined) updateData.notes = fields.notes;
-            if (fields.totalAmount !== undefined) updateData.totalAmount = fields.totalAmount;
+            if (fields.totalAmount !== undefined) updateData.total_amount = fields.totalAmount;
 
             const { data, error } = await supabase
                 .from('bookings')

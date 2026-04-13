@@ -38,9 +38,11 @@ export function useNotificationToast() {
             message?: string;
             category?: string;
             type?: string;
+            metadata?: { autoAlert?: boolean };
           };
 
-          if (newNotif?.title) {
+          // Skip toast for auto-generated proactive alerts (they send push notifications instead)
+          if (newNotif?.title && !newNotif.metadata?.autoAlert) {
             const emoji = categoryEmojis[newNotif.category || 'system'] || '🔔';
 
             toast({

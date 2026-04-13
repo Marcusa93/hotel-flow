@@ -52,6 +52,7 @@ export function useChatHistory() {
 
   // Load messages for a conversation
   const loadMessages = useCallback(async (convId: string): Promise<ChatMessage[]> => {
+    if (!tableAvailable.current) return [];
     const { data } = await supabase
       .from('chat_messages')
       .select('role, content')

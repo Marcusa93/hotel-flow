@@ -54,9 +54,9 @@ async function createAlertIfNew(
     is_read: false,
   });
 
-  // Also send push notification for warning/error alerts
+  // Also send push notification for warning/error alerts (fire-and-forget, don't block alert creation)
   if (type === 'warning' || type === 'error') {
-    await sendPushNotification(title.replace(ALERT_PREFIX + ' ', ''), message, '/notifications');
+    sendPushNotification(title.replace(ALERT_PREFIX + ' ', ''), message, '/notifications');
   }
 }
 

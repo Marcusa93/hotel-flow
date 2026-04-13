@@ -49,6 +49,22 @@ export default function QuickCheckin() {
     );
   }
 
+  // Block check-in for cancelled/no-show bookings
+  if (booking.status === 'CANCELLED' || booking.status === 'NO_SHOW') {
+    return (
+      <div className="max-w-lg mx-auto flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <AlertTriangle className="w-12 h-12 text-destructive" />
+        <h2 className="text-xl font-bold">Reserva no disponible</h2>
+        <p className="text-muted-foreground text-center">
+          Esta reserva está marcada como <strong>{booking.status === 'CANCELLED' ? 'cancelada' : 'no-show'}</strong>. No se puede hacer check-in.
+        </p>
+        <Button variant="outline" onClick={() => navigate('/bookings')}>
+          Volver a Reservas
+        </Button>
+      </div>
+    );
+  }
+
   const guest = guests.find(g => g.id === booking.guestId);
   const room = rooms.find(r => r.id === booking.roomId);
   const roomType = room?.roomTypeId ? roomTypes.find(rt => rt.id === room.roomTypeId) : null;

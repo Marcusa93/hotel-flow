@@ -28,3 +28,10 @@ dist-ssr
 .env.*
 !.env.example
 .vercel
+
+# Claude Code
+.claude/projects/
+.claude/settings.local.json
+
+# Vite transient artifacts
+vite.config.ts.timestamp-*.mjs

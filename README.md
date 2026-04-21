@@ -64,6 +64,50 @@ This project is built with:
 
 Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
 
+## Supabase keepalive
+
+This repo includes a dedicated Supabase keepalive mechanism for production so a Supabase Free project does not get paused for inactivity. It does not touch any business tables, product flows, or application logic.
+
+What was added:
+
+- `supabase/migrations/20260421123000_supabase_keepalive.sql` creates the `api` schema if needed, a dedicated `api.supabase_keepalive` table, and an idempotent `api.keepalive()` RPC that only upserts a single fixed row.
+- `.github/workflows/supabase-keepalive.yml` runs on a GitHub Actions schedule twice per day and calls the Supabase RPC directly.
+
+Required setup:
+
+- Add `api` to the Supabase project's exposed schemas in `Project Settings -> API` if it is not already exposed.
+- Add these GitHub repository secrets:
+  - `SUPABASE_PROJECT_URL`
+  - `SUPABASE_ANON_KEY`
+
+The workflow uses the anon key intentionally because only the `api.keepalive()` RPC is exposed for anon execution. The underlying table is still kept behind database-owned writes.
+
+Manual test:
+
+```sh
+curl --silent --show-error --fail-with-body \
+  -X POST \
+  "${SUPABASE_PROJECT_URL%/}/rest/v1/rpc/keepalive" \
+  -H "apikey: ${SUPABASE_ANON_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Accept-Profile: api" \
+  -H "Content-Profile: api" \
+  -d '{}'
+```
+
+Expected response:
+
+```json
+{"ok":true,"timestamp":"2026-04-21T12:34:56.789Z"}
+```
+
+Adjust or disable the schedule:
+
+- Edit `.github/workflows/supabase-keepalive.yml` to change the `cron` entries.
+- Disable the `Supabase Keepalive` workflow in GitHub Actions if the project no longer needs it.
+
 ## Can I connect a custom domain to my Lovable project?
 
 Yes, you can!

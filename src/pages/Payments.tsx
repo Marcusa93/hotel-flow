@@ -72,6 +72,10 @@ export default function Payments() {
   };
 
   const handlePaymentStatusChange = (paymentId: string, newStatus: PaymentStatus) => {
+    if (!canWrite) {
+      toast({ title: 'Acción no permitida', description: 'Tu rol no puede modificar pagos', variant: 'destructive' });
+      return;
+    }
     updatePayment(paymentId, { status: newStatus });
   };
 
@@ -186,7 +190,7 @@ export default function Payments() {
             <TransactionTable
               payments={filteredPayments}
               getBookingInfo={getBookingInfo}
-              onStatusChange={handlePaymentStatusChange}
+              onStatusChange={canWrite ? handlePaymentStatusChange : undefined}
               onViewReceipt={handleViewReceipt}
             />
           )}

@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn, formatLastNameFirst, getInitials } from '@/lib/utils';
 import {
   LayoutGrid, List, CheckCircle, AlertCircle, XCircle,
-  CreditCard, Calendar, BedDouble, CalendarRange,
+  CreditCard, Calendar, BedDouble, CalendarRange, CalendarDays,
 } from 'lucide-react';
 import { BookingTimeline } from '@/components/bookings/BookingTimeline';
 import { QRScannerDialog } from '@/components/bookings/QRScannerDialog';

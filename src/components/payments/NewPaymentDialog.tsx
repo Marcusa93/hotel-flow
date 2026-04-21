@@ -45,13 +45,19 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 
+const MAX_PAYMENT_AMOUNT = 100_000_000; // $100M ARS sanity cap
+
 const paymentSchema = z.object({
     bookingId: z.string().min(1, 'Selecciona una reserva'),
-    date: z.date({ required_error: 'Fecha requerida' }),
+    date: z.date({ required_error: 'Fecha requerida' })
+        .refine(d => d.getTime() <= Date.now() + 60_000, 'La fecha no puede ser futura'),
     method: z.enum(['CASH', 'CARD', 'TRANSFER', 'OTHER'] as const),
-    amount: z.coerce.number().positive('Monto debe ser mayor a 0'),
-    reference: z.string().optional(),
-    comment: z.string().optional(),
+    amount: z.coerce.number()
+        .positive('Monto debe ser mayor a 0')
+        .max(MAX_PAYMENT_AMOUNT, 'Monto excede el límite permitido')
+        .finite('Monto inválido'),
+    reference: z.string().max(200, 'Referencia demasiado larga').optional(),
+    comment: z.string().max(500, 'Comentario demasiado largo').optional(),
     status: z.enum(['PENDING', 'PAID', 'FAILED', 'REFUNDED'] as const),
 });
 
@@ -419,6 +425,7 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                                                         mode="single"
                                                         selected={field.value}
                                                         onSelect={field.onChange}
+                                                        disabled={(date) => date.getTime() > Date.now() + 60_000}
                                                         initialFocus
                                                     />
                                                 </PopoverContent>

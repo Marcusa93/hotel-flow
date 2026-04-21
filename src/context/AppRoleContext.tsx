@@ -5,17 +5,23 @@ import { supabase } from '@/lib/supabase';
 import type { UserRole } from '@/types/hotel';
 
 interface AppRoleContextType {
-  currentRole: UserRole;
+  /** null while loading, on error, or when the user has no resolvable role. */
+  currentRole: UserRole | null;
   profileLoading: boolean;
+  profileError: Error | null;
   profileName: string | null;
 }
 
 const AppRoleContext = createContext<AppRoleContextType | undefined>(undefined);
 
+const VALID_ROLES: UserRole[] = ['admin', 'reception', 'housekeeping', 'auditor'];
+const isValidRole = (r: unknown): r is UserRole =>
+  typeof r === 'string' && (VALID_ROLES as string[]).includes(r);
+
 export function AppRoleProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
-  const { data: profile, isLoading: profileLoading } = useQuery({
+  const { data: profile, isLoading: profileLoading, error } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
       if (!user) return null;
@@ -26,39 +32,45 @@ export function AppRoleProvider({ children }: { children: React.ReactNode }) {
         .eq('id', user.id)
         .single();
 
+      const metadataRole = user.user_metadata?.role;
+      const metadataName = (user.user_metadata?.full_name as string) || null;
+
       if (error) {
-        // PGRST116 = row not found, 42P01 = table doesn't exist
-        if (error.code === 'PGRST116' || error.code === '42P01' || error.message?.includes('does not exist')) {
-          return {
-            role: (user.user_metadata?.role as UserRole) || 'reception',
-            fullName: (user.user_metadata?.full_name as string) || null,
-          };
+        // PGRST116 = row not found, 42P01 = table doesn't exist.
+        // Fall back to auth metadata ONLY if the metadata role is valid.
+        // Do NOT default to 'reception' — that would silently grant privileges.
+        const softFailure = error.code === 'PGRST116' || error.code === '42P01' || error.message?.includes('does not exist');
+        if (softFailure && isValidRole(metadataRole)) {
+          return { role: metadataRole, fullName: metadataName };
         }
-        console.warn('Error fetching profile:', error.message);
-        // Fallback to user metadata instead of null (prevents everyone defaulting to reception)
-        return {
-          role: (user.user_metadata?.role as UserRole) || 'reception',
-          fullName: (user.user_metadata?.full_name as string) || null,
-        };
+        if (softFailure) {
+          // Authenticated but no role anywhere — let the UI show an error.
+          return { role: null, fullName: metadataName };
+        }
+        // Network or permission error — propagate so React Query retries.
+        throw new Error(`Profile fetch failed: ${error.message}`);
       }
 
       return {
-        role: data.role as UserRole,
-        fullName: data.full_name as string | null,
+        role: isValidRole(data.role) ? data.role : null,
+        fullName: (data.full_name as string | null) ?? null,
       };
     },
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
+    retry: 2,
   });
 
-  const currentRole: UserRole = profile?.role ?? 'reception';
+  const currentRole: UserRole | null = profile?.role ?? null;
   const profileName: string | null = profile?.fullName ?? null;
+  const profileError = (error as Error | null) ?? null;
 
   const value = useMemo(() => ({
     currentRole,
     profileLoading,
+    profileError,
     profileName,
-  }), [currentRole, profileLoading, profileName]);
+  }), [currentRole, profileLoading, profileError, profileName]);
 
   return (
     <AppRoleContext.Provider value={value}>

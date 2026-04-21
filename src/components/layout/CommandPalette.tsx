@@ -29,24 +29,35 @@ import {
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/context/AuthContext';
+import { useAppRole } from '@/context/AppRoleContext';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
+import type { UserRole } from '@/types/hotel';
 
 // ─── Navigation Items ────────────────────────────────────────────────
 
-const navPages = [
-  { title: 'Dashboard', href: '/', icon: LayoutDashboard, group: 'Navegación', keywords: ['inicio', 'panel', 'resumen'] },
-  { title: 'Reservas', href: '/bookings', icon: CalendarDays, group: 'Operaciones', keywords: ['booking', 'reserva'] },
-  { title: 'Habitaciones', href: '/rooms', icon: BedDouble, group: 'Operaciones', keywords: ['room', 'cuarto', 'disponibilidad', 'ocupacion'] },
-  { title: 'Huéspedes', href: '/guests', icon: Users, group: 'Operaciones', keywords: ['guest', 'cliente', 'pasajero'] },
-  { title: 'Limpieza', href: '/housekeeping', icon: ClipboardList, group: 'Operaciones', keywords: ['housekeeping', 'limpio', 'sucio'] },
-  { title: 'Finanzas', href: '/payments', icon: CreditCard, group: 'Finanzas', keywords: ['pago', 'cobro', 'dinero', 'factura', 'invoice'] },
-  { title: 'Gastos', href: '/expenses', icon: Receipt, group: 'Finanzas', keywords: ['gasto', 'costo', 'proveedor'] },
-  { title: 'Tarifas', href: '/rates', icon: Percent, group: 'Finanzas', keywords: ['tarifa', 'precio', 'rate', 'estadisticas', 'reporte'] },
-  { title: 'Auditoría', href: '/audit-log', icon: Shield, group: 'Reportes', keywords: ['audit', 'auditoria', 'actividad', 'historial', 'log'] },
-  { title: 'Notificaciones', href: '/notifications', icon: Bell, group: 'Sistema', keywords: ['alerta', 'aviso'] },
-  { title: 'Configuración', href: '/settings', icon: Settings, group: 'Sistema', keywords: ['config', 'ajustes', 'preferencias'] },
+type NavPage = {
+  title: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  group: string;
+  keywords: string[];
+  roles: UserRole[];
+};
+
+const navPages: NavPage[] = [
+  { title: 'Dashboard', href: '/', icon: LayoutDashboard, group: 'Navegación', keywords: ['inicio', 'panel', 'resumen'], roles: ['admin', 'reception'] },
+  { title: 'Reservas', href: '/bookings', icon: CalendarDays, group: 'Operaciones', keywords: ['booking', 'reserva'], roles: ['admin', 'reception'] },
+  { title: 'Habitaciones', href: '/rooms', icon: BedDouble, group: 'Operaciones', keywords: ['room', 'cuarto', 'disponibilidad', 'ocupacion'], roles: ['admin', 'reception', 'housekeeping'] },
+  { title: 'Huéspedes', href: '/guests', icon: Users, group: 'Operaciones', keywords: ['guest', 'cliente', 'pasajero'], roles: ['admin', 'reception'] },
+  { title: 'Limpieza', href: '/housekeeping', icon: ClipboardList, group: 'Operaciones', keywords: ['housekeeping', 'limpio', 'sucio'], roles: ['admin', 'housekeeping'] },
+  { title: 'Finanzas', href: '/payments', icon: CreditCard, group: 'Finanzas', keywords: ['pago', 'cobro', 'dinero', 'factura', 'invoice'], roles: ['admin', 'reception', 'auditor'] },
+  { title: 'Gastos', href: '/expenses', icon: Receipt, group: 'Finanzas', keywords: ['gasto', 'costo', 'proveedor'], roles: ['admin', 'reception', 'auditor'] },
+  { title: 'Tarifas', href: '/rates', icon: Percent, group: 'Finanzas', keywords: ['tarifa', 'precio', 'rate', 'estadisticas', 'reporte'], roles: ['admin', 'reception'] },
+  { title: 'Auditoría', href: '/audit-log', icon: Shield, group: 'Reportes', keywords: ['audit', 'auditoria', 'actividad', 'historial', 'log'], roles: ['admin', 'auditor'] },
+  { title: 'Notificaciones', href: '/notifications', icon: Bell, group: 'Sistema', keywords: ['alerta', 'aviso'], roles: ['admin', 'reception'] },
+  { title: 'Configuración', href: '/settings', icon: Settings, group: 'Sistema', keywords: ['config', 'ajustes', 'preferencias'], roles: ['admin', 'reception'] },
 ];
 
 // ─── Component ───────────────────────────────────────────────────────
@@ -60,9 +71,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigate = useNavigate();
   const { setTheme } = useTheme();
   const { signOut } = useAuth();
+  const { currentRole } = useAppRole();
   const { bookings } = useBookingOperations();
   const { guests } = useGuestOperations();
   const { rooms } = useRoomOperations();
+
+  const canSeeOperations = currentRole === 'admin' || currentRole === 'reception';
 
   const [search, setSearch] = useState('');
 
@@ -78,28 +92,36 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
     const q = search.toLowerCase();
 
-    const matchedBookings = bookings
-      .filter(b => {
-        const guest = guests.find(g => g.id === b.guestId);
-        const guestName = guest ? guest.fullName.toLowerCase() : '';
-        return guestName.includes(q) || b.id.toLowerCase().includes(q) || b.status.toLowerCase().includes(q);
-      })
-      .slice(0, 5);
+    const matchedBookings = canSeeOperations
+      ? bookings
+          .filter(b => {
+            const guest = guests.find(g => g.id === b.guestId);
+            const guestName = guest ? guest.fullName.toLowerCase() : '';
+            return guestName.includes(q) || b.id.toLowerCase().includes(q) || b.status.toLowerCase().includes(q);
+          })
+          .slice(0, 5)
+      : [];
 
-    const matchedGuests = guests
-      .filter(g => {
-        return g.fullName.toLowerCase().includes(q) || (g.email || '').toLowerCase().includes(q) || (g.phone || '').includes(q);
-      })
-      .slice(0, 5);
+    const matchedGuests = canSeeOperations
+      ? guests
+          .filter(g => {
+            return g.fullName.toLowerCase().includes(q) || (g.email || '').toLowerCase().includes(q) || (g.phone || '').includes(q);
+          })
+          .slice(0, 5)
+      : [];
 
-    const matchedRooms = rooms
-      .filter(r => {
-        return r.roomNumber.toLowerCase().includes(q) || r.status.toLowerCase().includes(q);
-      })
-      .slice(0, 5);
+    // Rooms visible to admin/reception/housekeeping
+    const canSeeRooms = canSeeOperations || currentRole === 'housekeeping';
+    const matchedRooms = canSeeRooms
+      ? rooms
+          .filter(r => {
+            return r.roomNumber.toLowerCase().includes(q) || r.status.toLowerCase().includes(q);
+          })
+          .slice(0, 5)
+      : [];
 
     return { bookings: matchedBookings, guests: matchedGuests, rooms: matchedRooms };
-  }, [search, bookings, guests, rooms]);
+  }, [search, bookings, guests, rooms, canSeeOperations, currentRole]);
 
   const hasSearchResults = searchResults.bookings.length > 0 || searchResults.guests.length > 0 || searchResults.rooms.length > 0;
 
@@ -123,13 +145,15 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   // ─── Grouped pages ──────────────────────────────────────────────
 
   const groups = useMemo(() => {
-    const grouped: Record<string, typeof navPages> = {};
-    navPages.forEach(page => {
-      if (!grouped[page.group]) grouped[page.group] = [];
-      grouped[page.group].push(page);
-    });
+    const grouped: Record<string, NavPage[]> = {};
+    navPages
+      .filter(page => page.roles.includes(currentRole))
+      .forEach(page => {
+        if (!grouped[page.group]) grouped[page.group] = [];
+        grouped[page.group].push(page);
+      });
     return grouped;
-  }, []);
+  }, [currentRole]);
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>

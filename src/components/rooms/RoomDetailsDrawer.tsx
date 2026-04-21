@@ -14,6 +14,7 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import { Room, RoomStatus, Guest } from '@/types/hotel';
+import { useAppRole } from '@/context/AppRoleContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -60,6 +61,8 @@ interface RoomDetailsDrawerProps {
 // Amenities section removed — was hardcoded and not reflecting real room type data
 
 export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, onStatusChange }: RoomDetailsDrawerProps) {
+    const { currentRole } = useAppRole();
+    const canSetAdvancedStatuses = currentRole === 'admin' || currentRole === 'reception';
     const navigate = useNavigate();
     const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
     const [maintenanceNotes, setMaintenanceNotes] = useState('');
@@ -122,26 +125,30 @@ export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, 
                                         <PaintBucket className="w-5 h-5 mb-1" />
                                         <span className="text-xs">Sucia</span>
                                     </Button>
-                                    <Button
-                                        variant="outline"
-                                        className={cn("h-auto py-4 flex flex-col gap-2 rounded-xl", room.status === 'MAINTENANCE' && "border-slate-500 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100")}
-                                        onClick={() => setMaintenanceDialogOpen(true)}
-                                    >
-                                        <Wrench className="w-5 h-5 mb-1" />
-                                        <span className="text-xs">Mantenimiento</span>
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        className={cn("h-auto py-4 flex flex-col gap-2 rounded-xl", room.status === 'OUT_OF_ORDER' && "border-red-500 bg-red-50 dark:bg-red-800/50 text-red-900 dark:text-red-100")}
-                                        onClick={() => onStatusChange('OUT_OF_ORDER')}
-                                    >
-                                        <AlertTriangle className="w-5 h-5 mb-1" />
-                                        <span className="text-xs">Fuera de Servicio</span>
-                                    </Button>
+                                    {canSetAdvancedStatuses && (
+                                        <>
+                                            <Button
+                                                variant="outline"
+                                                className={cn("h-auto py-4 flex flex-col gap-2 rounded-xl", room.status === 'MAINTENANCE' && "border-slate-500 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100")}
+                                                onClick={() => setMaintenanceDialogOpen(true)}
+                                            >
+                                                <Wrench className="w-5 h-5 mb-1" />
+                                                <span className="text-xs">Mantenimiento</span>
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                className={cn("h-auto py-4 flex flex-col gap-2 rounded-xl", room.status === 'OUT_OF_ORDER' && "border-red-500 bg-red-50 dark:bg-red-800/50 text-red-900 dark:text-red-100")}
+                                                onClick={() => onStatusChange('OUT_OF_ORDER')}
+                                            >
+                                                <AlertTriangle className="w-5 h-5 mb-1" />
+                                                <span className="text-xs">Fuera de Servicio</span>
+                                            </Button>
+                                        </>
+                                    )}
                                 </section>
 
                                 {/* Quick Actions based on status */}
-                                {room.status === 'AVAILABLE' && (
+                                {room.status === 'AVAILABLE' && canSetAdvancedStatuses && (
                                     <Button
                                         className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg"
                                         onClick={() => {

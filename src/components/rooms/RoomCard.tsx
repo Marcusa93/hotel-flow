@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Sparkles, LogIn, Brush, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { useAppRole } from '@/context/AppRoleContext';
 
 interface RoomCardProps {
     room: Room;
@@ -47,8 +48,14 @@ const statusLabels: Record<RoomStatus, string> = {
 };
 
 export function RoomCard({ room, guest, roomTypeName, onClick, onQuickAction, needsCleaning, isUpdating }: RoomCardProps) {
+    const { currentRole } = useAppRole();
+    const canCheckIn = currentRole === 'admin' || currentRole === 'reception';
     const showCleaningIndicator = needsCleaning || room.status === 'DIRTY';
-    const hasQuickAction = room.status === 'DIRTY' || room.status === 'AVAILABLE';
+    // Housekeeping can only mark DIRTY → AVAILABLE. Hide the "Check-in" quick
+    // action (AVAILABLE → OCCUPIED) for roles that can't actually occupy.
+    const hasQuickAction =
+        room.status === 'DIRTY' ||
+        (room.status === 'AVAILABLE' && canCheckIn);
 
     return (
         <motion.div

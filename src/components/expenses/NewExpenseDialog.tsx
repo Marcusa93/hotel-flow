@@ -23,6 +23,20 @@ import { Expense, ExpenseType } from '@/types/hotel';
 import { Receipt, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
+import { z } from 'zod';
+
+const MAX_EXPENSE_AMOUNT = 100_000_000; // $100M ARS sanity cap
+
+const expenseSchema = z.object({
+    date: z.coerce.date({ required_error: 'Fecha requerida' })
+        .refine(d => d.getTime() <= Date.now() + 60_000, 'La fecha no puede ser futura'),
+    expenseType: z.enum(['PANADERIA', 'SUPERMERCADO', 'VERDULERIA', 'CARNICERIA', 'BEBIDAS', 'LIMPIEZA', 'MANTENIMIENTO', 'SERVICIOS', 'OTROS'] as const),
+    amount: z.coerce.number()
+        .positive('Monto debe ser mayor a 0')
+        .max(MAX_EXPENSE_AMOUNT, 'Monto excede el límite permitido')
+        .finite('Monto inválido'),
+    description: z.string().max(500, 'Descripción demasiado larga').optional(),
+});
 
 interface NewExpenseDialogProps {
     open: boolean;
@@ -70,26 +84,44 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!amount || parseFloat(amount) <= 0) return;
+
+        const parsed = expenseSchema.safeParse({
+            date,
+            expenseType,
+            amount,
+            description: description || undefined,
+        });
+
+        if (!parsed.success) {
+            const firstError = parsed.error.errors[0];
+            toast({
+                title: 'Datos inválidos',
+                description: firstError?.message ?? 'Revisá los campos del formulario',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        const validated = parsed.data;
 
         try {
             if (isEditing && expense) {
                 await updateExpense.mutateAsync({
                     id: expense.id,
-                    date: new Date(date),
-                    expenseType,
-                    amount: parseFloat(amount),
-                    description: description || undefined,
+                    date: validated.date,
+                    expenseType: validated.expenseType,
+                    amount: validated.amount,
+                    description: validated.description,
                 });
-                toast({ title: 'Gasto actualizado', description: `${expenseTypeLabels[expenseType]} — $${parseFloat(amount).toLocaleString('es-AR')}` });
+                toast({ title: 'Gasto actualizado', description: `${expenseTypeLabels[validated.expenseType]} — $${validated.amount.toLocaleString('es-AR')}` });
             } else {
                 await createExpense.mutateAsync({
-                    date: new Date(date),
-                    expenseType,
-                    amount: parseFloat(amount),
-                    description: description || undefined,
+                    date: validated.date,
+                    expenseType: validated.expenseType,
+                    amount: validated.amount,
+                    description: validated.description,
                 });
-                toast({ title: 'Gasto registrado', description: `${expenseTypeLabels[expenseType]} — $${parseFloat(amount).toLocaleString('es-AR')}` });
+                toast({ title: 'Gasto registrado', description: `${expenseTypeLabels[validated.expenseType]} — $${validated.amount.toLocaleString('es-AR')}` });
             }
 
             setDate(format(new Date(), 'yyyy-MM-dd'));
@@ -121,6 +153,7 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
                                 type="date"
                                 value={date}
                                 onChange={(e) => setDate(e.target.value)}
+                                max={format(new Date(), 'yyyy-MM-dd')}
                                 required
                             />
                         </div>
@@ -130,7 +163,8 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
                                 id="amount"
                                 type="number"
                                 step="0.01"
-                                min="0"
+                                min="0.01"
+                                max={MAX_EXPENSE_AMOUNT}
                                 placeholder="0.00"
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}

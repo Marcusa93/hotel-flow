@@ -79,8 +79,15 @@ export default function Housekeeping() {
     startedAt?: Date,
     completedAt?: Date
   ) => {
+    // Auto-fill time tracking if the caller didn't supply it (e.g. the board).
+    // Forward transitions stamp "now"; reverse transitions are handled in the
+    // mutation (it clears timestamps when moving back to TODO or IN_PROGRESS).
+    const now = new Date();
+    const effectiveStartedAt = startedAt ?? (newStatus === 'IN_PROGRESS' ? now : undefined);
+    const effectiveCompletedAt = completedAt ?? (newStatus === 'DONE' ? now : undefined);
+
     try {
-      await updateHousekeepingTask(taskId, { status: newStatus }, rooms, startedAt, completedAt);
+      await updateHousekeepingTask(taskId, { status: newStatus }, rooms, effectiveStartedAt, effectiveCompletedAt);
 
       const statusMessages: Record<HousekeepingStatus, string> = {
         TODO: 'Tarea pendiente',

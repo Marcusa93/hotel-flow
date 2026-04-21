@@ -2,7 +2,14 @@ import { useState, useMemo, useCallback } from 'react';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useAppRole } from '@/context/AppRoleContext';
+import { toast } from '@/hooks/use-toast';
 import { Room, RoomStatus } from '@/types/hotel';
+
+// Housekeeping may only flip between DIRTY and AVAILABLE (the outcomes
+// of their own work). MAINTENANCE / OUT_OF_ORDER / OCCUPIED are
+// business decisions reserved for admin + reception.
+const HOUSEKEEPING_ALLOWED_STATUSES: RoomStatus[] = ['AVAILABLE', 'DIRTY'];
 import {
   RoomsHeader,
   RoomsFilters,
@@ -23,6 +30,20 @@ export default function Rooms() {
   const { rooms, roomTypes, updateRoomStatus, isUpdating } = useRoomOperations();
   const { guests } = useGuestOperations();
   const { bookings } = useBookingOperations();
+  const { currentRole } = useAppRole();
+  const isHousekeeping = currentRole === 'housekeeping';
+  const canSetAnyStatus = currentRole === 'admin' || currentRole === 'reception';
+
+  const assertStatusAllowed = useCallback((status: RoomStatus): boolean => {
+    if (canSetAnyStatus) return true;
+    if (isHousekeeping && HOUSEKEEPING_ALLOWED_STATUSES.includes(status)) return true;
+    toast({
+      title: 'Acción no permitida',
+      description: 'Tu rol no puede fijar ese estado de habitación.',
+      variant: 'destructive',
+    });
+    return false;
+  }, [canSetAnyStatus, isHousekeeping]);
 
   // UI State
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -60,15 +81,16 @@ export default function Rooms() {
 
   // Handlers
   const handleQuickAction = useCallback((room: Room, action: 'clean' | 'occupy') => {
-    if (action === 'clean') updateRoomStatus(room.id, 'AVAILABLE');
-    if (action === 'occupy') updateRoomStatus(room.id, 'OCCUPIED');
-  }, [updateRoomStatus]);
+    const nextStatus: RoomStatus = action === 'clean' ? 'AVAILABLE' : 'OCCUPIED';
+    if (!assertStatusAllowed(nextStatus)) return;
+    updateRoomStatus(room.id, nextStatus);
+  }, [updateRoomStatus, assertStatusAllowed]);
 
   const handleStatusChange = (newStatus: RoomStatus, notes?: string) => {
-    if (selectedRoom) {
-      updateRoomStatus(selectedRoom.id, newStatus, notes);
-      setSelectedRoom({ ...selectedRoom, status: newStatus, notes });
-    }
+    if (!selectedRoom) return;
+    if (!assertStatusAllowed(newStatus)) return;
+    updateRoomStatus(selectedRoom.id, newStatus, notes);
+    setSelectedRoom({ ...selectedRoom, status: newStatus, notes });
   };
 
   const getSelectedGuest = () => {
@@ -93,12 +115,13 @@ export default function Rooms() {
   }, []);
 
   const handleBulkAction = useCallback(async (newStatus: RoomStatus) => {
+    if (!assertStatusAllowed(newStatus)) return;
     for (const id of selectedIds) {
       await updateRoomStatus(id, newStatus);
     }
     setSelectedIds(new Set());
     setBulkMode(false);
-  }, [selectedIds, updateRoomStatus]);
+  }, [selectedIds, updateRoomStatus, assertStatusAllowed]);
 
   const exitBulkMode = () => {
     setBulkMode(false);
@@ -182,21 +205,23 @@ export default function Rooms() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs">Mantenimiento</Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Poner {selectedIds.size} habitación{selectedIds.size > 1 ? 'es' : ''} en mantenimiento?</AlertDialogTitle>
-                <AlertDialogDescription>Las habitaciones no estarán disponibles para reservas.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={() => handleBulkAction('MAINTENANCE')} className="bg-destructive hover:bg-destructive/90">Confirmar</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          {canSetAnyStatus && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs">Mantenimiento</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Poner {selectedIds.size} habitación{selectedIds.size > 1 ? 'es' : ''} en mantenimiento?</AlertDialogTitle>
+                  <AlertDialogDescription>Las habitaciones no estarán disponibles para reservas.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleBulkAction('MAINTENANCE')} className="bg-destructive hover:bg-destructive/90">Confirmar</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       )}
 

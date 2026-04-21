@@ -145,6 +145,10 @@ export default function Expenses() {
     };
 
     const handleDelete = async (id: string) => {
+        if (!canWrite) {
+            toast({ title: 'Acción no permitida', description: 'Tu rol no puede eliminar gastos', variant: 'destructive' });
+            return;
+        }
         try {
             await deleteExpense.mutateAsync(id);
             toast({

@@ -120,9 +120,11 @@ export function Topbar() {
               </div>
               <div className="hidden md:flex flex-col items-start">
                 <span className="text-sm font-medium capitalize">{displayName}</span>
-                <Badge variant="outline" className={`text-xs border-white/20 text-sidebar-foreground ${roleColors[currentRole].replace('bg-primary', 'bg-white/20')}`}>
-                  {roleLabels[currentRole]}
-                </Badge>
+                {currentRole && (
+                  <Badge variant="outline" className={`text-xs border-white/20 text-sidebar-foreground ${roleColors[currentRole].replace('bg-primary', 'bg-white/20')}`}>
+                    {roleLabels[currentRole]}
+                  </Badge>
+                )}
               </div>
             </Button>
           </DropdownMenuTrigger>

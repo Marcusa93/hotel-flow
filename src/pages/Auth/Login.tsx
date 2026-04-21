@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -7,13 +7,27 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { useAppRole } from '@/context/AppRoleContext';
+import { getFallbackRoute } from '@/components/auth/RoleGuard';
 
 export default function Login() {
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const { currentRole, profileLoading } = useAppRole();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [isSignUp, setIsSignUp] = useState(false); // Toggle between Login/Signup
+
+    // Redirect authenticated users to the landing page of their role.
+    // Runs on initial mount (already-logged-in user lands on /login) and
+    // after a successful signIn (session updates → this effect fires).
+    useEffect(() => {
+        if (user && !profileLoading && currentRole) {
+            navigate(getFallbackRoute(currentRole), { replace: true });
+        }
+    }, [user, currentRole, profileLoading, navigate]);
 
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,7 +50,8 @@ export default function Login() {
                     password,
                 });
                 if (error) throw error;
-                navigate('/');
+                // Don't navigate here — the useEffect above handles it once
+                // the role is resolved, so every role lands on the right page.
             }
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : "Ha ocurrido un error";

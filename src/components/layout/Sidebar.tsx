@@ -58,7 +58,7 @@ const navItems: NavItem[] = [
 
   // Sistema
   { title: 'Notificaciones', href: '/notifications', icon: Bell, roles: ['admin', 'reception'] },
-  { title: 'Configuración', href: '/settings', icon: Settings, roles: ['admin', 'reception', 'housekeeping', 'auditor'] },
+  { title: 'Configuración', href: '/settings', icon: Settings, roles: ['admin', 'reception'] },
 ];
 
 interface SidebarContentProps {

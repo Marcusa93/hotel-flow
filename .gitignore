@@ -27,6 +27,11 @@ dist-ssr
 .env
 .env.*
 !.env.example
+# .env.production IS committed: VITE_* vars are public by design
+# (they get baked into the client bundle anyone downloads). Keeping
+# it in the repo means any deploy target — Vercel, Netlify, local —
+# picks them up without extra panel configuration.
+!.env.production
 .vercel
 
 # Claude Code

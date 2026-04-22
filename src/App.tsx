@@ -10,6 +10,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { MainLayout } from "@/components/layout";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { RoleGuard } from "@/components/auth/RoleGuard";
+import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import Login from "@/pages/Auth/Login";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -88,8 +89,14 @@ const AnimatedRoutes = () => {
 };
 
 const LoadingFallback = () => (
-  <div className="flex items-center justify-center h-screen w-full bg-background">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+  <div className="flex items-center justify-center h-[70vh] w-full">
+    <div className="flex flex-col items-center gap-4" role="status" aria-live="polite">
+      <div className="relative">
+        <div className="h-12 w-12 rounded-full border-2 border-primary/20" />
+        <div className="absolute inset-0 h-12 w-12 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+      <p className="text-sm text-muted-foreground animate-pulse">Cargando…</p>
+    </div>
   </div>
 );
 
@@ -110,9 +117,11 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <MainLayout>
-                        <Suspense fallback={<LoadingFallback />}>
-                          <AnimatedRoutes />
-                        </Suspense>
+                        <ErrorBoundary>
+                          <Suspense fallback={<LoadingFallback />}>
+                            <AnimatedRoutes />
+                          </Suspense>
+                        </ErrorBoundary>
                       </MainLayout>
                     </ProtectedRoute>
                   }

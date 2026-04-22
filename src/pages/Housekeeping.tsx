@@ -360,7 +360,16 @@ export default function Housekeeping() {
             />
 
             {filteredRooms.length === 0 && (
-              <EmptyState icon={ClipboardList} title="No se encontraron habitaciones" />
+              <EmptyState
+                icon={ClipboardList}
+                title="No se encontraron habitaciones"
+                description={floorFilter === 'ALL'
+                  ? "Todavía no hay habitaciones cargadas en el sistema."
+                  : "Probá con otro piso para ver más habitaciones."}
+                action={floorFilter !== 'ALL'
+                  ? { label: 'Ver todos los pisos', onClick: () => setFloorFilter('ALL') }
+                  : undefined}
+              />
             )}
           </div>
         </>

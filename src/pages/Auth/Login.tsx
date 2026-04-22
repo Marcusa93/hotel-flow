@@ -29,6 +29,33 @@ export default function Login() {
         }
     }, [user, currentRole, profileLoading, navigate]);
 
+    const handleForgotPassword = async () => {
+        if (!email) {
+            toast({
+                variant: 'destructive',
+                title: 'Ingresá tu email',
+                description: 'Escribí tu email arriba y volvé a tocar "Olvidaste tu contraseña".',
+            });
+            return;
+        }
+        setLoading(true);
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/login`,
+            });
+            if (error) throw error;
+            toast({
+                title: 'Listo — revisá tu email',
+                description: `Te mandamos un link de recuperación a ${email}.`,
+            });
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Ha ocurrido un error';
+            toast({ variant: 'destructive', title: 'Error', description: message });
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -101,7 +128,19 @@ export default function Login() {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="password" className="text-white/80">Contraseña</Label>
+                        <div className="flex items-center justify-between">
+                            <Label htmlFor="password" className="text-white/80">Contraseña</Label>
+                            {!isSignUp && (
+                                <button
+                                    type="button"
+                                    onClick={handleForgotPassword}
+                                    disabled={loading}
+                                    className="text-[11px] text-white/50 hover:text-yellow-300 transition-colors disabled:opacity-50"
+                                >
+                                    ¿Olvidaste tu contraseña?
+                                </button>
+                            )}
+                        </div>
                         <Input
                             id="password"
                             type="password"
@@ -115,7 +154,7 @@ export default function Login() {
 
                     <Button
                         type="submit"
-                        className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-black font-semibold shadow-lg shadow-yellow-500/20 transition-all duration-300 transform hover:scale-[1.02]"
+                        className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-black font-semibold shadow-lg shadow-yellow-500/20 transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-60 disabled:hover:scale-100"
                         disabled={loading}
                     >
                         {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}

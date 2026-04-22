@@ -11,12 +11,12 @@ import {
   GuestDetailsDrawer
 } from '@/components/guests';
 import { NewGuestDialog } from '@/components/guests/NewGuestDialog';
-import { EmptyState } from '@/components/shared';
+import { EmptyState, ListSkeleton } from '@/components/shared';
 import { Search, Users, BedDouble, Repeat, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function Guests() {
-  const { guests } = useGuestOperations();
+  const { guests, isLoading: isLoadingGuests } = useGuestOperations();
   const { bookings } = useBookingOperations();
   const { data: hotelSettings } = useHotelSettings();
   const hotelName = hotelSettings?.hotelName || 'Hotel';
@@ -170,12 +170,23 @@ export default function Guests() {
       <div className="flex-1 min-h-0 overflow-y-auto mt-2 px-4 md:px-6 relative">
         <div className="fixed inset-0 bg-slate-50/50 dark:bg-slate-950/50 -z-10 pointer-events-none" />
 
-        {filteredGuests.length === 0 ? (
+        {isLoadingGuests && guests.length === 0 ? (
+          <div className="mt-6">
+            <ListSkeleton items={6} />
+          </div>
+        ) : filteredGuests.length === 0 ? (
           <div className="mt-20">
             <EmptyState
-              icon={Search}
-              title="No se encontraron huéspedes"
-              description={search ? "Intenta ajustar la búsqueda" : "Aún no hay huéspedes registrados"}
+              icon={search ? Search : UserPlus}
+              title={search ? "No se encontraron huéspedes" : "Aún no hay huéspedes"}
+              description={search
+                ? "Probá con otro nombre, email o documento."
+                : "Registrá al primer huésped para empezar a gestionar reservas."}
+              action={
+                search
+                  ? { label: 'Limpiar búsqueda', onClick: () => setSearch('') }
+                  : { label: 'Nuevo huésped', onClick: () => setIsNewGuestDialogOpen(true) }
+              }
             />
           </div>
         ) : (

@@ -1,0 +1,77 @@
+import React from 'react';
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+interface ErrorBoundaryProps {
+    children: React.ReactNode;
+    /** Optional fallback to render. If omitted, uses the default error card. */
+    fallback?: (error: Error, reset: () => void) => React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+    error: Error | null;
+}
+
+/**
+ * Catches unhandled errors from its children and shows a graceful fallback
+ * instead of letting a rendering exception nuke the entire app.
+ *
+ * Class component because React's official error-boundary API only exists
+ * on classes (componentDidCatch / getDerivedStateFromError).
+ */
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+    state: ErrorBoundaryState = { error: null };
+
+    static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+        return { error };
+    }
+
+    componentDidCatch(error: Error, info: React.ErrorInfo) {
+        // Best-effort telemetry — keep console noise low in production.
+        console.error('[ErrorBoundary]', error, info.componentStack);
+    }
+
+    reset = () => {
+        this.setState({ error: null });
+    };
+
+    render() {
+        const { error } = this.state;
+        if (!error) return this.props.children;
+
+        if (this.props.fallback) {
+            return this.props.fallback(error, this.reset);
+        }
+
+        return (
+            <div className="flex min-h-[60vh] w-full items-center justify-center p-6">
+                <div className="max-w-md w-full bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-lg p-8 text-center">
+                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
+                        <AlertTriangle className="h-7 w-7 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                        Algo salió mal
+                    </h2>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                        Ocurrió un error inesperado. Podés reintentar o volver al inicio.
+                    </p>
+                    {import.meta.env.DEV && (
+                        <pre className="mt-4 max-h-32 overflow-auto rounded-lg bg-slate-900/5 dark:bg-slate-100/5 p-3 text-left text-[11px] text-slate-600 dark:text-slate-400">
+                            {error.message}
+                        </pre>
+                    )}
+                    <div className="mt-6 flex items-center justify-center gap-2">
+                        <Button variant="outline" size="sm" onClick={this.reset}>
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Reintentar
+                        </Button>
+                        <Button size="sm" onClick={() => { window.location.href = '/'; }}>
+                            <Home className="w-4 h-4 mr-2" />
+                            Volver al inicio
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+}

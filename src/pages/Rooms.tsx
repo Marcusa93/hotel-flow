@@ -234,7 +234,12 @@ export default function Rooms() {
             <EmptyState
               icon={BedDouble}
               title="No se encontraron habitaciones"
-              description="Intenta cambiar los filtros de piso o estado"
+              description="Ningún piso o estado coincide con los filtros actuales."
+              action={
+                statusFilter !== 'ALL' || floorFilter !== 'ALL'
+                  ? { label: 'Limpiar filtros', onClick: () => { setStatusFilter('ALL'); setFloorFilter('ALL'); } }
+                  : undefined
+              }
             />
           </div>
         ) : (

@@ -5,7 +5,7 @@ import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useAppRole } from '@/context/AppRoleContext';
-import { PageHeader, EmptyState } from '@/components/shared';
+import { PageHeader, EmptyState, TableSkeleton } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -27,7 +27,7 @@ const BillingContent = lazy(() => import('./Billing'));
 export default function Payments() {
   const { currentRole } = useAppRole();
   const canWrite = currentRole === 'admin' || currentRole === 'reception';
-  const { payments, updatePayment } = usePaymentOperations();
+  const { payments, updatePayment, isLoading: isLoadingPayments } = usePaymentOperations();
   const { bookings } = useBookingOperations();
   const { guests } = useGuestOperations();
   const { rooms } = useRoomOperations();
@@ -184,8 +184,23 @@ export default function Payments() {
             </Select>
           </div>
 
-          {filteredPayments.length === 0 ? (
-            <EmptyState icon={Search} title="No se encontraron pagos" description="Ajusta los filtros de búsqueda" />
+          {isLoadingPayments && payments.length === 0 ? (
+            <TableSkeleton rows={6} columns={7} />
+          ) : filteredPayments.length === 0 ? (
+            <EmptyState
+              icon={Search}
+              title="No se encontraron pagos"
+              description={search || statusFilter !== 'ALL' || methodFilter !== 'ALL'
+                ? "Probá limpiar los filtros o ajustar la búsqueda"
+                : "Cuando registres un pago va a aparecer acá"}
+              action={
+                search || statusFilter !== 'ALL' || methodFilter !== 'ALL'
+                  ? { label: 'Limpiar filtros', onClick: () => { setSearch(''); setStatusFilter('ALL'); setMethodFilter('ALL'); } }
+                  : canWrite
+                    ? { label: 'Nuevo cobro', onClick: () => setIsNewPaymentOpen(true) }
+                    : undefined
+              }
+            />
           ) : (
             <TransactionTable
               payments={filteredPayments}

@@ -168,6 +168,7 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
                                 placeholder="0.00"
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
+                                autoFocus={!isEditing}
                                 required
                             />
                         </div>

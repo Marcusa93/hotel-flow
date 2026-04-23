@@ -20,13 +20,13 @@ import { NewPaymentDialog } from '@/components/payments/NewPaymentDialog';
 import { NewExpenseDialog } from '@/components/expenses/NewExpenseDialog';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { format, isToday } from 'date-fns';
+import { format, isToday, isSameDay, subDays, subMonths, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Sun, Moon, CloudSun, CalendarPlus, UserPlus, CreditCard, Sparkles, Receipt,
-  BedDouble, TrendingUp, Users, DollarSign, LogIn, LogOut,
+  BedDouble, TrendingUp, Users, DollarSign, LogIn, LogOut, ArrowUp, ArrowDown, Minus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -44,16 +44,50 @@ export default function Dashboard() {
 
   const [openDialog, setOpenDialog] = useState<DialogKey>(null);
 
-  // Today stats
-  const { todayCheckIns, todayCheckOuts } = useMemo(() => {
+  // Today stats + yesterday comparisons
+  const {
+    todayCheckIns, todayCheckOuts,
+    yesterdayCheckIns, yesterdayCheckOuts, yesterdayOccupancy,
+    prevMonthRevenue,
+  } = useMemo(() => {
+    const yesterday = subDays(new Date(), 1);
+    const now = new Date();
+    const prevMonthEnd = endOfMonth(subMonths(now, 1));
+    const prevMonthStart = startOfMonth(subMonths(now, 1));
+
     const checkIns = bookings.filter(b => {
       return isToday(new Date(b.checkInDate)) && (b.status === 'CONFIRMED' || b.status === 'CHECKED_IN');
     }).length;
     const checkOuts = bookings.filter(b => {
       return isToday(new Date(b.checkOutDate)) && b.status === 'CHECKED_IN';
     }).length;
-    return { todayCheckIns: checkIns, todayCheckOuts: checkOuts };
-  }, [bookings]);
+    const ydCheckIns = bookings.filter(b => {
+      return isSameDay(new Date(b.checkInDate), yesterday) && (b.status === 'CHECKED_IN' || b.status === 'CHECKED_OUT' || b.status === 'CONFIRMED');
+    }).length;
+    const ydCheckOuts = bookings.filter(b => {
+      return isSameDay(new Date(b.checkOutDate), yesterday) && b.status === 'CHECKED_OUT';
+    }).length;
+    // Occupancy yesterday: bookings whose stay covered yesterday
+    const occupiedYd = bookings.filter(b => {
+      if (b.status !== 'CHECKED_IN' && b.status !== 'CHECKED_OUT') return false;
+      const ci = new Date(b.checkInDate);
+      const co = new Date(b.checkOutDate);
+      return ci <= yesterday && co > yesterday;
+    }).length;
+
+    const prevRev = payments
+      .filter(p => p.status === 'PAID' && isWithinInterval(new Date(p.date), { start: prevMonthStart, end: prevMonthEnd }))
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    return {
+      todayCheckIns: checkIns,
+      todayCheckOuts: checkOuts,
+      yesterdayCheckIns: ydCheckIns,
+      yesterdayCheckOuts: ydCheckOuts,
+      yesterdayOccupancy: occupiedYd,
+      prevMonthRevenue: prevRev,
+    };
+  }, [bookings, payments]);
 
   // ADR
   const adr = useMemo(() => {
@@ -136,6 +170,7 @@ export default function Dashboard() {
               value={`${stats.occupancyRate.toFixed(0)}%`}
               sub={`${stats.occupiedRooms}/${stats.totalRooms} hab.`}
               color="blue"
+              trend={computeTrend(stats.occupiedRooms, yesterdayOccupancy, 'hab.')}
             />
             <MiniStat
               icon={LogIn} label="Check-ins hoy"
@@ -143,6 +178,7 @@ export default function Dashboard() {
               sub="llegadas"
               color="emerald"
               onClick={() => navigate('/bookings?filter=checkin-today')}
+              trend={computeTrend(todayCheckIns, yesterdayCheckIns, 'vs ayer')}
             />
             <MiniStat
               icon={LogOut} label="Check-outs hoy"
@@ -150,12 +186,14 @@ export default function Dashboard() {
               sub="salidas"
               color="amber"
               onClick={() => navigate('/bookings?filter=checkout-today')}
+              trend={computeTrend(todayCheckOuts, yesterdayCheckOuts, 'vs ayer')}
             />
             <MiniStat
               icon={DollarSign} label="Ingresos mes"
               value={`$${(stats.monthlyRevenue / 1000).toFixed(0)}k`}
               sub={`ADR $${adr.toLocaleString()}`}
               color="violet"
+              trend={computeTrend(stats.monthlyRevenue, prevMonthRevenue, 'vs mes ant.', { percent: true })}
             />
           </div>
         </motion.div>
@@ -205,13 +243,37 @@ export default function Dashboard() {
   );
 }
 
+/* ── Trend calculator ── */
+interface TrendInfo {
+  direction: 'up' | 'down' | 'flat';
+  label: string;
+}
+
+function computeTrend(
+  current: number,
+  previous: number,
+  suffix: string,
+  opts?: { percent?: boolean },
+): TrendInfo | undefined {
+  if (previous === 0 && current === 0) return { direction: 'flat', label: `0 ${suffix}` };
+  if (previous === 0) return { direction: 'up', label: `nuevo ${suffix}` };
+  const delta = current - previous;
+  if (delta === 0) return { direction: 'flat', label: `=${suffix ? ` ${suffix}` : ''}` };
+  if (opts?.percent) {
+    const pct = Math.round((delta / previous) * 100);
+    return { direction: pct >= 0 ? 'up' : 'down', label: `${pct > 0 ? '+' : ''}${pct}% ${suffix}` };
+  }
+  return { direction: delta >= 0 ? 'up' : 'down', label: `${delta > 0 ? '+' : ''}${delta} ${suffix}` };
+}
+
 /* ── Mini Stat Card ── */
 function MiniStat({
-  icon: Icon, label, value, sub, color, onClick,
+  icon: Icon, label, value, sub, color, onClick, trend,
 }: {
   icon: typeof BedDouble; label: string; value: string | number; sub: string;
   color: 'blue' | 'emerald' | 'amber' | 'violet';
   onClick?: () => void;
+  trend?: TrendInfo;
 }) {
   const colors = {
     blue: { bg: 'bg-blue-50 dark:bg-blue-950/30', text: 'text-blue-600 dark:text-blue-400', ring: 'ring-blue-200/50 dark:ring-blue-800/30' },
@@ -221,11 +283,17 @@ function MiniStat({
   };
   const c = colors[color];
   const Component = onClick ? 'button' : 'div';
+  const TrendIcon = trend?.direction === 'up' ? ArrowUp : trend?.direction === 'down' ? ArrowDown : Minus;
+  const trendColor = trend?.direction === 'up'
+    ? 'text-emerald-600 dark:text-emerald-400'
+    : trend?.direction === 'down'
+      ? 'text-rose-600 dark:text-rose-400'
+      : 'text-muted-foreground';
   return (
     <Component
       onClick={onClick}
       className={cn(
-        'flex items-center gap-3 p-3.5 rounded-2xl border bg-white/80 dark:bg-slate-900/50 backdrop-blur-sm shadow-sm transition-all ring-1',
+        'flex items-center gap-3 p-3.5 rounded-2xl border bg-white/80 dark:bg-slate-900/50 backdrop-blur-sm shadow-sm transition-all ring-1 text-left',
         c.ring,
         onClick && 'hover:shadow-lg hover:scale-[1.03] active:scale-[0.97] cursor-pointer',
       )}
@@ -233,9 +301,17 @@ function MiniStat({
       <div className={cn('p-2.5 rounded-xl shadow-sm', c.bg)}>
         <Icon className={cn('w-4 h-4', c.text)} />
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-xl font-extrabold text-slate-900 dark:text-white leading-none tracking-tight">{value}</p>
-        <p className="text-[11px] text-muted-foreground truncate mt-0.5">{sub}</p>
+        <div className="flex items-center gap-1.5 mt-1 min-w-0">
+          <p className="text-[11px] text-muted-foreground truncate">{sub}</p>
+          {trend && (
+            <span className={cn('inline-flex items-center gap-0.5 text-[10px] font-semibold shrink-0', trendColor)}>
+              <TrendIcon className="w-2.5 h-2.5" />
+              {trend.label}
+            </span>
+          )}
+        </div>
       </div>
     </Component>
   );

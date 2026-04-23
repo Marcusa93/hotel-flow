@@ -4,3 +4,5 @@ export { EmptyState } from './EmptyState';
 export { LoadingState, KPICardSkeleton, TableSkeleton, ListSkeleton, ChartSkeleton, PageSkeleton } from './LoadingState';
 export { PageHeader } from './PageHeader';
 export { StubIndicator } from './StubIndicator';
+export { ElapsedTimer } from './ElapsedTimer';
+export { ErrorBoundary } from './ErrorBoundary';

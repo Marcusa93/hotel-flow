@@ -47,6 +47,7 @@ import {
     Package
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { errorToast } from '@/lib/toast-utils';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -156,10 +157,10 @@ export default function Expenses() {
                 description: 'El gasto se eliminó correctamente',
             });
         } catch (error) {
-            toast({
-                title: 'Error',
-                description: 'No se pudo eliminar el gasto',
-                variant: 'destructive',
+            errorToast({
+                title: 'No se pudo eliminar el gasto',
+                description: error instanceof Error ? error.message : 'Revisá tu conexión e intentá de nuevo.',
+                onRetry: () => void handleDelete(id),
             });
         }
     };

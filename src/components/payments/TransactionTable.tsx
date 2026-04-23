@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     Table,
     TableBody,
@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/shared';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Eye, Smartphone, CreditCard, Banknote, MoreHorizontal, CheckCircle2, XCircle } from 'lucide-react';
+import { Eye, Smartphone, CreditCard, Banknote, MoreHorizontal, CheckCircle2, XCircle, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -41,7 +41,70 @@ const MethodIcon = ({ method }: { method: PaymentMethod }) => {
     }
 }
 
+type SortKey = 'guest' | 'date' | 'method' | 'amount' | 'status';
+type SortDir = 'asc' | 'desc';
+
 export function TransactionTable({ payments, getBookingInfo, onStatusChange, onViewReceipt }: TransactionTableProps) {
+    const [sortKey, setSortKey] = useState<SortKey>('date');
+    const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+    const toggleSort = (key: SortKey) => {
+        if (sortKey === key) {
+            setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+        } else {
+            setSortKey(key);
+            setSortDir(key === 'amount' || key === 'date' ? 'desc' : 'asc');
+        }
+    };
+
+    const sortedPayments = useMemo(() => {
+        const copy = [...payments];
+        const dir = sortDir === 'asc' ? 1 : -1;
+        copy.sort((a, b) => {
+            switch (sortKey) {
+                case 'guest': {
+                    const nameA = getBookingInfo(a.bookingId).guest?.fullName ?? '';
+                    const nameB = getBookingInfo(b.bookingId).guest?.fullName ?? '';
+                    return nameA.localeCompare(nameB, 'es') * dir;
+                }
+                case 'date':
+                    return (new Date(a.date).getTime() - new Date(b.date).getTime()) * dir;
+                case 'method':
+                    return a.method.localeCompare(b.method) * dir;
+                case 'amount':
+                    return (a.amount - b.amount) * dir;
+                case 'status':
+                    return a.status.localeCompare(b.status) * dir;
+                default:
+                    return 0;
+            }
+        });
+        return copy;
+    }, [payments, sortKey, sortDir, getBookingInfo]);
+
+    const SortHeader = ({ label, sortBy, align, className }: { label: string; sortBy: SortKey; align?: 'left' | 'right'; className?: string }) => {
+        const isActive = sortKey === sortBy;
+        const Icon = !isActive ? ArrowUpDown : sortDir === 'asc' ? ArrowUp : ArrowDown;
+        return (
+            <TableHead className={className}>
+                <button
+                    type="button"
+                    onClick={() => toggleSort(sortBy)}
+                    className={cn(
+                        'flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide transition-colors',
+                        'hover:text-slate-900 dark:hover:text-slate-100',
+                        isActive ? 'text-slate-900 dark:text-slate-100' : 'text-muted-foreground',
+                        align === 'right' && 'ml-auto'
+                    )}
+                    aria-sort={isActive ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                >
+                    {label}
+                    <Icon className={cn('w-3 h-3', isActive ? 'opacity-100' : 'opacity-40')} />
+                </button>
+            </TableHead>
+        );
+    };
+
     return (
         <div className="space-y-4">
             {/* Desktop Table */}
@@ -49,17 +112,17 @@ export function TransactionTable({ payments, getBookingInfo, onStatusChange, onV
                 <Table>
                     <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50">
                         <TableRow className="border-b border-slate-100 dark:border-slate-800 hover:bg-transparent">
-                            <TableHead className="w-[250px]">Huésped</TableHead>
-                            <TableHead>Fecha</TableHead>
-                            <TableHead>Método</TableHead>
+                            <SortHeader label="Huésped" sortBy="guest" className="w-[250px]" />
+                            <SortHeader label="Fecha" sortBy="date" />
+                            <SortHeader label="Método" sortBy="method" />
                             <TableHead>Referencia</TableHead>
-                            <TableHead className="text-right">Monto</TableHead>
-                            <TableHead>Estado</TableHead>
+                            <SortHeader label="Monto" sortBy="amount" align="right" className="text-right" />
+                            <SortHeader label="Estado" sortBy="status" />
                             <TableHead className="w-[80px]"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {payments.map((payment) => {
+                        {sortedPayments.map((payment) => {
                             const { guest, room, checkIn, checkOut } = getBookingInfo(payment.bookingId);
                             const stayLabel = checkIn && checkOut
                                 ? `${format(new Date(checkIn), 'dd/MM')} → ${format(new Date(checkOut), 'dd/MM')}`
@@ -158,7 +221,7 @@ export function TransactionTable({ payments, getBookingInfo, onStatusChange, onV
 
             {/* Mobile Card View */}
             <div className="md:hidden space-y-4">
-                {payments.map((payment) => {
+                {sortedPayments.map((payment) => {
                     const { guest, room } = getBookingInfo(payment.bookingId);
                     return (
                         <div key={payment.id} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border border-white/20 p-4 rounded-xl shadow-sm space-y-3">

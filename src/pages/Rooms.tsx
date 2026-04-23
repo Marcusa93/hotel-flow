@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
@@ -46,9 +47,22 @@ export default function Rooms() {
   }, [canSetAnyStatus, isHousekeeping]);
 
   // UI State
+  const [searchParams, setSearchParams] = useSearchParams();
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [floorFilter, setFloorFilter] = useState<string>('ALL');
   const [selectedRoom, setSelectedRoom] = useState<Room | undefined>(undefined);
+
+  // Accept ?status=DIRTY|MAINTENANCE|OCCUPIED|OUT_OF_ORDER|AVAILABLE from deep links.
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    const validStatuses = ['AVAILABLE', 'OCCUPIED', 'DIRTY', 'MAINTENANCE', 'OUT_OF_ORDER'];
+    if (statusParam && validStatuses.includes(statusParam)) {
+      setStatusFilter(statusParam);
+      const next = new URLSearchParams(searchParams);
+      next.delete('status');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   // isAddRoomOpen removed
 
   // Bulk selection state

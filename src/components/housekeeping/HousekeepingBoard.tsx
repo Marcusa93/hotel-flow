@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Paintbrush, Play, CheckCircle2, AlertCircle, Sparkles, Undo2, User, AlertTriangle } from 'lucide-react';
 import { Room, HousekeepingTask, HousekeepingStatus } from '@/types/hotel';
 import { cn } from '@/lib/utils';
+import { ElapsedTimer } from '@/components/shared';
 
 interface HousekeepingBoardProps {
     rooms: Room[];
@@ -82,8 +83,10 @@ function RoomCard({ room, task, onStatusChange }: { room: Room; task?: Housekeep
 
                 {/* Status Badge */}
                 {task?.status === 'IN_PROGRESS' && (
-                    <Badge variant="outline" className="bg-amber-100 text-amber-700 animate-pulse border-amber-200">
-                        <Paintbrush className="w-3 h-3 mr-1" /> Limpiando
+                    <Badge variant="outline" className="bg-amber-100 text-amber-700 animate-pulse border-amber-200 whitespace-nowrap">
+                        <Paintbrush className="w-3 h-3 mr-1" />
+                        Limpiando
+                        <ElapsedTimer startedAt={task.startedAt} prefix="·" className="ml-1 font-mono tabular-nums" />
                     </Badge>
                 )}
                 {task?.status === 'DONE' && (

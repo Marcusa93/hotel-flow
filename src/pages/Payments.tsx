@@ -1,4 +1,5 @@
-import { useState, useMemo, lazy, Suspense } from 'react';
+import { useState, useMemo, lazy, Suspense, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, Filter, Download } from 'lucide-react';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
@@ -31,9 +32,22 @@ export default function Payments() {
   const { bookings } = useBookingOperations();
   const { guests } = useGuestOperations();
   const { rooms } = useRoomOperations();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'ALL'>('ALL');
   const [methodFilter, setMethodFilter] = useState<PaymentMethod | 'ALL'>('ALL');
+
+  // Accept ?status=PENDING|PAID|FAILED|REFUNDED from deep links (Dashboard alerts).
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    const validStatuses: PaymentStatus[] = ['PENDING', 'PAID', 'FAILED', 'REFUNDED'];
+    if (statusParam && (validStatuses as string[]).includes(statusParam)) {
+      setStatusFilter(statusParam as PaymentStatus);
+      const next = new URLSearchParams(searchParams);
+      next.delete('status');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const [isNewPaymentOpen, setIsNewPaymentOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);

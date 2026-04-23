@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
+import { errorToast } from '@/lib/toast-utils';
 import { cn } from '@/lib/utils';
 
 export default function Housekeeping() {
@@ -86,8 +87,10 @@ export default function Housekeeping() {
     const effectiveStartedAt = startedAt ?? (newStatus === 'IN_PROGRESS' ? now : undefined);
     const effectiveCompletedAt = completedAt ?? (newStatus === 'DONE' ? now : undefined);
 
+    const run = () => updateHousekeepingTask(taskId, { status: newStatus }, rooms, effectiveStartedAt, effectiveCompletedAt);
+
     try {
-      await updateHousekeepingTask(taskId, { status: newStatus }, rooms, effectiveStartedAt, effectiveCompletedAt);
+      await run();
 
       const statusMessages: Record<HousekeepingStatus, string> = {
         TODO: 'Tarea pendiente',
@@ -100,10 +103,10 @@ export default function Housekeeping() {
         description: newStatus === 'DONE' ? 'Buen trabajo' : undefined,
       });
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'No se pudo actualizar la tarea',
-        variant: 'destructive',
+      errorToast({
+        title: 'No se pudo actualizar la tarea',
+        description: error instanceof Error ? error.message : 'Revisá tu conexión e intentá de nuevo.',
+        onRetry: () => void handleStatusChange(taskId, newStatus, startedAt, completedAt),
       });
     }
   }, [updateHousekeepingTask, rooms]);
@@ -128,10 +131,10 @@ export default function Housekeeping() {
         description: 'Nueva tarea de limpieza agregada',
       });
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'No se pudo crear la tarea',
-        variant: 'destructive',
+      errorToast({
+        title: 'No se pudo crear la tarea',
+        description: error instanceof Error ? error.message : 'Revisá tu conexión e intentá de nuevo.',
+        onRetry: () => void handleCreateTask(data),
       });
       throw error;
     }
@@ -187,11 +190,11 @@ export default function Housekeeping() {
         title: '✅ Tarea actualizada',
         description: 'Los cambios se guardaron correctamente',
       });
-    } catch {
-      toast({
-        title: 'Error',
-        description: 'No se pudo actualizar la tarea',
-        variant: 'destructive',
+    } catch (error) {
+      errorToast({
+        title: 'No se pudo actualizar la tarea',
+        description: error instanceof Error ? error.message : 'Revisá tu conexión e intentá de nuevo.',
+        onRetry: () => void handleEditTask(taskId, data),
       });
       throw new Error('update failed');
     }

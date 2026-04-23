@@ -324,6 +324,40 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                                     )}
                                 />
 
+                                {/* Account breakdown */}
+                                {selectedBookingId && totalAccount > 0 && (
+                                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 p-3 space-y-2">
+                                        <div className="flex items-baseline justify-between">
+                                            <span className="text-xs text-muted-foreground">Total de la reserva</span>
+                                            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 tabular-nums">
+                                                ${totalAccount.toLocaleString('es-AR')}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-baseline justify-between">
+                                            <span className="text-xs text-muted-foreground">Ya pagado</span>
+                                            <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                                −${totalPaid.toLocaleString('es-AR')}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-baseline justify-between pt-2 border-t border-slate-200 dark:border-slate-800">
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pendiente</span>
+                                            <span className={cn(
+                                                "text-base font-bold tabular-nums",
+                                                pendingAmount > 0
+                                                    ? "text-rose-600 dark:text-rose-400"
+                                                    : "text-emerald-600 dark:text-emerald-400"
+                                            )}>
+                                                ${pendingAmount.toLocaleString('es-AR')}
+                                            </span>
+                                        </div>
+                                        {pendingAmount === 0 && (
+                                            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 pt-1">
+                                                ✓ Esta reserva ya está saldada.
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Amount */}
                                 <FormField
                                     control={form.control}
@@ -334,11 +368,6 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                                             <FormControl>
                                                 <Input type="number" min={0} step={0.01} {...field} />
                                             </FormControl>
-                                            {pendingAmount > 0 && (
-                                                <p className="text-xs text-amber-600">
-                                                    Pendiente: ${pendingAmount.toLocaleString('es-AR')}
-                                                </p>
-                                            )}
                                             <FormMessage />
                                         </FormItem>
                                     )}

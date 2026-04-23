@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, differenceInDays, isWithinInterval, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, AlertTriangle, Users, Tag, Percent, Sparkles, UserPlus, ArrowLeft, Check, Loader2, Car, Globe } from 'lucide-react';
+import { CalendarIcon, AlertTriangle, Users, Tag, Percent, Sparkles, UserPlus, ArrowLeft, Check, Loader2, Car, Globe, Search, ChevronsUpDown } from 'lucide-react';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
@@ -46,6 +46,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Rate } from '@/types/hotel';
@@ -454,26 +456,91 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
                 <FormField
                   control={form.control}
                   name="guestId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Huésped</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar huésped" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {guests.map(guest => (
-                            <SelectItem key={guest.id} value={guest.id}>
-                              {guest.fullName} {guest.email ? `(${guest.email})` : guest.phone ? `(${guest.phone})` : ''}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const selectedGuest = guests.find(g => g.id === field.value);
+                    return (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Huésped</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                role="combobox"
+                                className={cn(
+                                  'w-full justify-between font-normal',
+                                  !selectedGuest && 'text-muted-foreground'
+                                )}
+                              >
+                                {selectedGuest ? (
+                                  <span className="truncate">
+                                    {selectedGuest.fullName}
+                                    {selectedGuest.email ? (
+                                      <span className="text-muted-foreground"> · {selectedGuest.email}</span>
+                                    ) : selectedGuest.phone ? (
+                                      <span className="text-muted-foreground"> · {selectedGuest.phone}</span>
+                                    ) : null}
+                                  </span>
+                                ) : (
+                                  'Buscar huésped por nombre, email o teléfono…'
+                                )}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="p-0 w-[--radix-popover-trigger-width] max-w-[520px]" align="start">
+                            <Command
+                              filter={(value, search) => {
+                                // `value` is the id we register below. We do the actual match against
+                                // the guest's fullName/email/phone via the keywords prop (cmdk joins them).
+                                return value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
+                              }}
+                            >
+                              <CommandInput placeholder="Buscar huésped…" autoFocus />
+                              <CommandList>
+                                <CommandEmpty>
+                                  <div className="flex flex-col items-center gap-2 py-2">
+                                    <p className="text-sm text-muted-foreground">No se encontró ningún huésped.</p>
+                                  </div>
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  {guests.map(guest => {
+                                    const searchable = [guest.fullName, guest.email, guest.phone, guest.documentId]
+                                      .filter(Boolean)
+                                      .join(' ')
+                                      .toLowerCase();
+                                    return (
+                                      <CommandItem
+                                        key={guest.id}
+                                        value={searchable}
+                                        onSelect={() => {
+                                          field.onChange(guest.id);
+                                          // close popover by blurring — Popover handles onOpenChange via Radix
+                                          (document.activeElement as HTMLElement | null)?.blur();
+                                        }}
+                                      >
+                                        <div className="flex flex-col flex-1 min-w-0">
+                                          <span className="truncate">{guest.fullName}</span>
+                                          <span className="text-xs text-muted-foreground truncate">
+                                            {guest.email || guest.phone || 'Sin contacto'}
+                                          </span>
+                                        </div>
+                                        {field.value === guest.id && (
+                                          <Check className="h-4 w-4 ml-2 shrink-0 text-primary" />
+                                        )}
+                                      </CommandItem>
+                                    );
+                                  })}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
                 <Button
                   type="button"

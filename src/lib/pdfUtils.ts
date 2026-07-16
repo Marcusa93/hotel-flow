@@ -31,6 +31,8 @@ interface GenerateReceiptPDFParams {
   room?: Room;
   roomType?: RoomType;
   hotelSettings?: HotelSettings;
+  /** PNG data URL of the guest's drawn signature */
+  signatureDataUrl?: string;
 }
 
 export async function generateReceiptPDF(params: GenerateReceiptPDFParams): Promise<void> {

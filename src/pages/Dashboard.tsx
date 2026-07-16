@@ -20,7 +20,7 @@ import { NewPaymentDialog } from '@/components/payments/NewPaymentDialog';
 import { NewExpenseDialog } from '@/components/expenses/NewExpenseDialog';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { format, isToday, isSameDay, subDays, subMonths, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
+import { format, isToday, isSameDay, subDays, subMonths, isWithinInterval, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -47,13 +47,20 @@ export default function Dashboard() {
   // Today stats + yesterday comparisons
   const {
     todayCheckIns, todayCheckOuts,
-    yesterdayCheckIns, yesterdayCheckOuts, yesterdayOccupancy,
+    yesterdayCheckIns, yesterdayCheckOuts, yesterdayOccupancy, todayOccupancy,
     prevMonthRevenue,
   } = useMemo(() => {
     const yesterday = subDays(new Date(), 1);
     const now = new Date();
-    const prevMonthEnd = endOfMonth(subMonths(now, 1));
+    const today = startOfDay(now);
     const prevMonthStart = startOfMonth(subMonths(now, 1));
+    // Compare month-to-date against the SAME slice of the previous month (day 1..today's
+    // day-of-month), capped to the previous month's length — otherwise early in the month
+    // a full-month total dwarfs the partial current month and always reads as a huge drop.
+    const prevMonthLastDay = endOfMonth(subMonths(now, 1)).getDate();
+    const prevMonthToDate = new Date(prevMonthStart);
+    prevMonthToDate.setDate(Math.min(now.getDate(), prevMonthLastDay));
+    const prevMonthEnd = endOfDay(prevMonthToDate);
 
     const checkIns = bookings.filter(b => {
       return isToday(new Date(b.checkInDate)) && (b.status === 'CONFIRMED' || b.status === 'CHECKED_IN');
@@ -74,6 +81,13 @@ export default function Dashboard() {
       const co = new Date(b.checkOutDate);
       return ci <= yesterday && co > yesterday;
     }).length;
+    // Occupancy today from bookings (same population as yesterday) so the trend compares like-for-like
+    const occupiedToday = bookings.filter(b => {
+      if (b.status !== 'CHECKED_IN' && b.status !== 'CHECKED_OUT') return false;
+      const ci = new Date(b.checkInDate);
+      const co = new Date(b.checkOutDate);
+      return ci <= today && co > today;
+    }).length;
 
     const prevRev = payments
       .filter(p => p.status === 'PAID' && isWithinInterval(new Date(p.date), { start: prevMonthStart, end: prevMonthEnd }))
@@ -85,6 +99,7 @@ export default function Dashboard() {
       yesterdayCheckIns: ydCheckIns,
       yesterdayCheckOuts: ydCheckOuts,
       yesterdayOccupancy: occupiedYd,
+      todayOccupancy: occupiedToday,
       prevMonthRevenue: prevRev,
     };
   }, [bookings, payments]);
@@ -170,7 +185,7 @@ export default function Dashboard() {
               value={`${stats.occupancyRate.toFixed(0)}%`}
               sub={`${stats.occupiedRooms}/${stats.totalRooms} hab.`}
               color="blue"
-              trend={computeTrend(stats.occupiedRooms, yesterdayOccupancy, 'hab.')}
+              trend={computeTrend(todayOccupancy, yesterdayOccupancy, 'vs ayer')}
             />
             <MiniStat
               icon={LogIn} label="Check-ins hoy"

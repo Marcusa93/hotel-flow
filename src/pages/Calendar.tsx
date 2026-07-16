@@ -95,6 +95,13 @@ export default function Calendar() {
     }, 0);
   };
 
+  // Max daily revenue in the visible range, so heatmap intensity is relative
+  // (a hardcoded ceiling clamps every day to darkest with ARS prices)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const maxDailyRevenue = useMemo(() => {
+    return days.reduce((max, day) => Math.max(max, calculateDailyRevenue(day)), 0);
+  }, [days, bookings, filteredRoomIds]);
+
   const getHeatmapColor = (day: Date) => {
     if (heatmapMode === 'none') return undefined;
 
@@ -112,8 +119,8 @@ export default function Calendar() {
 
     if (heatmapMode === 'revenue') {
       const revenue = calculateDailyRevenue(day);
-      const maxPotentialRevenue = totalCapacity * 200;
-      const intensity = Math.min(revenue / maxPotentialRevenue, 1);
+      // Intensity relative to the busiest day in view (guard against divide-by-zero)
+      const intensity = maxDailyRevenue > 0 ? Math.min(revenue / maxDailyRevenue, 1) : 0;
 
       if (intensity === 0) return 'transparent';
       if (intensity < 0.25) return 'rgba(16, 185, 129, 0.1)';

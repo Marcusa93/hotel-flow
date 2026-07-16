@@ -46,7 +46,6 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -219,7 +218,12 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
 
   // Determine effective price (considering promotions)
   const { effectivePrice, appliedPromo, savings } = useMemo(() => {
-    let promo: Rate | null = appliedPromoCode || bestAutoPromo;
+    // Only honor the applied promo code if it's still valid for the current
+    // room/dates selection; otherwise fall back to the best automatic promo.
+    const validAppliedCode = appliedPromoCode && applicablePromotions.some(p => p.id === appliedPromoCode.id)
+      ? appliedPromoCode
+      : null;
+    const promo: Rate | null = validAppliedCode || bestAutoPromo;
 
     if (!promo) {
       return { effectivePrice: basePrice, appliedPromo: null, savings: 0 };
@@ -239,7 +243,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
     const savings = basePrice - finalPrice;
 
     return { effectivePrice: finalPrice, appliedPromo: promo, savings };
-  }, [basePrice, appliedPromoCode, bestAutoPromo]);
+  }, [basePrice, appliedPromoCode, bestAutoPromo, applicablePromotions]);
 
   const totalAmount = nights * effectivePrice;
   const totalSavings = nights * savings;
@@ -285,8 +289,10 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
     form.setValue('promoCode', '');
   };
 
+  // Exclude only rooms in maintenance: today's physical status (e.g. OCCUPIED)
+  // says nothing about future dates — the per-date conflict check handles that.
   const availableRooms = rooms.filter(r =>
-    r.status === 'AVAILABLE'
+    r.status !== 'MAINTENANCE'
   );
 
   // Save new guest inline without closing the booking dialog
@@ -346,9 +352,16 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
 
   const onSubmit = async (data: BookingFormData) => {
     if (isOverCapacity && !data.confirmOverCapacity) {
+      // Fallback: the checkbox lives in step 2 — send the user back there
       form.setError('confirmOverCapacity', {
         message: 'Debes confirmar para continuar',
       });
+      toast({
+        title: 'Capacidad excedida',
+        description: 'Confirmá la capacidad excedida en el paso 2 para continuar.',
+        variant: 'destructive',
+      });
+      setWizardStep(2);
       return;
     }
 
@@ -417,8 +430,20 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
     }
   };
 
+  // Reset all dialog state on close so reopening starts fresh
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      form.reset();
+      setIsNewGuest(false);
+      setAppliedPromoCode(null);
+      setPromoCodeInput('');
+      setWizardStep(1);
+    }
+    onOpenChange(nextOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Nueva Reserva</DialogTitle>
@@ -796,7 +821,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
                           mode="single"
                           selected={field.value}
                           onSelect={field.onChange}
-                          disabled={(date) => date < new Date()}
+                          disabled={(date) => date < startOfDay(new Date())}
                           initialFocus
                         />
                       </PopoverContent>
@@ -974,6 +999,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
                         <FormLabel>
                           Confirmo que deseo continuar (se marcará como "Needs review")
                         </FormLabel>
+                        <FormMessage />
                       </div>
                     </FormItem>
                   )}
@@ -994,6 +1020,10 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
                 if (!checkIn) { form.setError('checkInDate', { message: 'Fecha de check-in requerida' }); return; }
                 if (!checkOut) { form.setError('checkOutDate', { message: 'Fecha de check-out requerida' }); return; }
                 if (checkOut <= checkIn) { form.setError('checkOutDate', { message: 'Check-out debe ser posterior' }); return; }
+                if (isOverCapacity && !form.getValues('confirmOverCapacity')) {
+                  form.setError('confirmOverCapacity', { message: 'Debes confirmar para continuar' });
+                  return;
+                }
                 setWizardStep(3);
               }}>
                 Siguiente →

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useDashboardStats } from '@/hooks/domain/useDashboardStats';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
@@ -27,8 +27,15 @@ import {
 import { chartColors, chartGrid, chartAxis, chartTooltip } from '@/lib/chartTheme';
 import { useToast } from '@/hooks/use-toast';
 import { DollarSign, BedDouble, Users, Calendar, Activity, Download, FileSpreadsheet, FileText } from 'lucide-react';
-import { format, subDays, startOfMonth } from 'date-fns';
+import { format, subDays, startOfMonth, eachDayOfInterval, isWithinInterval, startOfDay, endOfDay, differenceInCalendarDays } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+const METHOD_LABELS: Record<string, string> = {
+  CASH: 'Efectivo',
+  CARD: 'Tarjeta',
+  TRANSFER: 'Transferencia',
+  OTHER: 'Otro',
+};
 
 export default function Statistics() {
   const { stats, occupancyByType } = useDashboardStats();
@@ -42,18 +49,53 @@ export default function Statistics() {
     to: new Date(),
   });
 
-  // Revenue by day (last 7 days)
-  const last7Days = Array.from({ length: 7 }, (_, i) => subDays(new Date(), 6 - i));
-  const revenueByDay = last7Days.map(date => {
-    const dayPayments = payments.filter(p => {
-      const pDate = new Date(p.date);
-      return pDate.toDateString() === date.toDateString() && p.status === 'PAID';
-    });
-    return {
-      date: format(date, 'EEE', { locale: es }),
-      revenue: dayPayments.reduce((sum, p) => sum + p.amount, 0),
-    };
-  });
+  const rangeStart = startOfDay(dateRange.from);
+  const rangeEnd = endOfDay(dateRange.to);
+  const inRange = (d: Date) => isWithinInterval(d, { start: rangeStart, end: rangeEnd });
+
+  // PAID payments dated inside the selected range
+  const paidInRange = useMemo(
+    () => payments.filter(p => p.status === 'PAID' && inRange(new Date(p.date))),
+    [payments, rangeStart, rangeEnd]
+  );
+
+  // Period revenue KPI
+  const periodRevenue = useMemo(
+    () => paidInRange.reduce((sum, p) => sum + p.amount, 0),
+    [paidInRange]
+  );
+
+  // Bookings whose check-in falls inside the range
+  const bookingsInRange = useMemo(
+    () => bookings.filter(b => inRange(new Date(b.checkInDate))),
+    [bookings, rangeStart, rangeEnd]
+  );
+
+  // Revenue by day across the selected range (capped to 62 days so the axis stays readable)
+  const revenueByDay = useMemo(() => {
+    const spanDays = differenceInCalendarDays(rangeEnd, rangeStart) + 1;
+    const days = spanDays > 0 && spanDays <= 62
+      ? eachDayOfInterval({ start: rangeStart, end: rangeEnd })
+      : Array.from({ length: 7 }, (_, i) => subDays(new Date(), 6 - i));
+    return days.map(date => ({
+      date: format(date, spanDays > 14 ? 'dd/MM' : 'EEE', { locale: es }),
+      revenue: paidInRange
+        .filter(p => new Date(p.date).toDateString() === date.toDateString())
+        .reduce((sum, p) => sum + p.amount, 0),
+    }));
+  }, [paidInRange, rangeStart, rangeEnd]);
+
+  // Real revenue by payment method for the radar chart
+  const revenueByMethod = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const p of paidInRange) {
+      totals[p.method] = (totals[p.method] || 0) + p.amount;
+    }
+    return Object.entries(METHOD_LABELS).map(([method, label]) => ({
+      subject: label,
+      A: totals[method] || 0,
+    }));
+  }, [paidInRange]);
 
   // Occupancy data formatting
   const occupancyPieData = occupancyByType.map(type => ({
@@ -115,18 +157,18 @@ export default function Statistics() {
       {/* KPI Cockpit */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 animate-in slide-in-from-bottom-3 duration-500">
         <KPICard
-          title="Ocupación"
+          title="Ocupación actual"
           value={`${stats.occupancyRate.toFixed(0)}%`}
           icon={<BedDouble className="w-5 h-5 text-indigo-500" />}
         />
         <KPICard
-          title="Ingresos (Mes)"
-          value={`$${stats.monthlyRevenue.toLocaleString('es-AR')}`}
+          title="Ingresos (período)"
+          value={`$${periodRevenue.toLocaleString('es-AR')}`}
           icon={<DollarSign className="w-5 h-5 text-emerald-500" />}
         />
         <KPICard
-          title="Total Reservas"
-          value={bookings.length}
+          title="Reservas (período)"
+          value={bookingsInRange.length}
           icon={<Calendar className="w-5 h-5 text-blue-500" />}
         />
         <KPICard
@@ -141,7 +183,7 @@ export default function Statistics() {
         <div className="lg:col-span-2">
           <Card className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border-white/20 shadow-sm h-full">
             <CardHeader>
-              <CardTitle className="text-lg">Ingresos Últimos 7 Días</CardTitle>
+              <CardTitle className="text-lg">Ingresos por Día (período)</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-[300px]">
@@ -177,7 +219,7 @@ export default function Statistics() {
           </Card>
         </div>
         <div>
-          <RevenueRadarChart />
+          <RevenueRadarChart data={revenueByMethod} />
         </div>
       </div>
 

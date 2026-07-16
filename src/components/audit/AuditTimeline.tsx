@@ -18,6 +18,7 @@ import {
   DollarSign,
   ExternalLink,
   ArrowRight,
+  ShoppingCart,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,7 @@ const entityIcons: Record<AuditEntityType, any> = {
   rate: Percent,
   expense: DollarSign,
   hotel_settings: Settings,
+  booking_charge: ShoppingCart,
 };
 
 const entityLabels: Record<AuditEntityType, string> = {
@@ -55,6 +57,7 @@ const entityLabels: Record<AuditEntityType, string> = {
   rate: 'Tarifa',
   expense: 'Gasto',
   hotel_settings: 'Config.',
+  booking_charge: 'Cargo de Reserva',
 };
 
 const entityRoutes: Partial<Record<AuditEntityType, string>> = {

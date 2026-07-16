@@ -118,7 +118,7 @@ export default function Housekeeping() {
     notes?: string;
   }) => {
     try {
-      await addHousekeepingTask({
+      const result = await addHousekeepingTask({
         roomId: data.roomId,
         date: new Date(),
         status: 'TODO',
@@ -126,10 +126,17 @@ export default function Housekeeping() {
         assignedTo: data.assignedTo,
         notes: data.notes,
       });
-      toast({
-        title: '✅ Tarea creada',
-        description: 'Nueva tarea de limpieza agregada',
-      });
+      if (result?.deduped) {
+        toast({
+          title: 'Ya existía una tarea para esa habitación',
+          description: 'No se creó una tarea duplicada',
+        });
+      } else {
+        toast({
+          title: '✅ Tarea creada',
+          description: 'Nueva tarea de limpieza agregada',
+        });
+      }
     } catch (error) {
       errorToast({
         title: 'No se pudo crear la tarea',
@@ -199,6 +206,8 @@ export default function Housekeeping() {
       throw new Error('update failed');
     }
   }, [updateHousekeepingTask, rooms]);
+
+  const editingTaskRoom = editingTask ? rooms.find(r => r.id === editingTask.roomId) : undefined;
 
   const completedToday = todaysTasks.filter(t => t.status === 'DONE').length;
   const inProgressCount = todaysTasks.filter(t => t.status === 'IN_PROGRESS').length;
@@ -298,10 +307,11 @@ export default function Housekeeping() {
             {dirtyWithoutTask.sort((a, b) => parseInt(a.roomNumber) - parseInt(b.roomNumber)).map(room => (
               <button
                 key={room.id}
+                disabled={isCreating}
                 onClick={() => {
                   handleCreateTask({ roomId: room.id, priority: 'NORMAL' });
                 }}
-                className="flex items-center gap-1.5 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-800/50 rounded-xl px-3 py-2 text-sm font-bold text-orange-700 dark:text-orange-300 hover:shadow-md hover:scale-[1.03] transition-all active:scale-95"
+                className="flex items-center gap-1.5 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-800/50 rounded-xl px-3 py-2 text-sm font-bold text-orange-700 dark:text-orange-300 hover:shadow-md hover:scale-[1.03] transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
               >
                 <span className="text-lg">{room.roomNumber}</span>
                 <span className="text-[10px] text-muted-foreground">P{room.floor}</span>
@@ -378,13 +388,13 @@ export default function Housekeeping() {
         </>
       )}
 
-      {/* Edit Task Dialog */}
-      {editingTask && (
+      {/* Edit Task Dialog — only render when the task's room still exists */}
+      {editingTask && editingTaskRoom && (
         <EditTaskDialog
           open={!!editingTask}
           onOpenChange={(open) => { if (!open) setEditingTask(null); }}
           task={editingTask}
-          room={rooms.find(r => r.id === editingTask.roomId) || rooms[0]}
+          room={editingTaskRoom}
           rooms={rooms}
           staffSuggestions={allStaffNames}
           onSave={handleEditTask}

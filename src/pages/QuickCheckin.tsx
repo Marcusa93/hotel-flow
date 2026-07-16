@@ -3,6 +3,7 @@ import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
+import { useBookingCharges } from '@/hooks/useBookingCharges';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
@@ -32,19 +33,34 @@ const STATUS_LABELS: Record<string, string> = {
 export default function QuickCheckin() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { bookings, updateBookingStatus } = useBookingOperations();
+  const { bookings, updateBookingStatus, isLoading } = useBookingOperations();
   const { guests } = useGuestOperations();
   const { rooms, roomTypes } = useRoomOperations();
   const { payments } = usePaymentOperations();
+  const { data: bookingCharges = [] } = useBookingCharges(id);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const booking = bookings.find(b => b.id === id);
 
   if (!booking) {
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          <p className="text-muted-foreground">Cargando reserva...</p>
+        </div>
+      );
+    }
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        <p className="text-muted-foreground">Cargando reserva...</p>
+      <div className="max-w-lg mx-auto flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <AlertTriangle className="w-12 h-12 text-destructive" />
+        <h2 className="text-xl font-bold">Reserva no encontrada</h2>
+        <p className="text-muted-foreground text-center">
+          No existe ninguna reserva con este identificador. Verificá el enlace o el código QR.
+        </p>
+        <Button variant="outline" onClick={() => navigate('/bookings')}>
+          Volver a Reservas
+        </Button>
       </div>
     );
   }
@@ -70,7 +86,8 @@ export default function QuickCheckin() {
   const roomType = room?.roomTypeId ? roomTypes.find(rt => rt.id === room.roomTypeId) : null;
   const bookingPayments = payments.filter(p => p.bookingId === booking.id && p.status === 'PAID');
   const totalPaid = bookingPayments.reduce((sum, p) => sum + p.amount, 0);
-  const balance = booking.totalAmount - totalPaid;
+  const totalCharges = bookingCharges.reduce((sum, c) => sum + c.amount * c.quantity, 0);
+  const balance = booking.totalAmount + totalCharges - totalPaid;
   const nights = differenceInDays(new Date(booking.checkOutDate), new Date(booking.checkInDate));
 
   const canCheckin = booking.status === 'CONFIRMED' || booking.status === 'PENDING';

@@ -60,10 +60,13 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
         },
     });
 
-    // Real-time subscription for new notifications
+    // Real-time subscription for new notifications.
+    // Unique topic per mount — a shared topic would make every consumer share
+    // ONE channel instance, so one unmount (e.g. the Notifications page) would
+    // kill the NotificationBell's subscription too.
     useEffect(() => {
         const channel = supabase
-            .channel('notifications-changes')
+            .channel(`notifications-changes-${Math.random().toString(36).slice(2)}`)
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'notifications' },

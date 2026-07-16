@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { ExpenseType } from '@/types/hotel';
+import { Expense, ExpenseType } from '@/types/hotel';
 import { mapExpense } from '@/lib/mappers';
+import { formatLocalDate } from '@/lib/utils';
 
 interface UseExpensesOptions {
     startDate?: Date;
@@ -19,10 +20,10 @@ export const useExpenses = (options: UseExpensesOptions = {}) => {
                 .order('date', { ascending: false });
 
             if (options.startDate) {
-                query = query.gte('date', options.startDate.toISOString().split('T')[0]);
+                query = query.gte('date', formatLocalDate(options.startDate));
             }
             if (options.endDate) {
-                query = query.lte('date', options.endDate.toISOString().split('T')[0]);
+                query = query.lte('date', formatLocalDate(options.endDate));
             }
             if (options.expenseType) {
                 query = query.eq('expense_type', options.expenseType);

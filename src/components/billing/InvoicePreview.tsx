@@ -14,8 +14,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
+import { cn, escapeHtml } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { useAppRole } from '@/context/AppRoleContext';
 
 interface InvoicePreviewProps {
     open: boolean;
@@ -53,6 +54,8 @@ export function InvoicePreview({
 }: InvoicePreviewProps) {
     const updateInvoiceMutation = useUpdateInvoice();
     const { data: hotelSettings } = useHotelSettings();
+    const { currentRole } = useAppRole();
+    const canWrite = currentRole === 'admin' || currentRole === 'reception';
     const printRef = useRef<HTMLDivElement>(null);
     const [isUpdating, setIsUpdating] = useState(false);
 
@@ -86,6 +89,7 @@ export function InvoicePreview({
         const printWindow = window.open('', '', 'width=800,height=600');
         if (!printWindow) return;
 
+        const h = escapeHtml;
         const printContent = `
       <!DOCTYPE html>
       <html>
@@ -153,14 +157,14 @@ export function InvoicePreview({
         <div class="parties">
           <div class="party">
             <h3>Facturar a</h3>
-            <p class="name">${guest?.fullName || 'Huésped'}</p>
-            <p>${guest?.documentId ? `DNI/CUIT: ${guest.documentId}` : ''}</p>
-            <p>${guest?.email || ''}</p>
-            <p>${guest?.phone || ''}</p>
+            <p class="name">${h(guest?.fullName) || 'Huésped'}</p>
+            <p>${guest?.documentId ? `DNI/CUIT: ${h(guest.documentId)}` : ''}</p>
+            <p>${h(guest?.email)}</p>
+            <p>${h(guest?.phone)}</p>
           </div>
           <div class="party" style="text-align: right;">
             <h3>Detalles de Estadía</h3>
-            <p>Habitación ${room?.roomNumber || '-'} (${roomType?.name || ''})</p>
+            <p>Habitación ${h(room?.roomNumber) || '-'} (${h(roomType?.name)})</p>
             ${booking ? `<p>${format(new Date(booking.checkInDate), 'dd MMM', { locale: es })} - ${format(new Date(booking.checkOutDate), 'dd MMM yyyy', { locale: es })}</p>` : ''}
           </div>
         </div>
@@ -179,7 +183,7 @@ export function InvoicePreview({
             <tbody>
               ${invoice.items?.map(item => `
                 <tr>
-                  <td class="description">${item.description}</td>
+                  <td class="description">${h(item.description)}</td>
                   <td class="type">${itemTypeLabels[item.itemType] || item.itemType}</td>
                   <td class="number">${item.quantity}</td>
                   <td class="number">$${item.unitPrice.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
@@ -208,7 +212,7 @@ export function InvoicePreview({
         ${invoice.notes ? `
           <div class="notes">
             <h4>Notas</h4>
-            <p>${invoice.notes}</p>
+            <p>${h(invoice.notes)}</p>
           </div>
         ` : ''}
         
@@ -347,7 +351,7 @@ export function InvoicePreview({
                         </Button>
                     </div>
 
-                    {invoice.status === 'DRAFT' && (
+                    {canWrite && invoice.status === 'DRAFT' && (
                         <Button
                             className="w-full bg-blue-600 hover:bg-blue-700"
                             onClick={() => handleStatusChange('ISSUED')}
@@ -358,7 +362,7 @@ export function InvoicePreview({
                         </Button>
                     )}
 
-                    {invoice.status === 'ISSUED' && (
+                    {canWrite && invoice.status === 'ISSUED' && (
                         <Button
                             className="w-full bg-emerald-600 hover:bg-emerald-700"
                             onClick={() => handleStatusChange('PAID')}

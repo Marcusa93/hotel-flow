@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/select';
 import { useNotifications, useUnreadCount, Notification, NotificationCategory } from '@/hooks/useNotifications';
 import { useMarkNotificationRead, useMarkAllNotificationsRead, useDeleteNotification, useClearAllNotifications } from '@/hooks/useMarkNotificationRead';
+import { useAppRole } from '@/context/AppRoleContext';
+import type { UserRole } from '@/types/hotel';
 import { toast } from '@/hooks/use-toast';
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -286,20 +288,22 @@ export default function Notifications() {
   );
 }
 
-/** Resolve navigation route from notification category + metadata */
-function getNotificationRoute(notification: Notification): string {
+/** Resolve navigation route from notification category + metadata + role. Null = stay on this page. */
+function getNotificationRoute(notification: Notification, role: UserRole | null): string | null {
   const { category, metadata } = notification;
   if (metadata?.bookingId) return `/bookings/${metadata.bookingId}`;
-  const categoryRoutes: Record<NotificationCategory, string> = {
+  const categoryRoutes: Record<NotificationCategory, string | null> = {
     booking: '/bookings',
     payment: '/payments',
     housekeeping: '/housekeeping',
     checkin: '/bookings',
     checkout: '/bookings',
-    promotion: '/notifications',
-    system: '/audit-log',
+    promotion: null,
+    // /audit-log is admin/auditor only — RoleGuard would silently bounce
+    // anyone else, so stay on this page instead
+    system: role === 'admin' || role === 'auditor' ? '/audit-log' : null,
   };
-  return categoryRoutes[category] || '/notifications';
+  return categoryRoutes[category] ?? null;
 }
 
 interface NotificationsListProps {
@@ -311,13 +315,14 @@ interface NotificationsListProps {
 
 function NotificationsList({ notifications, isLoading, onMarkRead, onDelete }: NotificationsListProps) {
   const navigate = useNavigate();
+  const { currentRole } = useAppRole();
 
   const handleNavigate = (notification: Notification) => {
     if (!notification.isRead) {
       onMarkRead(notification.id);
     }
-    const route = getNotificationRoute(notification);
-    navigate(route);
+    const route = getNotificationRoute(notification, currentRole);
+    if (route) navigate(route);
   };
 
   if (isLoading) {

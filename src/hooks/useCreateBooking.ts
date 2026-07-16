@@ -26,6 +26,10 @@ export const useCreateBooking = () => {
                     status: bookingData.status,
                     total_amount: bookingData.totalAmount,
                     notes: bookingData.notes,
+                    has_vehicle: bookingData.hasVehicle ?? false,
+                    vehicle_description: bookingData.vehicleDescription,
+                    license_plate: bookingData.licensePlate,
+                    needs_review: bookingData.needsReview ?? false,
                 })
                 .select()
                 .single();
@@ -47,6 +51,7 @@ export const useCreateBooking = () => {
                 hasVehicle: data.has_vehicle ?? false,
                 vehicleDescription: data.vehicle_description,
                 licensePlate: data.license_plate,
+                needsReview: data.needs_review ?? false,
                 createdAt: new Date(data.created_at)
             } as Booking;
         },

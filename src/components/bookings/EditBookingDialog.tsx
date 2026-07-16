@@ -122,9 +122,11 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
     ? checkRoomAvailability(watchedRoomId, watchedCheckIn, watchedCheckOut, booking.id)
     : { available: true, conflicts: [] };
 
-  // Available rooms: those that are AVAILABLE or the current booking's room
+  // Available rooms: exclude only rooms in maintenance (today's physical status
+  // says nothing about future dates — the conflict check handles availability),
+  // and always include the booking's current room.
   const availableRooms = rooms.filter(r =>
-    r.status === 'AVAILABLE' || r.id === booking.roomId
+    r.status !== 'MAINTENANCE' || r.id === booking.roomId
   );
 
   // Detect changes for diff display

@@ -1,33 +1,51 @@
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAppRole } from '@/context/AppRoleContext';
 import { getFallbackRoute } from '@/components/auth/RoleGuard';
 
 export default function Login() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
-    const { currentRole, profileLoading } = useAppRole();
+    const { currentRole, profileLoading, profileError } = useAppRole();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [isSignUp, setIsSignUp] = useState(false); // Toggle between Login/Signup
+    const [roleIssue, setRoleIssue] = useState<string | null>(null);
 
     // Redirect authenticated users to the landing page of their role.
     // Runs on initial mount (already-logged-in user lands on /login) and
     // after a successful signIn (session updates → this effect fires).
+    // If the role can never be resolved, show an on-screen error instead
+    // of leaving the user stranded on the login form.
     useEffect(() => {
-        if (user && !profileLoading && currentRole) {
-            navigate(getFallbackRoute(currentRole), { replace: true });
+        if (!user) {
+            setRoleIssue(null);
+            return;
         }
-    }, [user, currentRole, profileLoading, navigate]);
+        if (profileLoading) return;
+        if (currentRole) {
+            // Prefer the page the user was originally trying to reach
+            // (RoleGuard will re-redirect if the role can't access it).
+            const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
+            navigate(from && from !== '/login' ? from : getFallbackRoute(currentRole), { replace: true });
+        } else {
+            setRoleIssue(
+                profileError
+                    ? 'No pudimos cargar tu perfil. Reintentá en unos minutos o contactá al administrador.'
+                    : 'Tu cuenta todavía no tiene acceso. Un administrador debe habilitar tu usuario.'
+            );
+        }
+    }, [user, currentRole, profileLoading, profileError, navigate, location.state]);
 
     const handleForgotPassword = async () => {
         if (!email) {
@@ -69,7 +87,7 @@ export default function Login() {
                 if (error) throw error;
                 toast({
                     title: "Cuenta creada",
-                    description: "Revisa tu email para confirmar tu cuenta (si está habilitado) o inicia sesión.",
+                    description: "Un administrador debe habilitar tu acceso.",
                 });
             } else {
                 const { error } = await supabase.auth.signInWithPassword({
@@ -112,6 +130,13 @@ export default function Login() {
                         Panel de Control
                     </p>
                 </div>
+
+                {roleIssue && (
+                    <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+                        <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                        <span>{roleIssue}</span>
+                    </div>
+                )}
 
                 <form onSubmit={handleAuth} className="space-y-4">
                     <div className="space-y-2">

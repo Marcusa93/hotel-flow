@@ -201,7 +201,7 @@ export default function Bookings() {
               />
             ) : viewMode === 'timeline' ? (
               <BookingTimeline
-                bookings={bookings}
+                bookings={filteredBookings}
                 rooms={rooms}
                 guests={(() => {
                   const map = new Map<string, typeof guests[0]>();

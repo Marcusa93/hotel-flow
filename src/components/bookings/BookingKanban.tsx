@@ -147,10 +147,7 @@ export function BookingKanban({ bookings, guests, rooms, roomTypes, onStatusChan
                                                                             <User className="w-3 h-3" />
                                                                             <span>{booking.adults}</span>
                                                                         </div>
-                                                                        <div className={cn(
-                                                                            "flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full",
-                                                                            booking.paymentStatus === 'PAID' ? "bg-green-500/10 text-green-500" : "bg-amber-500/10 text-amber-500"
-                                                                        )}>
+                                                                        <div className="flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                                                                             <CreditCard className="w-3 h-3" />
                                                                             <span>${booking.totalAmount.toLocaleString()}</span>
                                                                         </div>

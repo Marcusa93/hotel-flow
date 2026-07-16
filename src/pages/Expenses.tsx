@@ -134,7 +134,7 @@ export default function Expenses() {
             e.description || '',
             e.amount.toString(),
         ]);
-        const csvContent = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+        const csvContent = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
         const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -325,10 +325,12 @@ export default function Expenses() {
                         <div className="py-12 text-center">
                             <Receipt className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
                             <p className="text-muted-foreground">No hay gastos registrados este mes</p>
-                            <Button variant="outline" className="mt-4" onClick={() => setDialogOpen(true)}>
-                                <Plus className="w-4 h-4 mr-2" />
-                                Registrar primer gasto
-                            </Button>
+                            {canWrite && (
+                                <Button variant="outline" className="mt-4" onClick={() => setDialogOpen(true)}>
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Registrar primer gasto
+                                </Button>
+                            )}
                         </div>
                     ) : (
                         <div className="overflow-x-auto -mx-6 px-6">

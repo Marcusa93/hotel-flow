@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { HousekeepingTask, HousekeepingStatus } from '@/types/hotel';
 import { logAuditEvent } from './useCreateAuditLog';
 import { createNotificationIfEnabled } from './useCreateNotification';
+import { formatLocalDate } from '@/lib/utils';
 
 interface UpdateTaskParams {
     id: string;
@@ -22,7 +23,7 @@ export const useUpdateHousekeepingTask = () => {
             if (data.status) updates.status = data.status;
             if (data.notes !== undefined) updates.notes = data.notes;
             if (data.roomId) updates.room_id = data.roomId;
-            if (data.date) updates.date = data.date instanceof Date ? data.date.toISOString() : data.date;
+            if (data.date) updates.date = data.date instanceof Date ? formatLocalDate(data.date) : data.date;
             if (data.priority) updates.priority = data.priority;
             if (data.assignedTo !== undefined) updates.assigned_to = data.assignedTo ?? null;
 

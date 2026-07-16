@@ -162,7 +162,13 @@ export function InvoiceDialog({ open, onOpenChange, preselectedBookingId }: Invo
                 guestId: data.guestId,
                 taxRate: data.taxRate,
                 notes: data.notes,
-                items: data.items,
+                // zod already validated these; the explicit mapping narrows the partial inferred type
+                items: data.items.map(it => ({
+                    description: it.description ?? '',
+                    quantity: it.quantity ?? 1,
+                    unitPrice: it.unitPrice ?? 0,
+                    itemType: (it.itemType ?? 'OTHER') as InvoiceItemType,
+                })),
             });
 
             toast({

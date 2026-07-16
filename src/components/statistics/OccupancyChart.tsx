@@ -51,7 +51,7 @@ export function OccupancyChart({ data }: OccupancyChartProps) {
                             <Tooltip
                                 cursor={{ fill: 'transparent' }}
                                 contentStyle={chartTooltip.contentStyle}
-                                formatter={(value: number) => [`${value}%`, 'Ocupación']}
+                                formatter={(value: number) => [`${value.toFixed(1)}%`, 'Ocupación']}
                             />
                             <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={32}>
                                 {chartData.map((entry, index) => (

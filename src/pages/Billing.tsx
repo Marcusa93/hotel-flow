@@ -24,8 +24,11 @@ import {
 } from '@/components/billing';
 import { Invoice, InvoiceStatus } from '@/types/hotel';
 import { toast } from '@/hooks/use-toast';
+import { useAppRole } from '@/context/AppRoleContext';
 
 export default function Billing() {
+  const { currentRole } = useAppRole();
+  const canWrite = currentRole === 'admin' || currentRole === 'reception';
   const { bookings } = useBookingOperations();
   const { guests } = useGuestOperations();
   const { rooms, roomTypes } = useRoomOperations();
@@ -98,6 +101,10 @@ export default function Billing() {
   };
 
   const handleStatusChange = async (invoiceId: string, newStatus: InvoiceStatus) => {
+    if (!canWrite) {
+      toast({ title: 'Acción no permitida', description: 'Tu rol no puede modificar facturas', variant: 'destructive' });
+      return;
+    }
     try {
       await updateInvoiceMutation.mutateAsync({
         id: invoiceId,
@@ -118,25 +125,29 @@ export default function Billing() {
 
   const handleExportExcel = useCallback(async () => {
     try {
-      const { exportToExcel } = await import('@/lib/exportUtils');
+      const { exportRowsToExcel } = await import('@/lib/exportUtils');
       const rows = filteredInvoices.map(inv => {
         const guest = guests.find(g => g.id === inv.guestId);
         return {
           Número: inv.invoiceNumber,
           Huésped: guest?.fullName ?? '-',
-          Fecha: new Date(inv.issueDate).toLocaleDateString('es-AR'),
-          Total: inv.totalAmount,
+          Fecha: inv.issueDate.toLocaleDateString('es-AR'),
+          Total: inv.total,
           Estado: inv.status,
         };
       });
-      exportToExcel({ data: rows, fileName: 'facturas', sheetName: 'Facturas' });
+      exportRowsToExcel(rows, 'facturas', 'Facturas');
       toast({ title: 'Excel exportado', description: `${rows.length} facturas exportadas` });
     } catch {
       toast({ title: 'Error', description: 'No se pudo exportar', variant: 'destructive' });
     }
   }, [filteredInvoices, guests]);
 
-  const selectedInfo = selectedInvoice ? getInvoiceInfo(selectedInvoice) : {};
+  // Keep the preview in sync with the cache so mutations (e.g. "Emitir") reflect immediately
+  const liveSelectedInvoice = selectedInvoice
+    ? invoices.find(i => i.id === selectedInvoice.id) ?? selectedInvoice
+    : null;
+  const selectedInfo = liveSelectedInvoice ? getInvoiceInfo(liveSelectedInvoice) : null;
 
   return (
     <div className="space-y-6">
@@ -147,14 +158,16 @@ export default function Billing() {
             <Download className="w-4 h-4 mr-1" />
             Exportar
           </Button>
-          <Button
-            size="sm"
-            className="bg-indigo-600 hover:bg-indigo-700 text-white"
-            onClick={() => setIsNewInvoiceOpen(true)}
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Nueva Factura
-          </Button>
+          {canWrite && (
+            <Button
+              size="sm"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              onClick={() => setIsNewInvoiceOpen(true)}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Nueva Factura
+            </Button>
+          )}
           </div>
       </div>
 
@@ -168,11 +181,11 @@ export default function Billing() {
       <InvoicePreview
         open={isPreviewOpen}
         onOpenChange={setIsPreviewOpen}
-        invoice={selectedInvoice}
-        guest={selectedInfo.guest}
-        booking={selectedInfo.booking}
-        room={selectedInfo.room}
-        roomType={selectedInfo.roomType}
+        invoice={liveSelectedInvoice}
+        guest={selectedInfo?.guest}
+        booking={selectedInfo?.booking}
+        room={selectedInfo?.room}
+        roomType={selectedInfo?.roomType}
       />
 
       {/* Stats */}
@@ -213,10 +226,10 @@ export default function Billing() {
           icon={FileText}
           title="No hay facturas"
           description="Crea tu primera factura seleccionando una reserva completada"
-          action={{
+          action={canWrite ? {
             label: 'Nueva Factura',
             onClick: () => setIsNewInvoiceOpen(true),
-          }}
+          } : undefined}
         />
       ) : (
         <InvoiceGallery

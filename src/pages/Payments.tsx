@@ -112,7 +112,12 @@ export default function Payments() {
         p.reference || '',
       ];
     });
-    const csvContent = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    // RFC 4180: double embedded quotes; prefix ' to neutralize spreadsheet formula injection
+    const csvCell = (c: string) => {
+      const safe = /^[=+\-@]/.test(c) ? `'${c}` : c;
+      return `"${safe.replace(/"/g, '""')}"`;
+    };
+    const csvContent = [headers, ...rows].map(r => r.map(csvCell).join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -124,8 +129,20 @@ export default function Payments() {
   };
 
   const totalPaid = payments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + p.amount, 0);
+  const now = new Date();
+  const totalPaidMonth = payments
+    .filter(p => p.status === 'PAID')
+    .filter(p => {
+      const d = new Date(p.date);
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    })
+    .reduce((sum, p) => sum + p.amount, 0);
   const totalPending = payments.filter(p => p.status === 'PENDING').reduce((sum, p) => sum + p.amount, 0);
   const totalFailed = payments.filter(p => p.status === 'FAILED').length;
+  const settledCount = payments.filter(p => p.status === 'PAID' || p.status === 'FAILED').length;
+  const successRate = settledCount > 0
+    ? (payments.filter(p => p.status === 'PAID').length / settledCount) * 100
+    : null;
 
   return (
     <div className="space-y-6">
@@ -162,7 +179,13 @@ export default function Payments() {
         </TabsList>
 
         <TabsContent value="payments" className="space-y-6">
-          <PaymentStats totalPaid={totalPaid} totalPending={totalPending} totalFailed={totalFailed} />
+          <PaymentStats
+            totalPaid={totalPaid}
+            totalPaidMonth={totalPaidMonth}
+            totalPending={totalPending}
+            totalFailed={totalFailed}
+            successRate={successRate}
+          />
 
           <div className="flex flex-col gap-4 md:flex-row md:items-center bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl p-3 rounded-2xl border border-white/20 shadow-sm">
             <div className="relative flex-1 max-w-sm">
@@ -183,6 +206,7 @@ export default function Payments() {
                 <SelectItem value="PAID">Pagado</SelectItem>
                 <SelectItem value="PENDING">Pendiente</SelectItem>
                 <SelectItem value="FAILED">Fallido</SelectItem>
+                <SelectItem value="REFUNDED">Reembolsado</SelectItem>
               </SelectContent>
             </Select>
             <Select value={methodFilter} onValueChange={(v) => setMethodFilter(v as PaymentMethod | 'ALL')}>
@@ -194,6 +218,7 @@ export default function Payments() {
                 <SelectItem value="CASH">Efectivo</SelectItem>
                 <SelectItem value="CARD">Tarjeta</SelectItem>
                 <SelectItem value="TRANSFER">Transferencia</SelectItem>
+                <SelectItem value="OTHER">Otro</SelectItem>
               </SelectContent>
             </Select>
           </div>

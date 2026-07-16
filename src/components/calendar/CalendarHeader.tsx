@@ -6,7 +6,7 @@ import { es } from 'date-fns/locale';
 
 interface CalendarHeaderProps {
     currentDate: Date;
-    view: 'month' | 'week';
+    view: 'month' | 'week' | 'timeline';
     stats: {
         occupancyRate: number;
         totalRevenue: number;

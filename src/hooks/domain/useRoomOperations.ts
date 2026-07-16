@@ -61,7 +61,7 @@ export function useRoomOperations() {
   const roomsByFloor = useMemo(() => {
     const floors = new Set(rooms.map((r) => r.floor));
     return Array.from(floors)
-      .sort()
+      .sort((a, b) => a - b)
       .map((floor) => ({
         floor,
         rooms: rooms.filter((r) => r.floor === floor),

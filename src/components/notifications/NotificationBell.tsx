@@ -5,6 +5,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNotifications, useUnreadCount, Notification, NotificationCategory } from '@/hooks/useNotifications';
 import { useMarkNotificationRead, useMarkAllNotificationsRead } from '@/hooks/useMarkNotificationRead';
+import { useAppRole } from '@/context/AppRoleContext';
+import type { UserRole } from '@/types/hotel';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -44,8 +46,8 @@ const categoryColors: Record<NotificationCategory, string> = {
     system: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
 };
 
-/** Resolve the best navigation route for a notification based on category + metadata */
-function getNotificationRoute(notification: Notification): string {
+/** Resolve the best navigation route for a notification based on category + metadata + role */
+function getNotificationRoute(notification: Notification, role: UserRole | null): string {
     const { category, metadata } = notification;
 
     // Try specific routes first using metadata IDs
@@ -59,7 +61,9 @@ function getNotificationRoute(notification: Notification): string {
         checkin: '/bookings',
         checkout: '/bookings',
         promotion: '/notifications',
-        system: '/audit-log',
+        // /audit-log is admin/auditor only — anyone else would get silently
+        // bounced by RoleGuard, so send them to the notifications center instead
+        system: role === 'admin' || role === 'auditor' ? '/audit-log' : '/notifications',
     };
 
     return categoryRoutes[category] || '/notifications';
@@ -68,6 +72,7 @@ function getNotificationRoute(notification: Notification): string {
 export function NotificationBell() {
     const [open, setOpen] = useState(false);
     const navigate = useNavigate();
+    const { currentRole } = useAppRole();
     const { data: notifications = [], isLoading } = useNotifications({ limit: 10 });
     const { data: unreadCount = 0 } = useUnreadCount();
     const markReadMutation = useMarkNotificationRead();
@@ -83,7 +88,7 @@ export function NotificationBell() {
             markReadMutation.mutate(notification.id);
         }
         // Navigate to relevant page
-        const route = getNotificationRoute(notification);
+        const route = getNotificationRoute(notification, currentRole);
         setOpen(false);
         navigate(route);
     };

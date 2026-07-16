@@ -12,8 +12,10 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
-import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useCreateInvoice } from '@/hooks/useCreateInvoice';
+import { useBookingCharges } from '@/hooks/useBookingCharges';
+import { useCreateBookingCharge } from '@/hooks/useCreateBookingCharge';
+import { toast } from '@/hooks/use-toast';
 import { BookingWithDetails } from '@/types/hotel';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -46,8 +48,9 @@ export function CheckoutDialog({
     onCheckoutComplete
 }: CheckoutDialogProps) {
     const { updateBookingStatus } = useBookingOperations();
-    const { updateRoomStatus } = useRoomOperations();
     const createInvoice = useCreateInvoice();
+    const createBookingCharge = useCreateBookingCharge();
+    const { data: bookingCharges = [] } = useBookingCharges(booking.id);
 
     const [generateInvoice, setGenerateInvoice] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -57,8 +60,9 @@ export function CheckoutDialog({
 
     // Calculate payment summary
     const totalPaid = bookingPayments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + p.amount, 0);
+    const totalCharges = bookingCharges.reduce((sum, c) => sum + c.amount * c.quantity, 0);
     const lateCharge = isLateCheckout ? lateCheckoutFee : 0;
-    const adjustedTotal = booking.totalAmount + lateCharge;
+    const adjustedTotal = booking.totalAmount + totalCharges + lateCharge;
     const pendingAmount = adjustedTotal - totalPaid;
     const isPaidInFull = pendingAmount <= 0;
 
@@ -70,11 +74,19 @@ export function CheckoutDialog({
     const handleCheckout = async () => {
         setIsProcessing(true);
         try {
-            // 1. Update booking status
-            await updateBookingStatus(booking.id, 'CHECKED_OUT');
+            // 1. Persist late-checkout fee as a booking charge so it exists in the account
+            if (isLateCheckout && lateCharge > 0) {
+                await createBookingCharge.mutateAsync({
+                    bookingId: booking.id,
+                    category: 'OTRO',
+                    description: 'Check-out tardío',
+                    amount: lateCharge,
+                    quantity: 1,
+                });
+            }
 
-            // 2. Mark room as dirty for cleaning
-            await updateRoomStatus(booking.room.id, 'DIRTY');
+            // 2. Update booking status (also marks room DIRTY + creates housekeeping task)
+            await updateBookingStatus(booking.id, 'CHECKED_OUT');
 
             // 3. Generate invoice if selected
             if (generateInvoice) {
@@ -85,10 +97,24 @@ export function CheckoutDialog({
                     items: [
                         {
                             description: `Alojamiento Hab. ${booking.room.roomNumber} (${nights} noches)`,
-                            quantity: nights,
-                            unitPrice: booking.roomType.basePrice,
+                            quantity: 1,
+                            unitPrice: booking.totalAmount,
                             itemType: 'ACCOMMODATION'
-                        }
+                        },
+                        ...bookingCharges.map(charge => ({
+                            description: charge.description,
+                            quantity: charge.quantity,
+                            unitPrice: charge.amount,
+                            itemType: 'EXTRA' as const,
+                        })),
+                        ...(isLateCheckout && lateCharge > 0
+                            ? [{
+                                description: 'Check-out tardío',
+                                quantity: 1,
+                                unitPrice: lateCharge,
+                                itemType: 'OTHER' as const,
+                            }]
+                            : []),
                     ],
                     taxRate: 0,
                     notes: `Checkout automático - ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: es })}`
@@ -98,7 +124,11 @@ export function CheckoutDialog({
             onCheckoutComplete();
             onOpenChange(false);
         } catch (error) {
-            // Error silenced in production
+            toast({
+                title: 'No se pudo completar el check-out',
+                description: error instanceof Error ? error.message : 'Ocurrió un error inesperado. Intenta nuevamente.',
+                variant: 'destructive',
+            });
         } finally {
             setIsProcessing(false);
         }
@@ -150,6 +180,12 @@ export function CheckoutDialog({
                                 <span className="text-sm text-muted-foreground">Total reserva</span>
                                 <span className="font-medium">${booking.totalAmount.toLocaleString('es-AR')}</span>
                             </div>
+                            {totalCharges > 0 && (
+                                <div className="flex justify-between">
+                                    <span className="text-sm text-muted-foreground">Consumos / extras</span>
+                                    <span className="font-medium">+${totalCharges.toLocaleString('es-AR')}</span>
+                                </div>
+                            )}
                             {isLateCheckout && (
                                 <div className="flex justify-between text-amber-600">
                                     <span className="text-sm flex items-center gap-1">

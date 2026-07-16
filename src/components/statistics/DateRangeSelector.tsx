@@ -12,7 +12,7 @@ interface DateRangeSelectorProps {
 }
 
 const presets = [
-  { label: '7 días', getRange: () => ({ from: subDays(new Date(), 7), to: new Date() }) },
+  { label: '7 días', getRange: () => ({ from: subDays(new Date(), 6), to: new Date() }) },
   { label: 'Este mes', getRange: () => ({ from: startOfMonth(new Date()), to: new Date() }) },
   { label: 'Mes anterior', getRange: () => ({ from: startOfMonth(subMonths(new Date(), 1)), to: endOfMonth(subMonths(new Date(), 1)) }) },
   { label: 'Este año', getRange: () => ({ from: startOfYear(new Date()), to: new Date() }) },

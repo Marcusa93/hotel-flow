@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { Payment, Guest, Room, RoomType, HotelSettings } from '@/types/hotel';
@@ -9,6 +9,8 @@ interface PaymentReceiptPDFProps {
   room?: Room;
   roomType?: RoomType;
   hotelSettings?: HotelSettings;
+  /** PNG data URL of the guest's drawn signature */
+  signatureDataUrl?: string;
 }
 
 const methodLabels: Record<string, string> = {
@@ -144,6 +146,7 @@ export function PaymentReceiptPDF({
   room,
   roomType,
   hotelSettings,
+  signatureDataUrl,
 }: PaymentReceiptPDFProps) {
   const hotelName = hotelSettings?.hotelName || 'HoMe App';
 
@@ -233,7 +236,10 @@ export function PaymentReceiptPDF({
         {/* Footer */}
         <View style={styles.footer}>
           <View>
-            <View style={styles.signatureLine} />
+            {signatureDataUrl ? (
+              <Image src={signatureDataUrl} style={{ width: 180, height: 54 }} />
+            ) : null}
+            <View style={[styles.signatureLine, signatureDataUrl ? { marginTop: 0 } : {}]} />
             <Text style={styles.signatureLabel}>Firma</Text>
           </View>
           <Text style={styles.generatedAt}>

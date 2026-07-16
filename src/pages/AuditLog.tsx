@@ -16,7 +16,7 @@ import {
   Download, FileSpreadsheet, RefreshCw, BarChart3, Users, Target,
   ShieldAlert, BedDouble, CalendarDays, CreditCard, User,
 } from 'lucide-react';
-import { subMonths } from 'date-fns';
+import { subMonths, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { AuditAction, AuditEntityType } from '@/types/hotel';
 
@@ -41,7 +41,7 @@ export default function AuditLog() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState({
     from: subMonths(new Date(), 1),
-    to: new Date(),
+    to: endOfDay(new Date()),
   });
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -115,8 +115,15 @@ export default function AuditLog() {
     setEntityType(undefined);
     setAction(undefined);
     setSearchQuery('');
-    setDateRange({ from: subMonths(new Date(), 1), to: new Date() });
+    setDateRange({ from: subMonths(new Date(), 1), to: endOfDay(new Date()) });
     setVisibleCount(PAGE_SIZE);
+  };
+
+  // "Actualizar" must also bump the upper bound — a `to` frozen at mount
+  // would never let newer events show up.
+  const handleRefresh = () => {
+    setDateRange(prev => ({ ...prev, to: endOfDay(new Date()) }));
+    refetch();
   };
 
   const handleExportExcel = async () => {
@@ -138,7 +145,7 @@ export default function AuditLog() {
         description={`${filteredLogs.length} eventos registrados${searchQuery ? ' (filtrados)' : ''}`}
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="h-8" onClick={() => refetch()} disabled={isLoading}>
+            <Button variant="ghost" size="sm" className="h-8" onClick={handleRefresh} disabled={isLoading}>
               <RefreshCw className={cn("w-3.5 h-3.5 mr-1", isLoading && "animate-spin")} />
               Actualizar
             </Button>

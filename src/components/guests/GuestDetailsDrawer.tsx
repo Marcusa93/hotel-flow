@@ -113,6 +113,22 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
     };
 
     const handleSaveEdit = async () => {
+        // Basic validation before persisting
+        const fullName = (editData.fullName || '').trim();
+        if (!fullName) {
+            toast({ title: 'Datos inválidos', description: 'El nombre no puede estar vacío.', variant: 'destructive' });
+            return;
+        }
+        const email = (editData.email || '').trim();
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            toast({ title: 'Datos inválidos', description: 'El email no tiene un formato válido.', variant: 'destructive' });
+            return;
+        }
+        const phone = (editData.phone || '').trim();
+        if (phone && phone.length < 6) {
+            toast({ title: 'Datos inválidos', description: 'El teléfono debe tener al menos 6 caracteres.', variant: 'destructive' });
+            return;
+        }
         try {
             await updateGuestMutation.mutateAsync({
                 id: guest.id,
@@ -156,13 +172,13 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
             guest.country || '',
             guest.vehicleDescription || '',
             guest.licensePlate || '',
-            (guest.notes || '').replace(/"/g, '""'),
+            guest.notes || '',
             format(new Date(guest.createdAt), 'dd/MM/yyyy'),
         ];
 
         const csvContent = [
             headers.join(','),
-            data.map(d => `"${d}"`).join(','),
+            data.map(d => `"${String(d).replace(/"/g, '""')}"`).join(','),
         ].join('\n');
 
         const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });

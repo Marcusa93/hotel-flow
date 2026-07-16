@@ -56,6 +56,21 @@ export function PaymentReceipt({ open, onOpenChange, payment }: PaymentReceiptPr
     };
 
     // Signature pad handlers
+    // The canvas has a fixed internal size (400x120) but is styled w-full, so pointer
+    // coordinates (CSS px) must be scaled to canvas px or strokes drift from the cursor
+    const getCanvasPoint = (
+        canvas: HTMLCanvasElement,
+        e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+    ) => {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        return {
+            x: (clientX - rect.left) * (canvas.width / rect.width),
+            y: (clientY - rect.top) * (canvas.height / rect.height),
+        };
+    };
+
     const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -64,9 +79,7 @@ export function PaymentReceipt({ open, onOpenChange, payment }: PaymentReceiptPr
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        const rect = canvas.getBoundingClientRect();
-        const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
-        const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+        const { x, y } = getCanvasPoint(canvas, e);
 
         ctx.beginPath();
         ctx.moveTo(x, y);
@@ -80,9 +93,7 @@ export function PaymentReceipt({ open, onOpenChange, payment }: PaymentReceiptPr
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        const rect = canvas.getBoundingClientRect();
-        const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
-        const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+        const { x, y } = getCanvasPoint(canvas, e);
 
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
@@ -113,6 +124,9 @@ export function PaymentReceipt({ open, onOpenChange, payment }: PaymentReceiptPr
                 guest: guest ?? undefined,
                 room: room ?? undefined,
                 roomType: roomType ?? undefined,
+                signatureDataUrl: hasSignature && canvasRef.current
+                    ? canvasRef.current.toDataURL('image/png')
+                    : undefined,
             });
             toast({ title: 'PDF generado', description: 'Recibo descargado correctamente' });
         } catch (error) {

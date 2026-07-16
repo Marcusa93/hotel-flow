@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { queryClient } from '@/lib/queryClient';
 
 interface AuthContextType {
     session: Session | null;
@@ -39,12 +40,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const signOut = useCallback(async () => {
         try {
-            await supabase.auth.signOut();
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+                // Remote sign-out failed — at least clear the localStorage
+                // session so the next user on a shared machine starts clean.
+                console.warn('Remote signOut failed, clearing local session:', error);
+                await supabase.auth.signOut({ scope: 'local' });
+            }
         } catch (e) {
-            console.warn('Remote signOut failed, clearing local session:', e);
+            console.warn('signOut threw, clearing local session:', e);
+            try {
+                await supabase.auth.signOut({ scope: 'local' });
+            } catch {
+                // Ignore — state resets below still log the user out of the UI.
+            }
         } finally {
             setSession(null);
             setUser(null);
+            // Drop all cached data so the next user never sees stale info
+            queryClient.clear();
         }
     }, []);
 

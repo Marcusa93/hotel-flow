@@ -145,7 +145,10 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
             p.status === 'PAID'
         );
         if (recent.length > 0) {
-            const last = recent[recent.length - 1];
+            // Compare against the MOST RECENT matching payment (list order isn't guaranteed)
+            const last = recent.reduce((a, b) =>
+                new Date(a.date).getTime() >= new Date(b.date).getTime() ? a : b
+            );
             const secAgo = Math.floor((Date.now() - new Date(last.date).getTime()) / 1000);
             if (secAgo < 300) { // 5 minutes
                 return `Ya existe un pago de $${data.amount.toLocaleString('es-AR')} (${data.method}) registrado hace ${secAgo < 60 ? `${secAgo}s` : `${Math.floor(secAgo / 60)}min`}. ¿Estás seguro que querés registrar otro?`;
@@ -155,8 +158,8 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
     };
 
     const handlePreSubmit = (data: PaymentFormData) => {
-        // Check for overpayment
-        if (data.amount > pendingAmount && pendingAmount > 0) {
+        // Check for overpayment (also warns when the booking is already settled)
+        if (data.amount > pendingAmount) {
             setDuplicateWarning(`El monto ($${data.amount.toLocaleString('es-AR')}) excede el saldo pendiente ($${pendingAmount.toLocaleString('es-AR')}). ¿Continuar?`);
             setShowConfirm(true);
             return;

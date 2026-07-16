@@ -31,6 +31,7 @@ export const useUpdatePayment = () => {
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['payments'] });
+            queryClient.invalidateQueries({ queryKey: ['revenueStats'] });
 
             // Audit log
             logAuditEvent({
@@ -42,10 +43,11 @@ export const useUpdatePayment = () => {
             });
 
             if (variables.data.status) {
+                // Keys must match PaymentStatus ('PENDING' | 'PAID' | 'FAILED' | 'REFUNDED')
                 const typeMap: Record<string, { type: 'success' | 'warning' | 'error'; title: string }> = {
-                    COMPLETED: { type: 'success', title: 'Pago completado' },
+                    PAID: { type: 'success', title: 'Pago completado' },
                     REFUNDED: { type: 'warning', title: 'Pago reembolsado' },
-                    CANCELLED: { type: 'error', title: 'Pago cancelado' },
+                    FAILED: { type: 'error', title: 'Pago fallido' },
                 };
                 const info = typeMap[variables.data.status];
                 if (info) {

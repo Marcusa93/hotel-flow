@@ -92,6 +92,18 @@ export function exportToExcel({
   writeFile(wb, fileName);
 }
 
+/** Generic one-sheet Excel export for simple row lists (e.g. invoices) */
+export function exportRowsToExcel(
+  rows: Record<string, unknown>[],
+  fileName: string,
+  sheetName = 'Datos',
+) {
+  const wb = utils.book_new();
+  const ws = utils.json_to_sheet(rows.length > 0 ? rows : [{ Info: 'Sin datos' }]);
+  utils.book_append_sheet(wb, ws, sheetName);
+  writeFile(wb, `${fileName}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+}
+
 // ---------- PDF Export (print-based) ----------
 
 interface ExportPDFParams {

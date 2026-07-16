@@ -62,10 +62,13 @@ export function useBookingOperations() {
 
   const updateBookingStatus = useCallback(
     async (id: string, status: BookingStatus) => {
+      // Capture the previous status before the update
+      const booking = bookings.find((b) => b.id === id);
+      const previousStatus = booking?.status;
+
       await updateBookingMutation.mutateAsync({ id, status });
 
       // Side effects
-      const booking = bookings.find((b) => b.id === id);
       if (booking) {
         if (status === 'CHECKED_IN') {
           await updateRoomMutation.mutateAsync({
@@ -81,8 +84,13 @@ export function useBookingOperations() {
           await createHousekeepingTaskMutation.mutateAsync({
             roomId: booking.roomId,
             date: new Date(),
-            status: 'TODO',
             notes: 'Check-out - Limpieza requerida',
+          });
+        } else if (status === 'CANCELLED' && previousStatus === 'CHECKED_IN') {
+          // Guest was in the room: mark it dirty so it doesn't stay OCCUPIED
+          await updateRoomMutation.mutateAsync({
+            id: booking.roomId,
+            status: 'DIRTY',
           });
         }
       }
@@ -131,9 +139,10 @@ export function useBookingOperations() {
         const checkOut = new Date(b.checkOutDate);
         checkOut.setHours(0, 0, 0, 0);
 
+        // Checkout day is exclusive (guest leaves that morning), matching Calendar.tsx
         return (
           checkIn <= targetDate &&
-          checkOut >= targetDate &&
+          targetDate < checkOut &&
           b.status !== 'CANCELLED' &&
           b.status !== 'NO_SHOW'
         );

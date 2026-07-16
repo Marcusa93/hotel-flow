@@ -69,8 +69,11 @@ export default function Rooms() {
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Derived Data
-  const floors = useMemo(() => Array.from(new Set(rooms.map(r => r.floor.toString()))).sort(), [rooms]);
+  // Derived Data — sort floors numerically (1, 2, ..., 10, 11)
+  const floors = useMemo(
+    () => Array.from(new Set(rooms.map(r => r.floor))).sort((a, b) => a - b).map(f => f.toString()),
+    [rooms]
+  );
 
   const stats = useMemo(() => ({
     total: rooms.length,
@@ -93,18 +96,67 @@ export default function Rooms() {
       });
   }, [rooms, statusFilter, floorFilter]);
 
+  // Pending status change that contradicts an active check-in — needs confirmation
+  const [checkInWarning, setCheckInWarning] = useState<{
+    room: Room;
+    status: RoomStatus;
+    notes?: string;
+    updateDrawer: boolean;
+  } | null>(null);
+
+  const hasActiveCheckIn = useCallback(
+    (roomId: string) => bookings.some(b => b.roomId === roomId && b.status === 'CHECKED_IN'),
+    [bookings]
+  );
+
+  // A status change contradicts bookings when the room has a CHECKED_IN booking
+  // and we free it up (AVAILABLE/DIRTY from OCCUPIED) or re-check-in on top of it.
+  const conflictsWithCheckIn = useCallback((room: Room, next: RoomStatus) => {
+    if (!hasActiveCheckIn(room.id)) return false;
+    if ((next === 'AVAILABLE' || next === 'DIRTY') && room.status === 'OCCUPIED') return true;
+    if (next === 'OCCUPIED') return true;
+    return false;
+  }, [hasActiveCheckIn]);
+
+  const performStatusUpdate = useCallback(async (
+    room: Room,
+    newStatus: RoomStatus,
+    notes?: string,
+    updateDrawer = false
+  ) => {
+    try {
+      await updateRoomStatus(room.id, newStatus, notes);
+      if (updateDrawer) {
+        setSelectedRoom(prev => (prev && prev.id === room.id ? { ...prev, status: newStatus, notes } : prev));
+      }
+    } catch {
+      toast({
+        title: 'Error al actualizar',
+        description: `No se pudo cambiar el estado de la habitación ${room.roomNumber}. Intentá de nuevo.`,
+        variant: 'destructive',
+      });
+    }
+  }, [updateRoomStatus]);
+
   // Handlers
-  const handleQuickAction = useCallback((room: Room, action: 'clean' | 'occupy') => {
+  const handleQuickAction = useCallback(async (room: Room, action: 'clean' | 'occupy') => {
     const nextStatus: RoomStatus = action === 'clean' ? 'AVAILABLE' : 'OCCUPIED';
     if (!assertStatusAllowed(nextStatus)) return;
-    updateRoomStatus(room.id, nextStatus);
-  }, [updateRoomStatus, assertStatusAllowed]);
+    if (conflictsWithCheckIn(room, nextStatus)) {
+      setCheckInWarning({ room, status: nextStatus, updateDrawer: false });
+      return;
+    }
+    await performStatusUpdate(room, nextStatus);
+  }, [assertStatusAllowed, conflictsWithCheckIn, performStatusUpdate]);
 
-  const handleStatusChange = (newStatus: RoomStatus, notes?: string) => {
+  const handleStatusChange = async (newStatus: RoomStatus, notes?: string) => {
     if (!selectedRoom) return;
     if (!assertStatusAllowed(newStatus)) return;
-    updateRoomStatus(selectedRoom.id, newStatus, notes);
-    setSelectedRoom({ ...selectedRoom, status: newStatus, notes });
+    if (conflictsWithCheckIn(selectedRoom, newStatus)) {
+      setCheckInWarning({ room: selectedRoom, status: newStatus, notes, updateDrawer: true });
+      return;
+    }
+    await performStatusUpdate(selectedRoom, newStatus, notes, true);
   };
 
   const getSelectedGuest = () => {
@@ -130,11 +182,27 @@ export default function Rooms() {
 
   const handleBulkAction = useCallback(async (newStatus: RoomStatus) => {
     if (!assertStatusAllowed(newStatus)) return;
-    for (const id of selectedIds) {
-      await updateRoomStatus(id, newStatus);
+    const ids = Array.from(selectedIds);
+    try {
+      let failed = 0;
+      for (const id of ids) {
+        try {
+          await updateRoomStatus(id, newStatus);
+        } catch {
+          failed++;
+        }
+      }
+      if (failed > 0) {
+        toast({
+          title: 'Error al actualizar',
+          description: `No se pudo actualizar ${failed} de ${ids.length} habitación${ids.length > 1 ? 'es' : ''}.`,
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setSelectedIds(new Set());
+      setBulkMode(false);
     }
-    setSelectedIds(new Set());
-    setBulkMode(false);
   }, [selectedIds, updateRoomStatus, assertStatusAllowed]);
 
   const exitBulkMode = () => {
@@ -280,6 +348,30 @@ export default function Rooms() {
         roomTypeName={getSelectedRoomTypeName()}
         onStatusChange={handleStatusChange}
       />
+
+      {/* Confirmation when the change contradicts an active check-in */}
+      <AlertDialog open={!!checkInWarning} onOpenChange={(open) => { if (!open) setCheckInWarning(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Habitación con check-in activo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta habitación tiene un huésped con check-in activo. ¿Confirmás el cambio de estado de la habitación {checkInWarning?.room.roomNumber}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const pending = checkInWarning;
+                setCheckInWarning(null);
+                if (pending) void performStatusUpdate(pending.room, pending.status, pending.notes, pending.updateDrawer);
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -56,9 +56,15 @@ interface NewGuestDialogProps {
 }
 
 export function NewGuestDialog({ open, onOpenChange }: NewGuestDialogProps) {
-    const { addGuest } = useGuestOperations();
+    const { addGuest, guests } = useGuestOperations();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showVehicle, setShowVehicle] = useState(false);
+    const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+
+    // Clear the duplicate warning when the dialog closes
+    useEffect(() => {
+        if (!open) setDuplicateWarning(null);
+    }, [open]);
 
     const form = useForm<GuestFormData>({
         resolver: zodResolver(guestSchema),
@@ -77,6 +83,25 @@ export function NewGuestDialog({ open, onOpenChange }: NewGuestDialogProps) {
     });
 
     const onSubmit = async (data: GuestFormData) => {
+        // Duplicate detection — require a second submit to confirm
+        if (!duplicateWarning) {
+            const docId = data.documentId?.trim().toLowerCase();
+            const email = data.email?.trim().toLowerCase();
+            const duplicate = guests.find(g =>
+                (!!docId && (g.documentId || '').trim().toLowerCase() === docId) ||
+                (!!email && (g.email || '').trim().toLowerCase() === email)
+            );
+            if (duplicate) {
+                const matchedByDoc = !!docId && (duplicate.documentId || '').trim().toLowerCase() === docId;
+                setDuplicateWarning(
+                    matchedByDoc
+                        ? `⚠️ Ya existe un huésped con ese documento: ${duplicate.fullName}`
+                        : `⚠️ Ya existe un huésped con ese email: ${duplicate.fullName}`
+                );
+                return;
+            }
+        }
+
         setIsSubmitting(true);
 
         try {
@@ -99,6 +124,7 @@ export function NewGuestDialog({ open, onOpenChange }: NewGuestDialogProps) {
             });
 
             form.reset();
+            setDuplicateWarning(null);
             onOpenChange(false);
         } catch (error) {
             console.error('Error creating guest:', error);
@@ -330,12 +356,22 @@ export function NewGuestDialog({ open, onOpenChange }: NewGuestDialogProps) {
                             )}
                         </div>
 
+                        {/* Duplicate guest confirmation */}
+                        {duplicateWarning && (
+                            <div className="p-3 rounded-xl border-2 border-amber-300 bg-amber-50 dark:bg-amber-950/30 space-y-1">
+                                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">{duplicateWarning}</p>
+                                <p className="text-xs text-amber-700 dark:text-amber-400">
+                                    Presioná "Crear de todos modos" si querés registrarlo igualmente.
+                                </p>
+                            </div>
+                        )}
+
                         <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0 pt-4">
-                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
+                            <Button type="button" variant="outline" onClick={() => { setDuplicateWarning(null); onOpenChange(false); }} className="w-full sm:w-auto">
                                 Cancelar
                             </Button>
                             <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
-                                {isSubmitting ? 'Guardando...' : 'Guardar Huésped'}
+                                {isSubmitting ? 'Guardando...' : duplicateWarning ? 'Crear de todos modos' : 'Guardar Huésped'}
                             </Button>
                         </DialogFooter>
                     </form>

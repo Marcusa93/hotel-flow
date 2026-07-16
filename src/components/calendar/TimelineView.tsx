@@ -110,7 +110,7 @@ export function TimelineView({
                                         )} />
                                         <div>
                                             <p className="font-bold text-sm text-slate-700 dark:text-slate-200">{room.roomNumber}</p>
-                                            <p className="text-[10px] text-muted-foreground truncate max-w-[80px]">{room.type}</p>
+                                            <p className="text-[10px] text-muted-foreground truncate max-w-[80px]">Piso {room.floor}</p>
                                         </div>
                                     </div>
 

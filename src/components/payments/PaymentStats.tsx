@@ -3,11 +3,15 @@ import { DollarSign, TrendingUp, Clock, AlertCircle } from 'lucide-react';
 
 interface PaymentStatsProps {
     totalPaid: number;
+    /** Sum of PAID payments dated in the current month */
+    totalPaidMonth?: number;
     totalPending: number;
     totalFailed?: number;
+    /** PAID / (PAID + FAILED) percentage; null when there are no settled payments */
+    successRate?: number | null;
 }
 
-export function PaymentStats({ totalPaid, totalPending, totalFailed = 0 }: PaymentStatsProps) {
+export function PaymentStats({ totalPaid, totalPaidMonth, totalPending, totalFailed = 0, successRate = null }: PaymentStatsProps) {
     return (
         <div className="grid gap-4 md:grid-cols-3">
             <Card className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border-emerald-500/20 backdrop-blur-md overflow-hidden relative">
@@ -23,7 +27,9 @@ export function PaymentStats({ totalPaid, totalPending, totalFailed = 0 }: Payme
                         ${totalPaid.toLocaleString('es-AR')}
                     </p>
                     <p className="text-sm text-emerald-600/60 dark:text-emerald-400/60 mt-1">
-                        Cobrado este mes
+                        {totalPaidMonth !== undefined
+                            ? `Este mes: $${totalPaidMonth.toLocaleString('es-AR')}`
+                            : 'Total histórico'}
                     </p>
                 </CardContent>
             </Card>
@@ -51,7 +57,9 @@ export function PaymentStats({ totalPaid, totalPending, totalFailed = 0 }: Payme
                     <div className="flex items-center justify-between mb-4">
                         <div>
                             <p className="text-sm font-medium text-muted-foreground">Tasa de Éxito</p>
-                            <p className="text-2xl font-bold mt-1">98.5%</p>
+                            <p className="text-2xl font-bold mt-1">
+                                {successRate !== null ? `${successRate.toFixed(1)}%` : '—'}
+                            </p>
                         </div>
                         <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
                             <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />

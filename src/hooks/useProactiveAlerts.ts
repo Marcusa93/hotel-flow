@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
+import { addDays } from 'date-fns';
 import { supabase } from '@/lib/supabase';
+import { formatLocalDate } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useAppRole } from '@/context/AppRoleContext';
 
@@ -34,8 +36,9 @@ async function createAlertIfNew(
   metadata: Record<string, unknown> = {},
   dedupeKey: string
 ) {
-  // Check if we already created this alert today (avoid duplicates)
-  const today = new Date().toISOString().split('T')[0];
+  // Check if we already created this alert today (avoid duplicates).
+  // Local calendar day — toISOString() would shift to the next day after 21:00 in AR.
+  const today = formatLocalDate(new Date());
   const { data: existing } = await supabase
     .from('notifications')
     .select('id')
@@ -61,8 +64,9 @@ async function createAlertIfNew(
 }
 
 async function runProactiveChecks() {
-  const today = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  // Local calendar days — UTC dates are wrong between 21:00-24:00 in Argentina
+  const today = formatLocalDate(new Date());
+  const tomorrow = formatLocalDate(addDays(new Date(), 1));
 
   try {
     // Fetch all data we need in parallel
@@ -220,10 +224,13 @@ export function useProactiveAlerts() {
   const { session } = useAuth();
   const { currentRole } = useAppRole();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Depend on the user id, not the session object — the session reference
+  // changes on every token refresh and would re-arm the immediate check.
+  const userId = session?.user?.id;
 
   useEffect(() => {
     // Only run for admin/reception
-    if (!session || (currentRole !== 'admin' && currentRole !== 'reception')) {
+    if (!userId || (currentRole !== 'admin' && currentRole !== 'reception')) {
       return;
     }
 
@@ -241,5 +248,5 @@ export function useProactiveAlerts() {
         clearInterval(intervalRef.current);
       }
     };
-  }, [session, currentRole]);
+  }, [userId, currentRole]);
 }

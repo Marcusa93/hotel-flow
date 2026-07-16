@@ -2,7 +2,8 @@ import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AppRoleProvider } from "@/context/AppRoleContext";
@@ -31,8 +32,6 @@ const Expenses = lazy(() => import("./pages/Expenses"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
 const QuickCheckin = lazy(() => import("./pages/QuickCheckin"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-
-const queryClient = new QueryClient();
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
   <motion.div

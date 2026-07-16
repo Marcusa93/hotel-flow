@@ -4,17 +4,22 @@ import { supabase } from '@/lib/supabase';
 import { BookingStatus } from '@/types/hotel';
 import { logAuditEvent } from './useCreateAuditLog';
 import { createNotificationIfEnabled } from './useCreateNotification';
+import { formatLocalDate } from '@/lib/utils';
 
 interface UpdateBookingParams {
     id: string;
     status?: BookingStatus;
-    checkInDate?: string;
-    checkOutDate?: string;
+    checkInDate?: string | Date;
+    checkOutDate?: string | Date;
     roomId?: string;
     adults?: number;
     children?: number;
     notes?: string;
     totalAmount?: number;
+    hasVehicle?: boolean;
+    vehicleDescription?: string;
+    licensePlate?: string;
+    needsReview?: boolean;
 }
 
 export const useUpdateBooking = () => {
@@ -26,13 +31,17 @@ export const useUpdateBooking = () => {
             const updateData: Record<string, unknown> = {};
 
             if (fields.status !== undefined) updateData.status = fields.status;
-            if (fields.checkInDate !== undefined) updateData.check_in_date = fields.checkInDate;
-            if (fields.checkOutDate !== undefined) updateData.check_out_date = fields.checkOutDate;
+            if (fields.checkInDate !== undefined) updateData.check_in_date = fields.checkInDate instanceof Date ? formatLocalDate(fields.checkInDate) : fields.checkInDate;
+            if (fields.checkOutDate !== undefined) updateData.check_out_date = fields.checkOutDate instanceof Date ? formatLocalDate(fields.checkOutDate) : fields.checkOutDate;
             if (fields.roomId !== undefined) updateData.room_id = fields.roomId;
             if (fields.adults !== undefined) updateData.adults = fields.adults;
             if (fields.children !== undefined) updateData.children = fields.children;
             if (fields.notes !== undefined) updateData.notes = fields.notes;
             if (fields.totalAmount !== undefined) updateData.total_amount = fields.totalAmount;
+            if (fields.hasVehicle !== undefined) updateData.has_vehicle = fields.hasVehicle;
+            if (fields.vehicleDescription !== undefined) updateData.vehicle_description = fields.vehicleDescription;
+            if (fields.licensePlate !== undefined) updateData.license_plate = fields.licensePlate;
+            if (fields.needsReview !== undefined) updateData.needs_review = fields.needsReview;
 
             const { data, error } = await supabase
                 .from('bookings')

@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { format, isBefore, isAfter, isWithinInterval } from 'date-fns';
+import { format, isBefore, isAfter, isWithinInterval, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   Dialog,
@@ -110,27 +110,35 @@ export default function Rates() {
     roomTypes.find(rt => rt.id === roomTypeId)?.name || '';
 
   const promotions = useMemo(() =>
-    rates.filter(r => !r.label.toLowerCase().includes('base')),
+    // Word-boundary match so names like "Temporada baseball" aren't misfiled as base rates
+    rates.filter(r => !/\bbase\b/i.test(r.label)),
     [rates]
   );
 
-  // Check if a promotion is currently active (within date range)
+  // Check if a promotion is currently active (within date range).
+  // endDate is local midnight of the last day, so use endOfDay to keep the promo
+  // active through its entire final day (the range is inclusive of the end date).
   const isCurrentlyActive = (rate: Rate) => {
     const now = new Date();
     return rate.isActive && isWithinInterval(now, {
       start: new Date(rate.startDate),
-      end: new Date(rate.endDate)
+      end: endOfDay(new Date(rate.endDate))
     });
   };
 
   // Detect overlapping promotions
   const overlappingPromos = useMemo(() => {
-    if (!formData.startDate || !formData.endDate || !formData.roomTypeId) return [];
-    const newStart = new Date(formData.startDate);
-    const newEnd = new Date(formData.endDate);
+    if (!formData.startDate || !formData.endDate) return [];
+    // Parse form dates as local midnight to match how existing rate dates are read
+    const newStart = new Date(formData.startDate + 'T00:00:00');
+    const newEnd = new Date(formData.endDate + 'T00:00:00');
     return promotions.filter(r => {
       if (editingRate && r.id === editingRate.id) return false; // Skip self
-      if (r.roomTypeId !== formData.roomTypeId) return false;
+      // A promo with no room type ("Todas las categorías") overlaps every category,
+      // and an all-categories new promo conflicts with any specific one — treat empty/null as wildcard.
+      const sameScope =
+        !r.roomTypeId || !formData.roomTypeId || r.roomTypeId === formData.roomTypeId;
+      if (!sameScope) return false;
       if (!r.isActive) return false;
       const rStart = new Date(r.startDate);
       const rEnd = new Date(r.endDate);
@@ -214,20 +222,36 @@ export default function Rates() {
   };
 
   const handleToggleActive = async (rate: Rate) => {
-    await updateRateMutation.mutateAsync({
-      id: rate.id,
-      data: { isActive: !rate.isActive },
-    });
-    toast({
-      title: rate.isActive ? '⏸️ Promoción pausada' : '▶️ Promoción activada',
-    });
+    try {
+      await updateRateMutation.mutateAsync({
+        id: rate.id,
+        data: { isActive: !rate.isActive },
+      });
+      toast({
+        title: rate.isActive ? '⏸️ Promoción pausada' : '▶️ Promoción activada',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo cambiar el estado de la promoción',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await deleteRateMutation.mutateAsync(id);
-    toast({
-      title: '🗑️ Tarifa eliminada',
-    });
+    try {
+      await deleteRateMutation.mutateAsync(id);
+      toast({
+        title: '🗑️ Tarifa eliminada',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo eliminar la tarifa',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleSaveBasePrice = async (roomTypeId: string, newPrice: number) => {
@@ -287,7 +311,7 @@ export default function Rates() {
           <SeasonalityChart rates={rates} />
         </div>
         <div>
-          <RateCalendarWidget />
+          <RateCalendarWidget rates={rates} />
         </div>
       </div>
 

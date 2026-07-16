@@ -159,7 +159,7 @@ export function TransactionTable({ payments, getBookingInfo, onStatusChange, onV
                                                 <MethodIcon method={payment.method} />
                                             </div>
                                             <span className="text-xs font-medium text-slate-600 dark:text-slate-400 hidden sm:inline-block">
-                                                {payment.method === 'CARD' ? 'Tarjeta' : payment.method === 'CASH' ? 'Efectivo' : 'Transf.'}
+                                                {payment.method === 'CARD' ? 'Tarjeta' : payment.method === 'CASH' ? 'Efectivo' : payment.method === 'TRANSFER' ? 'Transf.' : 'Otro'}
                                             </span>
                                         </div>
                                     </TableCell>
@@ -260,7 +260,7 @@ export function TransactionTable({ payments, getBookingInfo, onStatusChange, onV
                                     <div className="p-1 rounded-full bg-slate-100 dark:bg-slate-800">
                                         <MethodIcon method={payment.method} />
                                     </div>
-                                    <span>{payment.method === 'CARD' ? 'Tarjeta' : payment.method === 'CASH' ? 'Efectivo' : 'Transf.'}</span>
+                                    <span>{payment.method === 'CARD' ? 'Tarjeta' : payment.method === 'CASH' ? 'Efectivo' : payment.method === 'TRANSFER' ? 'Transf.' : 'Otro'}</span>
                                 </div>
                                 {payment.reference && (
                                     <span className="font-mono text-muted-foreground bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">

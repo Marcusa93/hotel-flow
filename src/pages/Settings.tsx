@@ -31,28 +31,28 @@ const roles: { value: UserRole; label: string; description: string; icon: React.
     label: 'Administrador',
     description: 'Acceso completo a todas las funcionalidades',
     icon: <Shield className="w-5 h-5" />,
-    permissions: ['Dashboard', 'Reservas', 'Habitaciones', 'Huéspedes', 'Pagos', 'Gastos', 'Facturación', 'Tarifas', 'Estadísticas', 'Notificaciones', 'Configuración', 'Limpieza'],
+    permissions: ['Dashboard', 'Reservas', 'Habitaciones', 'Huéspedes', 'Pagos', 'Gastos', 'Tarifas', 'Limpieza', 'Notificaciones', 'Registro de Actividad', 'Configuración'],
   },
   {
     value: 'reception',
     label: 'Recepción',
     description: 'Gestión de reservas, huéspedes y pagos',
     icon: <User className="w-5 h-5" />,
-    permissions: ['Dashboard', 'Reservas', 'Habitaciones', 'Huéspedes', 'Pagos', 'Tarifas', 'Configuración'],
+    permissions: ['Dashboard', 'Reservas', 'Habitaciones', 'Huéspedes', 'Pagos', 'Gastos', 'Tarifas', 'Notificaciones', 'Configuración'],
   },
   {
     value: 'housekeeping',
     label: 'Limpieza',
     description: 'Solo acceso a habitaciones y limpieza',
     icon: <ClipboardList className="w-5 h-5" />,
-    permissions: ['Habitaciones', 'Limpieza', 'Configuración'],
+    permissions: ['Habitaciones', 'Limpieza'],
   },
   {
     value: 'auditor',
     label: 'Auditor',
-    description: 'Estadísticas y pagos en modo lectura',
+    description: 'Pagos, gastos y registro de actividad en modo lectura',
     icon: <Eye className="w-5 h-5" />,
-    permissions: ['Pagos (lectura)', 'Gastos', 'Facturación (lectura)', 'Estadísticas (lectura)', 'Configuración'],
+    permissions: ['Pagos (lectura)', 'Gastos', 'Registro de Actividad'],
   },
 ];
 
@@ -75,7 +75,8 @@ export default function Settings() {
     checkOutTime: '11:00',
   });
 
-  // Sync forms when settings load
+  // Sync forms when settings load or actually change (keyed by updatedAt so
+  // a background refetch without changes doesn't wipe unsaved edits)
   useEffect(() => {
     if (settings) {
       setHotelForm({
@@ -89,7 +90,8 @@ export default function Settings() {
         checkOutTime: settings.checkOutTime || '11:00',
       });
     }
-  }, [settings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.id, settings?.updatedAt?.getTime()]);
 
   const handleSaveHotel = async () => {
     if (!settings) return;

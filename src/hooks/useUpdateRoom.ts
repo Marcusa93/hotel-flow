@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { RoomStatus } from '@/types/hotel';
 import { logAuditEvent } from './useCreateAuditLog';
 import { createNotificationIfEnabled } from './useCreateNotification';
+import { formatLocalDate } from '@/lib/utils';
 
 interface UpdateRoomParams {
     id: string;
@@ -66,7 +67,7 @@ export const useUpdateRoom = () => {
                 });
 
                 // Auto-create housekeeping task for dirty rooms (skip if one already exists today)
-                const today = new Date().toISOString().split('T')[0];
+                const today = formatLocalDate(new Date());
                 const { data: existing } = await supabase
                     .from('housekeeping_tasks')
                     .select('id')

@@ -17,7 +17,9 @@ export interface Profile {
  */
 export const useProfile = (userId: string | undefined) => {
     return useQuery<Profile | null>({
-        queryKey: ['profile', userId],
+        // NOTE: distinct from AppRoleContext's ['profile', userId] key — this
+        // hook returns a different shape, so sharing the key would collide.
+        queryKey: ['profile-full', userId],
         queryFn: async () => {
             if (!userId) return null;
 

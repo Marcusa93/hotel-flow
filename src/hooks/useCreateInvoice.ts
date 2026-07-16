@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Invoice, InvoiceItem, InvoiceItemType } from '@/types/hotel';
+import { formatLocalDate } from '@/lib/utils';
 import { logAuditEvent } from './useCreateAuditLog';
 import { createNotificationIfEnabled } from './useCreateNotification';
 
@@ -25,41 +26,54 @@ export const useCreateInvoice = () => {
         mutationFn: async (params: CreateInvoiceParams) => {
             const { items, taxRate = 21, ...invoiceData } = params;
 
-            // Calculate totals
-            const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-            const taxAmount = subtotal * (taxRate / 100);
-            const total = subtotal + taxAmount;
+            // Calculate totals (round to cents — money must not carry float dust)
+            const round2 = (n: number) => Math.round(n * 100) / 100;
+            const subtotal = round2(items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0));
+            const taxAmount = round2(subtotal * (taxRate / 100));
+            const total = round2(subtotal + taxAmount);
 
-            // Generate invoice number using DB function
-            const { data: numberData, error: numberError } = await supabase
-                .rpc('generate_invoice_number');
+            // generate_invoice_number() is MAX()+1 without a lock, so two concurrent
+            // creates can get the same number — retry on unique violation (23505)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            let invoice: Record<string, any> | null = null;
+            let lastError: unknown = null;
+            for (let attempt = 0; attempt < 3 && !invoice; attempt++) {
+                const { data: numberData, error: numberError } = await supabase
+                    .rpc('generate_invoice_number');
 
-            if (numberError) {
-                console.error('Error generating invoice number:', numberError);
-                throw numberError;
+                if (numberError) {
+                    console.error('Error generating invoice number:', numberError);
+                    throw numberError;
+                }
+
+                const { data, error: invoiceError } = await supabase
+                    .from('invoices')
+                    .insert({
+                        invoice_number: numberData,
+                        booking_id: invoiceData.bookingId,
+                        guest_id: invoiceData.guestId,
+                        due_date: invoiceData.dueDate ? formatLocalDate(invoiceData.dueDate) : undefined,
+                        status: 'DRAFT',
+                        subtotal,
+                        tax_rate: taxRate,
+                        tax_amount: taxAmount,
+                        total,
+                        notes: invoiceData.notes,
+                    })
+                    .select()
+                    .single();
+
+                if (data) {
+                    invoice = data;
+                } else {
+                    lastError = invoiceError;
+                    if (invoiceError?.code !== '23505') break;
+                }
             }
 
-            // Insert invoice
-            const { data: invoice, error: invoiceError } = await supabase
-                .from('invoices')
-                .insert({
-                    invoice_number: numberData,
-                    booking_id: invoiceData.bookingId,
-                    guest_id: invoiceData.guestId,
-                    due_date: invoiceData.dueDate?.toISOString().split('T')[0],
-                    status: 'DRAFT',
-                    subtotal,
-                    tax_rate: taxRate,
-                    tax_amount: taxAmount,
-                    total,
-                    notes: invoiceData.notes,
-                })
-                .select()
-                .single();
-
-            if (invoiceError) {
-                console.error('Error creating invoice:', invoiceError);
-                throw invoiceError;
+            if (!invoice) {
+                console.error('Error creating invoice:', lastError);
+                throw lastError;
             }
 
             // Insert items
@@ -68,7 +82,7 @@ export const useCreateInvoice = () => {
                 description: item.description,
                 quantity: item.quantity,
                 unit_price: item.unitPrice,
-                total: item.quantity * item.unitPrice,
+                total: round2(item.quantity * item.unitPrice),
                 item_type: item.itemType,
             }));
 

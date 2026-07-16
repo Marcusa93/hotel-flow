@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Invoice, InvoiceStatus } from '@/types/hotel';
+import { formatLocalDate } from '@/lib/utils';
 import { logAuditEvent } from './useCreateAuditLog';
 import { createNotificationIfEnabled } from './useCreateNotification';
 
@@ -24,7 +25,7 @@ export const useUpdateInvoice = () => {
             if (data.status !== undefined) updates.status = data.status;
             if (data.notes !== undefined) updates.notes = data.notes;
             if (data.signatureData !== undefined) updates.signature_data = data.signatureData;
-            if (data.dueDate !== undefined) updates.due_date = data.dueDate.toISOString().split('T')[0];
+            if (data.dueDate !== undefined) updates.due_date = formatLocalDate(data.dueDate);
 
             const { error } = await supabase
                 .from('invoices')
@@ -51,8 +52,9 @@ export const useUpdateInvoice = () => {
             });
 
             if (variables.data.status) {
+                // Keys must match InvoiceStatus ('DRAFT' | 'ISSUED' | 'PAID' | 'OVERDUE' | 'CANCELLED')
                 const typeMap: Record<string, { type: 'success' | 'info' | 'warning'; title: string }> = {
-                    SENT: { type: 'info', title: 'Factura enviada' },
+                    ISSUED: { type: 'info', title: 'Factura emitida' },
                     PAID: { type: 'success', title: 'Factura pagada' },
                     OVERDUE: { type: 'warning', title: 'Factura vencida' },
                     CANCELLED: { type: 'warning', title: 'Factura anulada' },

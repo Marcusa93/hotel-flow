@@ -28,19 +28,30 @@ export default function Guests() {
   const [isNewGuestDialogOpen, setIsNewGuestDialogOpen] = useState(false);
 
   useEffect(() => {
+    // Each branch removes only its own param so unrelated params survive
+    const next = new URLSearchParams(searchParams);
+    let changed = false;
     if (searchParams.get('new') === 'true') {
       setIsNewGuestDialogOpen(true);
-      setSearchParams({}, { replace: true });
+      next.delete('new');
+      changed = true;
     }
     const openId = searchParams.get('open');
     if (openId && guests.length > 0) {
       const guest = guests.find(g => g.id === openId);
       if (guest) {
         setSelectedGuest(guest);
-        setSearchParams({}, { replace: true });
+        next.delete('open');
+        changed = true;
       }
     }
+    if (changed) setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams, guests]);
+
+  // Derive the drawer guest from the live list so edits are reflected immediately
+  const liveSelectedGuest = selectedGuest
+    ? guests.find(g => g.id === selectedGuest.id) ?? selectedGuest
+    : undefined;
 
   // Precompute guest stats
   const guestStatsMap = useMemo(() => {
@@ -93,7 +104,7 @@ export default function Guests() {
       const matchesSearch =
         guest.fullName.toLowerCase().includes(searchLower) ||
         (guest.email || '').toLowerCase().includes(searchLower) ||
-        guest.phone.includes(search) ||
+        (guest.phone || '').includes(search) ||
         (guest.documentId || '').toLowerCase().includes(searchLower);
 
       // Quick filters
@@ -200,9 +211,9 @@ export default function Guests() {
       </div>
 
       <GuestDetailsDrawer
-        isOpen={!!selectedGuest}
+        isOpen={!!liveSelectedGuest}
         onClose={() => setSelectedGuest(undefined)}
-        guest={selectedGuest}
+        guest={liveSelectedGuest}
         onDeleted={() => setSelectedGuest(undefined)}
       />
 

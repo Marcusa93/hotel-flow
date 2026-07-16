@@ -1,3 +1,4 @@
+import { formatLocalDate } from '@/lib/utils';
 import type {
   RoomType,
   Room,
@@ -56,8 +57,8 @@ export const mapBooking = (row: DbRow): Booking => ({
   id: row.id,
   guestId: row.guest_id,
   roomId: row.room_id,
-  checkInDate: new Date(row.check_in_date),
-  checkOutDate: new Date(row.check_out_date),
+  checkInDate: parseLocalDate(row.check_in_date),
+  checkOutDate: parseLocalDate(row.check_out_date),
   adults: row.adults,
   children: row.children,
   status: row.status,
@@ -124,7 +125,7 @@ export const mapRate = (row: DbRow): Rate => ({
 
 export const mapExpense = (row: DbRow): Expense => ({
   id: row.id,
-  date: new Date(row.date),
+  date: parseLocalDate(row.date),
   expenseType: row.expense_type,
   amount: Number(row.amount),
   description: row.description,
@@ -146,8 +147,8 @@ export const mapInvoice = (row: DbRow): Invoice => ({
   invoiceNumber: row.invoice_number,
   bookingId: row.booking_id,
   guestId: row.guest_id,
-  issueDate: new Date(row.issue_date),
-  dueDate: row.due_date ? new Date(row.due_date) : undefined,
+  issueDate: parseLocalDate(row.issue_date),
+  dueDate: row.due_date ? parseLocalDate(row.due_date) : undefined,
   status: row.status,
   subtotal: Number(row.subtotal),
   taxRate: Number(row.tax_rate),
@@ -179,8 +180,9 @@ export const bookingToRow = (booking: Partial<Booking>): DbRow => {
   const row: DbRow = {};
   if (booking.guestId !== undefined) row.guest_id = booking.guestId;
   if (booking.roomId !== undefined) row.room_id = booking.roomId;
-  if (booking.checkInDate !== undefined) row.check_in_date = booking.checkInDate instanceof Date ? booking.checkInDate.toISOString() : booking.checkInDate;
-  if (booking.checkOutDate !== undefined) row.check_out_date = booking.checkOutDate instanceof Date ? booking.checkOutDate.toISOString() : booking.checkOutDate;
+  // DATE columns: send the local calendar day, never toISOString() (UTC can shift the day)
+  if (booking.checkInDate !== undefined) row.check_in_date = booking.checkInDate instanceof Date ? formatLocalDate(booking.checkInDate) : booking.checkInDate;
+  if (booking.checkOutDate !== undefined) row.check_out_date = booking.checkOutDate instanceof Date ? formatLocalDate(booking.checkOutDate) : booking.checkOutDate;
   if (booking.adults !== undefined) row.adults = booking.adults;
   if (booking.children !== undefined) row.children = booking.children;
   if (booking.status !== undefined) row.status = booking.status;
@@ -207,6 +209,8 @@ export const mapHotelSettings = (row: DbRow): HotelSettings => ({
   notificationSendOnPayment: row.notification_send_on_payment,
   notificationSendOnCheckIn: row.notification_send_on_check_in,
   notificationSendOnCheckOut: row.notification_send_on_check_out,
+  checkInTime: row.check_in_time || '14:00',
+  checkOutTime: row.check_out_time || '11:00',
   createdAt: new Date(row.created_at),
   updatedAt: new Date(row.updated_at),
 });
@@ -226,6 +230,8 @@ export const hotelSettingsToRow = (settings: Partial<HotelSettings>): DbRow => {
   if (settings.notificationSendOnPayment !== undefined) row.notification_send_on_payment = settings.notificationSendOnPayment;
   if (settings.notificationSendOnCheckIn !== undefined) row.notification_send_on_check_in = settings.notificationSendOnCheckIn;
   if (settings.notificationSendOnCheckOut !== undefined) row.notification_send_on_check_out = settings.notificationSendOnCheckOut;
+  if (settings.checkInTime !== undefined) row.check_in_time = settings.checkInTime;
+  if (settings.checkOutTime !== undefined) row.check_out_time = settings.checkOutTime;
   row.updated_at = new Date().toISOString();
   return row;
 };

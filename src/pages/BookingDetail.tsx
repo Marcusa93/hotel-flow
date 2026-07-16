@@ -54,6 +54,7 @@ import { BookingChargesSection } from '@/components/bookings/BookingChargesSecti
 import { BookingQRCode } from '@/components/bookings/BookingQRCode';
 import { useBookingCharges } from '@/hooks/useBookingCharges';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
+import { toast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 
 export default function BookingDetail() {
@@ -256,11 +257,19 @@ export default function BookingDetail() {
                 <AlertDialogFooter>
                   <AlertDialogCancel>Volver</AlertDialogCancel>
                   <AlertDialogAction
-                    onClick={() => {
-                      if (cancelReason.trim()) {
-                        updateBooking(booking.id, { notes: `${booking.notes ? booking.notes + '\n' : ''}[CANCELACIÓN: ${cancelReason.trim()}]` });
+                    onClick={async () => {
+                      try {
+                        if (cancelReason.trim()) {
+                          await updateBooking(booking.id, { notes: `${booking.notes ? booking.notes + '\n' : ''}[CANCELACIÓN: ${cancelReason.trim()}]` });
+                        }
+                        await updateBookingStatus(booking.id, 'CANCELLED');
+                      } catch {
+                        toast({
+                          title: 'Error al cancelar la reserva',
+                          description: 'No se pudieron guardar los cambios. Intentá nuevamente.',
+                          variant: 'destructive',
+                        });
                       }
-                      handleStatusChange('CANCELLED');
                     }}
                     disabled={!cancelReason.trim()}
                     className="bg-destructive hover:bg-destructive/90"
@@ -589,26 +598,35 @@ export default function BookingDetail() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {bookingPayments.map((payment, i) => (
-                    <div key={payment.id} className="flex items-center justify-between p-4 rounded-xl bg-background/40 hover:bg-background/60 transition-colors border border-transparent hover:border-border/50">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 font-bold text-xs ring-4 ring-background">
-                          ${i + 1}
+                  {bookingPayments.map((payment, i) => {
+                    const statusStyles: Record<string, { circle: string; amount: string; label: string; sign: string }> = {
+                      PAID: { circle: 'bg-green-500/10 text-green-500', amount: 'text-green-600 dark:text-green-400', label: 'Pagado', sign: '+' },
+                      REFUNDED: { circle: 'bg-rose-500/10 text-rose-500', amount: 'text-rose-600 dark:text-rose-400', label: 'Reembolsado', sign: '−' },
+                      PENDING: { circle: 'bg-amber-500/10 text-amber-500', amount: 'text-amber-600 dark:text-amber-400', label: 'Pendiente', sign: '' },
+                      FAILED: { circle: 'bg-muted text-muted-foreground', amount: 'text-muted-foreground line-through', label: 'Fallido', sign: '' },
+                    };
+                    const style = statusStyles[payment.status] || statusStyles.PENDING;
+                    return (
+                      <div key={payment.id} className="flex items-center justify-between p-4 rounded-xl bg-background/40 hover:bg-background/60 transition-colors border border-transparent hover:border-border/50">
+                        <div className="flex items-center gap-4">
+                          <div className={cn("w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs ring-4 ring-background", style.circle)}>
+                            ${i + 1}
+                          </div>
+                          <div>
+                            <p className="font-medium">{PAYMENT_METHOD_LABELS[payment.method] || payment.method}</p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {format(new Date(payment.date), "d MMM yyyy, HH:mm", { locale: es })}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium">{PAYMENT_METHOD_LABELS[payment.method] || payment.method}</p>
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {format(new Date(payment.date), "d MMM yyyy, HH:mm", { locale: es })}
-                          </p>
+                        <div className="text-right">
+                          <p className={cn("font-bold", style.amount)}>{style.sign}${payment.amount.toLocaleString('es-AR')}</p>
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{style.label}</span>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-green-600 dark:text-green-400">+${payment.amount.toLocaleString('es-AR')}</p>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Automático</span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

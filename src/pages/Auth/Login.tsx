@@ -112,23 +112,21 @@ export default function Login() {
 
     return (
         <div className="min-h-screen bg-sidebar flex items-center justify-center p-4 relative overflow-hidden">
-            {/* Background Effects */}
+            {/* Atmospheric background — warm brass + deep ink */}
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/40 via-transparent to-transparent pointer-events-none" />
+            <div className="absolute top-[-20%] right-[-10%] w-[560px] h-[560px] bg-amber-500/10 rounded-full blur-[120px] pointer-events-none animate-pulse-soft" />
+            <div className="absolute bottom-[-25%] left-[-10%] w-[480px] h-[480px] bg-sky-500/10 rounded-full blur-[120px] pointer-events-none" />
 
-            {/* Golden glow effect top right */}
-            <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-yellow-500/10 rounded-full blur-[100px] pointer-events-none" />
-
-            <div className="w-full max-w-md bg-white/5 backdrop-blur-lg border border-white/10 p-8 rounded-2xl shadow-2xl relative z-10 animate-fade-in bg-[radial-gradient(ellipse_at_top,_rgba(212,160,23,0.06),_transparent_60%)]">
+            <div className="brass-top w-full max-w-md bg-white/[0.04] backdrop-blur-xl border border-white/10 p-8 sm:p-10 rounded-[1.75rem] shadow-2xl relative z-10 animate-fade-in overflow-hidden bg-[radial-gradient(ellipse_at_top,_rgba(212,160,23,0.08),_transparent_60%)]">
                 <div className="flex flex-col items-center mb-8">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 ring-1 ring-white/20 flex items-center justify-center mb-4 shadow-lg">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/12 to-white/[0.03] border border-white/10 ring-1 ring-amber-300/20 flex items-center justify-center mb-5 shadow-lg">
                         <img src="/logo.png" alt="HoMe" className="w-10 h-10 object-contain" />
                     </div>
-                    <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-200 via-yellow-400 to-yellow-600">
+                    <p className="text-amber-200/60 text-[10px] tracking-[0.35em] uppercase mb-1">Gestión Hotelera</p>
+                    <h1 className="font-display text-4xl font-semibold bg-clip-text text-transparent bg-gradient-to-br from-amber-100 via-amber-300 to-amber-500 leading-none">
                         HoMe
                     </h1>
-                    <p className="text-blue-200/80 text-sm tracking-widest uppercase mt-1">
-                        Panel de Control
-                    </p>
+                    <div className="mt-3 h-px w-16 bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
                 </div>
 
                 {roleIssue && (
@@ -200,8 +198,8 @@ export default function Login() {
             </div>
 
             {/* Footer / Branding */}
-            <div className="absolute bottom-6 text-center text-white/20 text-xs">
-                HoMe App powered by Atlas AI
+            <div className="absolute bottom-6 text-center text-amber-200/25 text-[11px] tracking-widest uppercase">
+                HoMe · powered by Atlas AI
             </div>
         </div>
     );

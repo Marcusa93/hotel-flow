@@ -132,7 +132,14 @@ export default {
         "pulse-soft": "pulse-soft 2s ease-in-out infinite",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["'Hanken Grotesk'", "system-ui", "sans-serif"],
+        display: ["'Fraunces'", "Georgia", "serif"],
+      },
+      boxShadow: {
+        // Warm, layered shadows tinted toward the ink navy for a premium feel
+        brass: "0 1px 2px hsl(212 40% 12% / 0.04), 0 8px 24px -8px hsl(212 40% 12% / 0.12)",
+        "brass-lg": "0 2px 4px hsl(212 40% 12% / 0.05), 0 20px 48px -12px hsl(212 40% 12% / 0.20)",
+        glow: "0 0 0 1px hsl(38 62% 48% / 0.25), 0 8px 30px -6px hsl(38 62% 48% / 0.35)",
       },
     },
   },

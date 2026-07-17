@@ -147,13 +147,15 @@ export default function BalanceMensual() {
       </div>
 
       {/* Total final */}
-      <Card className={`shadow-sm border ${totalFinal >= 0 ? 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border-emerald-200/50' : 'bg-gradient-to-br from-rose-50 to-orange-50 dark:from-rose-950/40 dark:to-orange-950/40 border-rose-200/50'}`}>
-        <CardContent className="p-6 flex items-center justify-between">
+      <Card className="brass-top lift glass border-none overflow-hidden">
+        <CardContent className="p-7 flex items-center justify-between">
           <div>
-            <p className="text-sm text-muted-foreground">Total final (ingreso − gasto)</p>
-            <p className={`text-3xl font-extrabold tabular-nums ${totalFinal >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>{money(totalFinal)}</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-semibold">Total final · ingreso − gasto</p>
+            <p className={`num-display text-5xl font-semibold mt-2 ${totalFinal >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{money(totalFinal)}</p>
           </div>
-          <Scale className={`w-12 h-12 ${totalFinal >= 0 ? 'text-emerald-300' : 'text-rose-300'}`} />
+          <div className={`h-16 w-16 rounded-2xl flex items-center justify-center shrink-0 ${totalFinal >= 0 ? 'bg-emerald-500/10' : 'bg-rose-500/10'}`}>
+            <Scale className={`w-8 h-8 ${totalFinal >= 0 ? 'text-emerald-500' : 'text-rose-500'}`} />
+          </div>
         </CardContent>
       </Card>
     </div>

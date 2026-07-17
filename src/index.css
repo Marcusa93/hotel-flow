@@ -6,45 +6,45 @@
 
 @layer base {
   :root {
-    /* ── Deep Blue & Gold – Light Mode ────────────────────── */
-    /* Background: cool neutral gray – distinct from white cards */
-    --background: 220 14% 95%;
-    /* Foreground: dark navy for strong readability */
-    --foreground: 210 50% 15%;
+    /* ── Midnight & Brass – Light Mode (warm paper + ink + brass) ── */
+    /* Background: warm paper/cream – premium, not clinical gray */
+    --background: 40 30% 96%;
+    /* Foreground: deep ink navy */
+    --foreground: 212 45% 14%;
 
-    /* Cards: crisp white */
-    --card: 0 0% 100%;
-    --card-foreground: 210 50% 15%;
+    /* Cards: warm off-white */
+    --card: 40 40% 99%;
+    --card-foreground: 212 45% 14%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 210 50% 15%;
+    --popover: 40 40% 99%;
+    --popover-foreground: 212 45% 14%;
 
-    /* Primary: Deep Navy #003366 */
-    --primary: 210 100% 20%;
-    --primary-foreground: 0 0% 100%;
+    /* Primary: Deep Ink Navy */
+    --primary: 212 60% 17%;
+    --primary-foreground: 40 40% 97%;
 
-    /* Secondary: light blue-gray for badges/chips */
-    --secondary: 214 32% 91%;
-    --secondary-foreground: 210 50% 15%;
+    /* Secondary: warm sand chip */
+    --secondary: 38 34% 90%;
+    --secondary-foreground: 212 45% 16%;
 
-    /* Muted: clearly different from background (85% vs 95%) */
-    --muted: 220 14% 85%;
-    --muted-foreground: 215 16% 40%;
+    /* Muted: warm neutral */
+    --muted: 38 22% 88%;
+    --muted-foreground: 214 12% 42%;
 
-    /* Accent: Gold #D4A017 */
-    --accent: 43 80% 46%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent: Brass (warmer, richer gold) */
+    --accent: 38 62% 46%;
+    --accent-foreground: 40 40% 98%;
 
     /* Destructive */
-    --destructive: 0 84% 60%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Borders: subtle neutral gray – clean, not gold */
-    --border: 220 13% 82%;
-    --input: 220 13% 82%;
-    --ring: 210 100% 20%;
+    /* Borders: warm hairline */
+    --border: 38 20% 84%;
+    --input: 38 20% 84%;
+    --ring: 38 62% 46%;
 
-    --radius: 0.5rem;
+    --radius: 0.9rem;
 
     /* Status Colors */
     --status-available: 142 76% 36%;
@@ -53,63 +53,63 @@
     --status-maintenance: 43 80% 46%;
     --status-out-of-order: 0 0% 45%;
 
-    /* Sidebar: Deep Navy stays dark for contrast */
-    --sidebar-background: 210 100% 20%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 43 80% 46%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 100% 26%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 210 60% 28%;
-    --sidebar-ring: 43 80% 46%;
+    /* Sidebar: rich ink navy for contrast */
+    --sidebar-background: 213 56% 13%;
+    --sidebar-foreground: 40 30% 92%;
+    --sidebar-primary: 38 62% 50%;
+    --sidebar-primary-foreground: 213 56% 12%;
+    --sidebar-accent: 213 45% 20%;
+    --sidebar-accent-foreground: 40 30% 95%;
+    --sidebar-border: 213 40% 22%;
+    --sidebar-ring: 38 62% 50%;
 
     /* Chart colors */
-    --chart-1: 210 100% 20%;
-    --chart-2: 43 80% 46%;
-    --chart-3: 207 100% 30%;
-    --chart-4: 142 76% 36%;
-    --chart-5: 0 84% 60%;
+    --chart-1: 212 60% 22%;
+    --chart-2: 38 62% 48%;
+    --chart-3: 199 80% 38%;
+    --chart-4: 160 60% 38%;
+    --chart-5: 0 72% 55%;
   }
 
   .dark {
-    /* Dark Mode - Midnight Navy */
-    --background: 210 100% 10%;
-    --foreground: 42 33% 94%;
+    /* Dark Mode - Warm Midnight */
+    --background: 214 42% 8%;
+    --foreground: 40 30% 92%;
 
-    --card: 210 100% 15%;
-    --card-foreground: 42 33% 94%;
+    --card: 214 38% 12%;
+    --card-foreground: 40 30% 92%;
 
-    --popover: 210 100% 15%;
-    --popover-foreground: 42 33% 94%;
+    --popover: 214 40% 11%;
+    --popover-foreground: 40 30% 92%;
 
-    --primary: 43 80% 46%;
-    /* Gold primary in dark mode */
-    --primary-foreground: 210 100% 20%;
+    --primary: 38 64% 52%;
+    /* Brass primary in dark mode */
+    --primary-foreground: 214 42% 10%;
 
-    --secondary: 207 100% 30%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 213 34% 20%;
+    --secondary-foreground: 40 30% 92%;
 
-    --muted: 210 50% 25%;
-    --muted-foreground: 215 20% 70%;
+    --muted: 213 28% 20%;
+    --muted-foreground: 40 14% 68%;
 
-    --accent: 43 80% 46%;
-    --accent-foreground: 210 100% 20%;
+    --accent: 38 64% 52%;
+    --accent-foreground: 214 42% 10%;
 
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 40 30% 96%;
 
-    --border: 210 50% 25%;
-    --input: 210 50% 25%;
-    --ring: 43 80% 46%;
+    --border: 213 28% 22%;
+    --input: 213 28% 22%;
+    --ring: 38 64% 52%;
 
-    --sidebar-background: 210 100% 8%;
-    --sidebar-foreground: 42 33% 94%;
-    --sidebar-primary: 43 80% 46%;
-    --sidebar-primary-foreground: 210 100% 20%;
-    --sidebar-accent: 210 50% 25%;
-    --sidebar-accent-foreground: 43 80% 46%;
-    --sidebar-border: 210 50% 25%;
-    --sidebar-ring: 43 80% 46%;
+    --sidebar-background: 214 46% 7%;
+    --sidebar-foreground: 40 30% 90%;
+    --sidebar-primary: 38 64% 54%;
+    --sidebar-primary-foreground: 214 46% 8%;
+    --sidebar-accent: 213 32% 18%;
+    --sidebar-accent-foreground: 38 64% 54%;
+    --sidebar-border: 213 30% 20%;
+    --sidebar-ring: 38 64% 54%;
 
     /* Chart colors - Dark Mode */
     --chart-1: 43 80% 56%;
@@ -132,26 +132,112 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Outfit', 'Inter', sans-serif;
-    /* Adding Outfit for that premium look if available, falling back to Inter */
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: 'Hanken Grotesk', system-ui, sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    position: relative;
+    min-height: 100vh;
   }
+
+  /* Atmospheric depth: warm radial mesh + faint grain — sits behind everything */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    background:
+      radial-gradient(60% 50% at 12% 0%, hsl(38 62% 46% / 0.10), transparent 60%),
+      radial-gradient(50% 40% at 100% 8%, hsl(212 60% 30% / 0.10), transparent 55%),
+      radial-gradient(70% 60% at 50% 120%, hsl(212 50% 40% / 0.08), transparent 60%);
+  }
+  .dark body::before {
+    background:
+      radial-gradient(60% 50% at 12% 0%, hsl(38 64% 52% / 0.10), transparent 60%),
+      radial-gradient(50% 40% at 100% 8%, hsl(199 80% 40% / 0.10), transparent 55%),
+      radial-gradient(70% 60% at 50% 120%, hsl(212 60% 30% / 0.14), transparent 60%);
+  }
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .dark body::after { opacity: 0.05; }
+
+  /* Fraunces for display: page titles, hero numbers, dialog titles */
+  h1, h2, .font-display {
+    font-family: 'Fraunces', Georgia, serif;
+    font-optical-sizing: auto;
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background: hsl(38 62% 46% / 0.28);
+    color: inherit;
+  }
+
+  /* Refined scrollbar */
+  ::-webkit-scrollbar { width: 11px; height: 11px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--foreground) / 0.18);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--accent) / 0.5); background-clip: padding-box; }
 }
 
 @layer utilities {
 
-  /* Glassmorphism - Light & Dark */
+  /* Glassmorphism - warm, premium */
   .glass {
-    background-color: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    background-color: hsl(40 40% 99% / 0.72);
+    backdrop-filter: blur(20px) saturate(1.3);
+    -webkit-backdrop-filter: blur(20px) saturate(1.3);
+    border: 1px solid hsl(40 40% 100% / 0.6);
+    box-shadow: 0 1px 2px hsl(212 40% 12% / 0.04), 0 12px 32px -12px hsl(212 40% 12% / 0.18);
   }
 
   .dark .glass {
-    background-color: rgba(0, 0, 0, 0.8);
-    border-color: rgba(255, 255, 255, 0.1);
+    background-color: hsl(214 38% 13% / 0.7);
+    border-color: hsl(40 30% 92% / 0.08);
+    box-shadow: 0 1px 2px hsl(0 0% 0% / 0.3), 0 16px 40px -16px hsl(0 0% 0% / 0.6);
+  }
+
+  /* Hover lift for cards/interactive surfaces */
+  .lift {
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+  .lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 2px 4px hsl(212 40% 12% / 0.06), 0 24px 48px -16px hsl(212 40% 12% / 0.24);
+  }
+
+  /* Brass hairline top accent for hero cards */
+  .brass-top {
+    position: relative;
+  }
+  .brass-top::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, hsl(38 62% 50%), hsl(43 74% 62%), transparent);
+    opacity: 0.85;
+  }
+
+  /* Tabular display numerals for money/KPIs */
+  .num-display {
+    font-family: 'Fraunces', Georgia, serif;
+    font-feature-settings: "tnum" 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
   }
 
   .glass-panel {

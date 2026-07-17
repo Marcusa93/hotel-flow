@@ -326,13 +326,15 @@ export default function CierreCaja() {
       </div>
 
       {/* Resultado del día */}
-      <Card className="bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/40 dark:to-violet-950/40 border-indigo-200/50 shadow-sm">
-        <CardContent className="p-6 flex items-center justify-between">
+      <Card className="brass-top lift glass border-none overflow-hidden">
+        <CardContent className="p-7 flex items-center justify-between">
           <div>
-            <p className="text-sm text-muted-foreground">Total del día (ingresos − gastos)</p>
-            <p className="text-3xl font-extrabold text-indigo-700 dark:text-indigo-300 tabular-nums">{money(totalDelDia)}</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-semibold">Total del día · ingresos − gastos</p>
+            <p className="num-display text-5xl font-semibold text-primary dark:text-accent mt-2">{money(totalDelDia)}</p>
           </div>
-          <Wallet className="w-12 h-12 text-indigo-300" />
+          <div className="h-16 w-16 rounded-2xl bg-accent/10 flex items-center justify-center shrink-0">
+            <Wallet className="w-8 h-8 text-accent" />
+          </div>
         </CardContent>
       </Card>
     </div>

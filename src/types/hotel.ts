@@ -3,7 +3,7 @@
 export type RoomStatus = 'AVAILABLE' | 'OCCUPIED' | 'DIRTY' | 'MAINTENANCE' | 'OUT_OF_ORDER';
 export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED' | 'NO_SHOW';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
-export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'OTHER';
+export type PaymentMethod = 'CASH' | 'CREDIT' | 'DEBIT' | 'TRANSFER' | 'QR' | 'OTHER';
 export type HousekeepingStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
 export type TaskPriority = 'LOW' | 'NORMAL' | 'URGENT' | 'CHECKOUT';
 export type UserRole = 'admin' | 'reception' | 'housekeeping' | 'auditor';
@@ -76,8 +76,19 @@ export interface Booking {
   hasVehicle?: boolean;
   vehicleDescription?: string;
   licensePlate?: string;
+  receptionist?: string;
   createdAt: Date;
   updatedAt?: Date;
+}
+
+export interface OtherIncome {
+  id: string;
+  date: Date;
+  description: string;
+  method: PaymentMethod;
+  amount: number;
+  createdBy?: string;
+  createdAt: Date;
 }
 
 export interface Payment {
@@ -238,6 +249,7 @@ export interface HotelSettings {
   timezone: string;
   checkInTime?: string;   // e.g. "14:00"
   checkOutTime?: string;  // e.g. "11:00"
+  dailyCashFloat?: number; // "Fijo del día" — cash float kept in the register
   notificationEmailEnabled: boolean;
   notificationWhatsappEnabled: boolean;
   notificationSendOnBooking: boolean;

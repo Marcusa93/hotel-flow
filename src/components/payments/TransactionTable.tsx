@@ -10,12 +10,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/shared';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Eye, Smartphone, CreditCard, Banknote, MoreHorizontal, CheckCircle2, XCircle, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Eye, Smartphone, CreditCard, Banknote, QrCode, MoreHorizontal, CheckCircle2, XCircle, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { Payment, PaymentMethod, PaymentStatus, Guest, Room } from '@/types/hotel';
+import { PAYMENT_METHOD_LABELS } from '@/lib/constants';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -34,9 +35,11 @@ interface TransactionTableProps {
 
 const MethodIcon = ({ method }: { method: PaymentMethod }) => {
     switch (method) {
-        case 'CARD': return <CreditCard className="w-4 h-4 text-purple-500" />;
         case 'CASH': return <Banknote className="w-4 h-4 text-emerald-500" />;
+        case 'CREDIT': return <CreditCard className="w-4 h-4 text-purple-500" />;
+        case 'DEBIT': return <CreditCard className="w-4 h-4 text-indigo-500" />;
         case 'TRANSFER': return <Smartphone className="w-4 h-4 text-blue-500" />;
+        case 'QR': return <QrCode className="w-4 h-4 text-cyan-500" />;
         default: return <CreditCard className="w-4 h-4 text-slate-500" />;
     }
 }
@@ -159,7 +162,7 @@ export function TransactionTable({ payments, getBookingInfo, onStatusChange, onV
                                                 <MethodIcon method={payment.method} />
                                             </div>
                                             <span className="text-xs font-medium text-slate-600 dark:text-slate-400 hidden sm:inline-block">
-                                                {payment.method === 'CARD' ? 'Tarjeta' : payment.method === 'CASH' ? 'Efectivo' : payment.method === 'TRANSFER' ? 'Transf.' : 'Otro'}
+                                                {PAYMENT_METHOD_LABELS[payment.method] || payment.method}
                                             </span>
                                         </div>
                                     </TableCell>
@@ -260,7 +263,7 @@ export function TransactionTable({ payments, getBookingInfo, onStatusChange, onV
                                     <div className="p-1 rounded-full bg-slate-100 dark:bg-slate-800">
                                         <MethodIcon method={payment.method} />
                                     </div>
-                                    <span>{payment.method === 'CARD' ? 'Tarjeta' : payment.method === 'CASH' ? 'Efectivo' : payment.method === 'TRANSFER' ? 'Transf.' : 'Otro'}</span>
+                                    <span>{PAYMENT_METHOD_LABELS[payment.method] || payment.method}</span>
                                 </div>
                                 {payment.reference && (
                                     <span className="font-mono text-muted-foreground bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">

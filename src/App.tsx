@@ -29,6 +29,8 @@ const Housekeeping = lazy(() => import("./pages/Housekeeping"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Expenses = lazy(() => import("./pages/Expenses"));
+const CierreCaja = lazy(() => import("./pages/CierreCaja"));
+const BalanceMensual = lazy(() => import("./pages/BalanceMensual"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
 const QuickCheckin = lazy(() => import("./pages/QuickCheckin"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -71,6 +73,8 @@ const AnimatedRoutes = () => {
         {/* Finanzas — admin, reception, auditor */}
         <Route path="/payments" element={<RoleGuard allowedRoles={['admin', 'reception', 'auditor']}><PageWrapper><Payments /></PageWrapper></RoleGuard>} />
         <Route path="/expenses" element={<RoleGuard allowedRoles={['admin', 'reception', 'auditor']}><PageWrapper><Expenses /></PageWrapper></RoleGuard>} />
+        <Route path="/cierre" element={<RoleGuard allowedRoles={['admin', 'reception', 'auditor']}><PageWrapper><CierreCaja /></PageWrapper></RoleGuard>} />
+        <Route path="/balance" element={<RoleGuard allowedRoles={['admin', 'reception', 'auditor']}><PageWrapper><BalanceMensual /></PageWrapper></RoleGuard>} />
         <Route path="/billing" element={<Navigate to="/payments" replace />} />
         <Route path="/statistics" element={<Navigate to="/rates" replace />} />
         <Route path="/audit-log" element={<RoleGuard allowedRoles={['admin', 'auditor']}><PageWrapper><AuditLog /></PageWrapper></RoleGuard>} />

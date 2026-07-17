@@ -44,6 +44,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { PAYMENT_METHODS } from '@/lib/constants';
 
 const MAX_PAYMENT_AMOUNT = 100_000_000; // $100M ARS sanity cap
 
@@ -51,7 +52,7 @@ const paymentSchema = z.object({
     bookingId: z.string().min(1, 'Selecciona una reserva'),
     date: z.date({ required_error: 'Fecha requerida' })
         .refine(d => d.getTime() <= Date.now() + 60_000, 'La fecha no puede ser futura'),
-    method: z.enum(['CASH', 'CARD', 'TRANSFER', 'OTHER'] as const),
+    method: z.enum(['CASH', 'CREDIT', 'DEBIT', 'TRANSFER', 'QR', 'OTHER'] as const),
     amount: z.coerce.number()
         .positive('Monto debe ser mayor a 0')
         .max(MAX_PAYMENT_AMOUNT, 'Monto excede el límite permitido')
@@ -391,10 +392,9 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent>
-                                                        <SelectItem value="CASH">Efectivo</SelectItem>
-                                                        <SelectItem value="CARD">Tarjeta</SelectItem>
-                                                        <SelectItem value="TRANSFER">Transferencia</SelectItem>
-                                                        <SelectItem value="OTHER">Otro</SelectItem>
+                                                        {PAYMENT_METHODS.map(m => (
+                                                            <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                                                        ))}
                                                     </SelectContent>
                                                 </Select>
                                                 <FormMessage />

@@ -13,6 +13,7 @@ import type {
   HotelSettings,
   AuditLog,
   BookingCharge,
+  OtherIncome,
 } from '@/types/hotel';
 
 // --- Row to Model mappers (snake_case DB → camelCase frontend) ---
@@ -68,9 +69,30 @@ export const mapBooking = (row: DbRow): Booking => ({
   hasVehicle: row.has_vehicle ?? false,
   vehicleDescription: row.vehicle_description,
   licensePlate: row.license_plate,
+  receptionist: row.receptionist,
   createdAt: new Date(row.created_at || new Date()),
   updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
 });
+
+export const mapOtherIncome = (row: DbRow): OtherIncome => ({
+  id: row.id,
+  date: parseLocalDate(row.date),
+  description: row.description,
+  method: row.method,
+  amount: Number(row.amount),
+  createdBy: row.created_by,
+  createdAt: new Date(row.created_at || new Date()),
+});
+
+export const otherIncomeToRow = (income: Partial<OtherIncome>): DbRow => {
+  const row: DbRow = {};
+  if (income.date !== undefined) row.date = income.date instanceof Date ? formatLocalDate(income.date) : income.date;
+  if (income.description !== undefined) row.description = income.description;
+  if (income.method !== undefined) row.method = income.method;
+  if (income.amount !== undefined) row.amount = income.amount;
+  if (income.createdBy !== undefined) row.created_by = income.createdBy;
+  return row;
+};
 
 export const mapPayment = (row: DbRow): Payment => ({
   id: row.id,
@@ -191,6 +213,7 @@ export const bookingToRow = (booking: Partial<Booking>): DbRow => {
   if (booking.hasVehicle !== undefined) row.has_vehicle = booking.hasVehicle;
   if (booking.vehicleDescription !== undefined) row.vehicle_description = booking.vehicleDescription;
   if (booking.licensePlate !== undefined) row.license_plate = booking.licensePlate;
+  if (booking.receptionist !== undefined) row.receptionist = booking.receptionist;
   return row;
 };
 
@@ -211,6 +234,7 @@ export const mapHotelSettings = (row: DbRow): HotelSettings => ({
   notificationSendOnCheckOut: row.notification_send_on_check_out,
   checkInTime: row.check_in_time || '14:00',
   checkOutTime: row.check_out_time || '11:00',
+  dailyCashFloat: Number(row.daily_cash_float ?? 0),
   createdAt: new Date(row.created_at),
   updatedAt: new Date(row.updated_at),
 });
@@ -232,6 +256,7 @@ export const hotelSettingsToRow = (settings: Partial<HotelSettings>): DbRow => {
   if (settings.notificationSendOnCheckOut !== undefined) row.notification_send_on_check_out = settings.notificationSendOnCheckOut;
   if (settings.checkInTime !== undefined) row.check_in_time = settings.checkInTime;
   if (settings.checkOutTime !== undefined) row.check_out_time = settings.checkOutTime;
+  if (settings.dailyCashFloat !== undefined) row.daily_cash_float = settings.dailyCashFloat;
   row.updated_at = new Date().toISOString();
   return row;
 };

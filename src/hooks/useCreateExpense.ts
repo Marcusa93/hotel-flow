@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { Expense, ExpenseType } from '@/types/hotel';
 import { logAuditEvent } from './useCreateAuditLog';
 import { createNotificationIfEnabled } from './useCreateNotification';
+import { formatLocalDate } from '@/lib/utils';
 
 interface CreateExpenseInput {
     date: Date;
@@ -19,7 +20,7 @@ export const useCreateExpense = () => {
             const { data, error } = await supabase
                 .from('expenses')
                 .insert({
-                    date: input.date.toISOString().split('T')[0],
+                    date: formatLocalDate(input.date),
                     expense_type: input.expenseType,
                     amount: input.amount,
                     description: input.description || null

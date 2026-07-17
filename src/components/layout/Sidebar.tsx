@@ -13,6 +13,8 @@ import {
   Settings,
   Percent,
   ClipboardList,
+  Wallet,
+  Scale,
   ChevronLeft,
   ChevronRight,
   PieChart,
@@ -62,6 +64,8 @@ const navItems: NavItem[] = [
 
   // Finanzas
   { title: 'Finanzas', href: '/payments', icon: CreditCard, roles: ['admin', 'reception', 'auditor'], section: 'finanzas', readOnly: true },
+  { title: 'Cierre de Caja', href: '/cierre', icon: Wallet, roles: ['admin', 'reception', 'auditor'], section: 'finanzas', readOnly: true },
+  { title: 'Balance Mensual', href: '/balance', icon: Scale, roles: ['admin', 'reception', 'auditor'], section: 'finanzas', readOnly: true },
   { title: 'Gastos', href: '/expenses', icon: Receipt, roles: ['admin', 'reception', 'auditor'], section: 'finanzas' },
   { title: 'Tarifas', href: '/rates', icon: Percent, roles: ['admin', 'reception'], section: 'finanzas' },
   { title: 'Auditoría', href: '/audit-log', icon: Shield, roles: ['admin', 'auditor'], section: 'finanzas', readOnly: true },

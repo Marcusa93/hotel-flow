@@ -14,6 +14,7 @@ import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { Payment } from '@/types/hotel';
 import { toast } from '@/hooks/use-toast';
+import { PAYMENT_METHOD_LABELS } from '@/lib/constants';
 
 interface PaymentReceiptProps {
     open: boolean;
@@ -37,14 +38,7 @@ export function PaymentReceipt({ open, onOpenChange, payment }: PaymentReceiptPr
     const room = booking ? rooms.find(r => r.id === booking.roomId) : null;
     const roomType = room ? roomTypes.find(rt => rt.id === room.roomTypeId) : null;
 
-    const getMethodLabel = (method: string) => {
-        switch (method) {
-            case 'CASH': return 'Efectivo';
-            case 'CARD': return 'Tarjeta';
-            case 'TRANSFER': return 'Transferencia';
-            default: return 'Otro';
-        }
-    };
+    const getMethodLabel = (method: string) => PAYMENT_METHOD_LABELS[method] || 'Otro';
 
     const getStatusLabel = (status: string) => {
         switch (status) {

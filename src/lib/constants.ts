@@ -63,9 +63,35 @@ export const PAYMENT_STATUS_LABELS: Record<string, string> = {
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CASH: 'Efectivo',
-  CARD: 'Tarjeta',
+  CREDIT: 'T. Crédito',
+  DEBIT: 'T. Débito',
   TRANSFER: 'Transferencia',
+  QR: 'QR',
   OTHER: 'Otro',
+  // Legacy value kept so old rows/labels don't render blank
+  CARD: 'Tarjeta',
+};
+
+// Order for selects and reports (excludes legacy CARD)
+export const PAYMENT_METHODS: { value: string; label: string }[] = [
+  { value: 'CASH', label: 'Efectivo' },
+  { value: 'CREDIT', label: 'T. Crédito' },
+  { value: 'DEBIT', label: 'T. Débito' },
+  { value: 'TRANSFER', label: 'Transferencia' },
+  { value: 'QR', label: 'QR' },
+  { value: 'OTHER', label: 'Otro' },
+];
+
+export const EXPENSE_TYPE_LABELS: Record<string, string> = {
+  PANADERIA: 'Panadería',
+  SUPERMERCADO: 'Supermercado',
+  VERDULERIA: 'Verdulería',
+  CARNICERIA: 'Carnicería',
+  BEBIDAS: 'Bebidas',
+  LIMPIEZA: 'Limpieza',
+  MANTENIMIENTO: 'Mantenimiento',
+  SERVICIOS: 'Servicios (Luz, Gas, Agua)',
+  OTROS: 'Otros',
 };
 
 export const CHARGE_CATEGORIES = [

@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select';
 import { Payment, PaymentStatus, PaymentMethod } from '@/types/hotel';
 import { PaymentStats, TransactionTable, NewPaymentDialog, PaymentReceipt } from '@/components/payments';
-import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from '@/lib/constants';
+import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, PAYMENT_METHODS } from '@/lib/constants';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 
@@ -215,10 +215,9 @@ export default function Payments() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">Todos</SelectItem>
-                <SelectItem value="CASH">Efectivo</SelectItem>
-                <SelectItem value="CARD">Tarjeta</SelectItem>
-                <SelectItem value="TRANSFER">Transferencia</SelectItem>
-                <SelectItem value="OTHER">Otro</SelectItem>
+                {PAYMENT_METHODS.map(m => (
+                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

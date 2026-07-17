@@ -6,6 +6,7 @@ import { createNotificationIfEnabled } from './useCreateNotification';
 import { logAuditEvent } from './useCreateAuditLog';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { formatLocalDate } from '@/lib/utils';
 
 type CreateBookingParams = Omit<Booking, 'id' | 'createdAt'>;
 
@@ -19,13 +20,14 @@ export const useCreateBooking = () => {
                 .insert({
                     guest_id: bookingData.guestId,
                     room_id: bookingData.roomId,
-                    check_in_date: bookingData.checkInDate.toISOString(),
-                    check_out_date: bookingData.checkOutDate.toISOString(),
+                    check_in_date: formatLocalDate(bookingData.checkInDate),
+                    check_out_date: formatLocalDate(bookingData.checkOutDate),
                     adults: bookingData.adults,
                     children: bookingData.children,
                     status: bookingData.status,
                     total_amount: bookingData.totalAmount,
                     notes: bookingData.notes,
+                    receptionist: bookingData.receptionist,
                     has_vehicle: bookingData.hasVehicle ?? false,
                     vehicle_description: bookingData.vehicleDescription,
                     license_plate: bookingData.licensePlate,
@@ -41,13 +43,14 @@ export const useCreateBooking = () => {
                 id: data.id,
                 guestId: data.guest_id,
                 roomId: data.room_id,
-                checkInDate: new Date(data.check_in_date),
-                checkOutDate: new Date(data.check_out_date),
+                checkInDate: new Date(data.check_in_date + 'T00:00:00'),
+                checkOutDate: new Date(data.check_out_date + 'T00:00:00'),
                 adults: data.adults,
                 children: data.children,
                 status: data.status,
                 totalAmount: data.total_amount,
                 notes: data.notes,
+                receptionist: data.receptionist,
                 hasVehicle: data.has_vehicle ?? false,
                 vehicleDescription: data.vehicle_description,
                 licensePlate: data.license_plate,

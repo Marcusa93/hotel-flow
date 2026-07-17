@@ -524,17 +524,24 @@ export default function BookingDetail() {
               <CardHeader>
                 <CardTitle className="text-base">Notas y Requerimientos</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
+                {booking.receptionist && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Recepcionista a cargo:</span>
+                    <span className="font-medium">{booking.receptionist}</span>
+                  </div>
+                )}
                 {booking.notes ? (
                   <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-yellow-600 dark:text-yellow-400">
                     <p className="text-sm italic">"{booking.notes}"</p>
                   </div>
-                ) : (
+                ) : !booking.receptionist ? (
                   <div className="flex flex-col items-center justify-center h-full py-8 text-muted-foreground/50">
                     <AlertTriangle className="w-8 h-8 mb-2 opacity-20" />
                     <p className="text-sm">Sin notas adicionales</p>
                   </div>
-                )}
+                ) : null}
               </CardContent>
             </Card>
           </div>

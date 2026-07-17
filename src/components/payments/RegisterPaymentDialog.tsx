@@ -42,11 +42,12 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { PAYMENT_METHODS } from '@/lib/constants';
 import { Rate } from '@/types/hotel';
 
 const paymentSchema = z.object({
   date: z.date({ required_error: 'Fecha requerida' }),
-  method: z.enum(['CASH', 'CARD', 'TRANSFER', 'OTHER'] as const),
+  method: z.enum(['CASH', 'CREDIT', 'DEBIT', 'TRANSFER', 'QR', 'OTHER'] as const),
   amount: z.coerce.number().positive('Monto debe ser mayor a 0'),
   reference: z.string().optional(),
   comment: z.string().optional(),
@@ -373,10 +374,9 @@ export function RegisterPaymentDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="CASH">Efectivo</SelectItem>
-                      <SelectItem value="CARD">Tarjeta</SelectItem>
-                      <SelectItem value="TRANSFER">Transferencia</SelectItem>
-                      <SelectItem value="OTHER">Otro</SelectItem>
+                      {PAYMENT_METHODS.map(m => (
+                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />

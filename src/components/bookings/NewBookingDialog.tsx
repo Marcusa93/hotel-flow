@@ -59,6 +59,7 @@ const bookingSchema = z.object({
   adults: z.coerce.number().min(1, 'Mínimo 1 adulto'),
   children: z.coerce.number().min(0),
   notes: z.string().optional(),
+  receptionist: z.string().optional(),
   promoCode: z.string().optional(),
   confirmOverCapacity: z.boolean().optional(),
   hasVehicle: z.boolean().optional(),
@@ -129,6 +130,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
       adults: 1,
       children: 0,
       notes: '',
+      receptionist: '',
       promoCode: '',
       confirmOverCapacity: false,
       hasVehicle: false,
@@ -400,6 +402,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
           ? `${data.notes || ''}\n[Promoción: ${appliedPromo.label}${appliedPromo.promoCode ? ` (${appliedPromo.promoCode})` : ''}]`.trim()
           : data.notes,
         needsReview: isOverCapacity,
+        receptionist: data.receptionist?.trim() || undefined,
         hasVehicle: data.hasVehicle ?? false,
         vehicleDescription: data.hasVehicle ? data.vehicleDescription : undefined,
         licensePlate: data.hasVehicle ? data.licensePlate?.toUpperCase() : undefined,
@@ -1033,6 +1036,21 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
 
             {/* ═══ STEP 3: Notes, Vehicle, Summary ═══ */}
             {wizardStep === 3 && (<div className="space-y-5">
+            {/* Receptionist in charge */}
+            <FormField
+              control={form.control}
+              name="receptionist"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Recepcionista a cargo (opcional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Nombre del recepcionista" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             {/* Notes */}
             <FormField
               control={form.control}

@@ -15,9 +15,12 @@ interface PaymentReceiptPDFProps {
 
 const methodLabels: Record<string, string> = {
   CASH: 'Efectivo',
-  CARD: 'Tarjeta',
+  CREDIT: 'T. Crédito',
+  DEBIT: 'T. Débito',
   TRANSFER: 'Transferencia',
+  QR: 'QR',
   OTHER: 'Otro',
+  CARD: 'Tarjeta',
 };
 
 const statusLabels: Record<string, string> = {

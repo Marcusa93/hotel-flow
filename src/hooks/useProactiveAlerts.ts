@@ -17,6 +17,7 @@ import { useAppRole } from '@/context/AppRoleContext';
 
 const CHECK_INTERVAL = 10 * 60 * 1000; // 10 minutes
 const ALERT_PREFIX = '[AUTO]'; // Prefix to identify auto-generated alerts
+const ARRIVAL_GRACE_MINUTES = 60; // How late a guest can be before recepción is alerted
 
 async function sendPushNotification(title: string, body: string, url?: string) {
   try {
@@ -72,7 +73,7 @@ async function runProactiveChecks() {
     // Fetch all data we need in parallel
     const [roomsRes, bookingsRes, paymentsRes] = await Promise.all([
       supabase.from('rooms').select('id, room_number, floor, status'),
-      supabase.from('bookings').select('id, guest_id, room_id, check_in_date, check_out_date, status, total_amount')
+      supabase.from('bookings').select('id, guest_id, room_id, check_in_date, check_out_date, estimated_arrival_time, status, total_amount')
         .in('status', ['CONFIRMED', 'CHECKED_IN', 'PENDING']),
       supabase.from('payments').select('booking_id, amount, status').eq('status', 'PAID'),
     ]);
@@ -201,6 +202,34 @@ async function runProactiveChecks() {
         'warning',
         { dirtyCount: dirtyRooms.length, checkinCount: todayCheckins.length },
         `dirty-bottleneck-${today}`
+      );
+    }
+
+    // ─── CHECK 6: Announced arrival hour already passed ────────────
+    // Only fires for bookings where the guest actually gave an hour. The
+    // hotel-wide check-in time is a policy, not a promise, so it is not used here.
+    const now = new Date();
+    const minutesNow = now.getHours() * 60 + now.getMinutes();
+
+    for (const booking of todayCheckins) {
+      const eta = booking.estimated_arrival_time;
+      if (!eta) continue;
+
+      const [h, m] = eta.split(':').map(Number);
+      if (Number.isNaN(h) || Number.isNaN(m)) continue;
+
+      // Grace period, so a guest stuck in traffic doesn't trigger an alert on the dot.
+      if (minutesNow <= h * 60 + m + ARRIVAL_GRACE_MINUTES) continue;
+
+      const room = roomMap.get(booking.room_id);
+      const guestName = guestMap.get(booking.guest_id) || 'Huésped';
+      await createAlertIfNew(
+        'checkin',
+        `${ALERT_PREFIX} ${guestName} no llegó a horario`,
+        `${guestName} (Hab ${room?.room_number || '?'}) avisó que llegaba ~${eta} hs y todavía no hizo el check-in. Verificar si sigue en camino.`,
+        'warning',
+        { bookingId: booking.id, guestName, roomNumber: room?.room_number, estimatedArrivalTime: eta },
+        `late-arrival-${booking.id}-${today}`
       );
     }
 

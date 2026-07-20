@@ -67,6 +67,8 @@ export interface Booking {
   roomId: string;
   checkInDate: Date;
   checkOutDate: Date;
+  /** Wall-clock 'HH:MM' the guest announced they would arrive. Not the hotel's check-in policy. */
+  estimatedArrivalTime?: string;
   adults: number;
   children: number;
   status: BookingStatus;

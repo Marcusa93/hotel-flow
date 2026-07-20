@@ -23,6 +23,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -58,6 +59,7 @@ const bookingSchema = z.object({
   checkOutDate: z.date({ required_error: 'Fecha de check-out requerida' }),
   adults: z.coerce.number().min(1, 'Mínimo 1 adulto'),
   children: z.coerce.number().min(0),
+  estimatedArrivalTime: z.string().optional(),
   notes: z.string().optional(),
   receptionist: z.string().optional(),
   promoCode: z.string().optional(),
@@ -129,6 +131,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
       roomId: '',
       adults: 1,
       children: 0,
+      estimatedArrivalTime: '',
       notes: '',
       receptionist: '',
       promoCode: '',
@@ -394,6 +397,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
         roomId: data.roomId,
         checkInDate: data.checkInDate,
         checkOutDate: data.checkOutDate,
+        estimatedArrivalTime: data.estimatedArrivalTime?.trim() || undefined,
         adults: data.adults,
         children: data.children,
         status: 'CONFIRMED',
@@ -1036,6 +1040,24 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
 
             {/* ═══ STEP 3: Notes, Vehicle, Summary ═══ */}
             {wizardStep === 3 && (<div className="space-y-5">
+            {/* Estimated arrival — the hour this guest announced, not the hotel policy */}
+            <FormField
+              control={form.control}
+              name="estimatedArrivalTime"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Hora estimada de llegada (opcional)</FormLabel>
+                  <FormControl>
+                    <Input type="time" className="w-40" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    Si el huésped avisó a qué hora llega. Se avisa en el panel si pasa la hora y no hizo el check-in.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             {/* Receptionist in charge */}
             <FormField
               control={form.control}

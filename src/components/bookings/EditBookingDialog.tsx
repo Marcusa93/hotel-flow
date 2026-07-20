@@ -50,6 +50,7 @@ const editBookingSchema = z.object({
   roomId: z.string().min(1, 'Selecciona una habitación'),
   adults: z.coerce.number().min(1, 'Mínimo 1 adulto'),
   children: z.coerce.number().min(0),
+  estimatedArrivalTime: z.string().optional(),
   notes: z.string().optional(),
 }).refine((data) => data.checkOutDate > data.checkInDate, {
   message: 'Check-out debe ser posterior a check-in',
@@ -77,6 +78,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
       roomId: booking.roomId,
       adults: booking.adults,
       children: booking.children,
+      estimatedArrivalTime: booking.estimatedArrivalTime || '',
       notes: booking.notes || '',
     },
   });
@@ -90,6 +92,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
         roomId: booking.roomId,
         adults: booking.adults,
         children: booking.children,
+        estimatedArrivalTime: booking.estimatedArrivalTime || '',
         notes: booking.notes || '',
       });
     }
@@ -101,6 +104,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
   const watchedAdults = form.watch('adults');
   const watchedChildren = form.watch('children');
   const watchedNotes = form.watch('notes');
+  const watchedArrival = form.watch('estimatedArrivalTime');
 
   const selectedRoom = rooms.find(r => r.id === watchedRoomId);
   const selectedRoomType = selectedRoom ? roomTypes.find(rt => rt.id === selectedRoom.roomTypeId) : null;
@@ -183,6 +187,14 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
       });
     }
 
+    if ((watchedArrival || '') !== (booking.estimatedArrivalTime || '')) {
+      diffs.push({
+        label: 'Hora estimada de llegada',
+        from: booking.estimatedArrivalTime ? `${booking.estimatedArrivalTime} hs` : '(sin definir)',
+        to: watchedArrival ? `${watchedArrival} hs` : '(sin definir)',
+      });
+    }
+
     if (newTotalAmount !== booking.totalAmount) {
       diffs.push({
         label: 'Monto total',
@@ -192,7 +204,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
     }
 
     return diffs;
-  }, [watchedRoomId, watchedCheckIn, watchedCheckOut, watchedAdults, watchedChildren, watchedNotes, newTotalAmount, booking, rooms]);
+  }, [watchedRoomId, watchedCheckIn, watchedCheckOut, watchedAdults, watchedChildren, watchedNotes, watchedArrival, newTotalAmount, booking, rooms]);
 
   const hasChanges = changes.length > 0;
 
@@ -214,6 +226,8 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
         roomId: data.roomId,
         adults: data.adults,
         children: data.children,
+        // '' (not undefined) so bookingToRow writes NULL and the hour can be cleared.
+        estimatedArrivalTime: data.estimatedArrivalTime?.trim() || '',
         notes: data.notes,
         totalAmount: newTotalAmount,
       });
@@ -402,6 +416,21 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
                 )}
               />
             </div>
+
+            {/* Estimated arrival — the hour this guest announced, not the hotel policy */}
+            <FormField
+              control={form.control}
+              name="estimatedArrivalTime"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Hora estimada de llegada</FormLabel>
+                  <FormControl>
+                    <Input type="time" className="w-40" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Over capacity warning */}
             {selectedRoomType && (watchedAdults + (watchedChildren || 0)) > selectedRoomType.maxGuests && (

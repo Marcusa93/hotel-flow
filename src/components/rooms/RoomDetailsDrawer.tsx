@@ -18,7 +18,6 @@ import { useAppRole } from '@/context/AppRoleContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
@@ -78,7 +77,7 @@ export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, 
     return (
         <>
             <Sheet open={isOpen} onOpenChange={onClose}>
-                <SheetContent className="w-full sm:max-w-md p-0 bg-background/95 backdrop-blur-xl border-l border-border shadow-2xl">
+                <SheetContent hideClose className="w-full sm:max-w-md p-0 overflow-hidden bg-background/95 backdrop-blur-xl border-l border-border shadow-2xl">
                     <div className="h-full flex flex-col">
                         {/* Header */}
                         <div className="flex-none p-6 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
@@ -105,7 +104,7 @@ export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, 
                             )}
                         </div>
 
-                        <ScrollArea className="flex-1 p-6">
+                        <div className="flex-1 min-h-0 overflow-y-auto p-6">
                             <div className="space-y-8">
                                 {/* Control Panel */}
                                 <section className="grid grid-cols-2 gap-3">
@@ -206,7 +205,7 @@ export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, 
                                 )}
 
                             </div>
-                        </ScrollArea>
+                        </div>
                     </div>
                 </SheetContent>
             </Sheet>

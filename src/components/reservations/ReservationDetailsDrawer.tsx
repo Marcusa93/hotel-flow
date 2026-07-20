@@ -7,7 +7,6 @@ import {
     SheetDescription,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -39,9 +38,12 @@ export function ReservationDetailsDrawer({
 
     return (
         <Sheet open={isOpen} onOpenChange={onClose}>
-            <SheetContent className="w-full sm:max-w-xl p-0 overflow-hidden bg-background/95 backdrop-blur-xl border-l border-border shadow-2xl">
+            {/* flex column: the header keeps its height and the body takes the rest.
+                Previously the body asked for h-full on top of a 160px header, so its
+                last 160px sat below the viewport and could never be scrolled to. */}
+            <SheetContent hideClose className="w-full sm:max-w-xl p-0 flex flex-col overflow-hidden bg-background/95 backdrop-blur-xl border-l border-border shadow-2xl">
                 {/* Header with Cover Image Effect */}
-                <div className="relative h-40 bg-gradient-to-br from-indigo-500/20 via-blue-500/20 to-purple-500/20">
+                <div className="relative h-40 shrink-0 bg-gradient-to-br from-indigo-500/20 via-blue-500/20 to-purple-500/20">
                     <div className="absolute top-4 right-4 z-20">
                         <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full bg-white/20 hover:bg-white/40">
                             <X className="w-4 h-4" />
@@ -58,7 +60,7 @@ export function ReservationDetailsDrawer({
                     <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, black 1px, transparent 0)', backgroundSize: '16px 16px' }}></div>
                 </div>
 
-                <ScrollArea className="h-full pt-14 pb-8 px-8">
+                <div className="flex-1 min-h-0 overflow-y-auto pt-14 pb-8 px-8">
                     <div className="flex justify-between items-start mb-6">
                         <div>
                             <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
@@ -168,7 +170,7 @@ export function ReservationDetailsDrawer({
                             </Link>
                         </section>
                     </div>
-                </ScrollArea>
+                </div>
             </SheetContent>
         </Sheet>
     );

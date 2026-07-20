@@ -256,7 +256,7 @@ export function InvoicePreview({
                     </div>
                 </SheetHeader>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
                     {/* Guest Info */}
                     <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4">
                         <h4 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Cliente</h4>

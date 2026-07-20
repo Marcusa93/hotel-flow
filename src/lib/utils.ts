@@ -50,3 +50,38 @@ export function escapeHtml(str: string | null | undefined): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
+
+// ─── Peso amount inputs ──────────────────────────────────────────────
+// A bare <input type="number"> shows "160000", which is hard to read at a
+// glance. These keep an es-AR formatted string in the field while the form
+// still holds a plain number.
+
+/** Number → "160.000" / "160.000,50" for display inside an input. */
+export function formatPesosInput(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '';
+  if (value === 0) return '';
+  const hasCents = !Number.isInteger(value);
+  return value.toLocaleString('es-AR', {
+    minimumFractionDigits: hasCents ? 2 : 0,
+    maximumFractionDigits: 2,
+  });
+}
+
+/**
+ * Normalizes whatever the user typed into { display, value }.
+ * Keeps digits and a single comma so the decimal separator can be typed
+ * without the grouping logic swallowing it mid-keystroke.
+ */
+export function parsePesosInput(raw: string): { display: string; value: number } {
+  const cleaned = raw.replace(/[^\d,]/g, '').replace(/,(?=[^,]*,)/g, '');
+  const [rawInt = '', rawDec] = cleaned.split(',');
+
+  const intDigits = rawInt.replace(/^0+(?=\d)/, '');
+  const grouped = intDigits ? Number(intDigits).toLocaleString('es-AR') : '';
+  const dec = rawDec === undefined ? undefined : rawDec.slice(0, 2);
+
+  const display = dec === undefined ? grouped : `${grouped || '0'},${dec}`;
+  const value = Number(`${intDigits || '0'}.${dec || '0'}`);
+
+  return { display, value: Number.isFinite(value) ? value : 0 };
+}

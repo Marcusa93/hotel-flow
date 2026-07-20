@@ -42,7 +42,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
+import { cn, formatPesosInput, parsePesosInput } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { PAYMENT_METHODS } from '@/lib/constants';
 
@@ -78,6 +78,8 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
     const [searchTerm, setSearchTerm] = useState('');
     const [showConfirm, setShowConfirm] = useState(false);
     const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+    // Grouped text shown in the Monto field; the form itself keeps a plain number.
+    const [amountText, setAmountText] = useState('');
 
     const form = useForm<PaymentFormData>({
         resolver: zodResolver(paymentSchema),
@@ -134,6 +136,7 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                 .reduce((sum, p) => sum + p.amount, 0);
             const pending = Math.max(0, booking.totalAmount - paidAmount);
             form.setValue('amount', pending);
+            setAmountText(formatPesosInput(pending));
         }
     };
 
@@ -202,6 +205,7 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
 
             form.reset();
             setSearchTerm('');
+            setAmountText('');
             setShowConfirm(false);
             setDuplicateWarning(null);
             onOpenChange(false);
@@ -234,8 +238,11 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                 </DialogHeader>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
-                        <ScrollArea className="flex-1 px-6">
+                    {/* min-h-0 lets these flex children shrink below their content so the
+                        ScrollArea actually gets a bounded height; type="always" keeps the
+                        bar visible, otherwise Referencia and Comentario look unreachable. */}
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                        <ScrollArea type="always" className="flex-1 min-h-0 px-6">
                             <div className="space-y-4 pb-4">
                                 {/* Booking Selection */}
                                 <FormField
@@ -368,9 +375,27 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                                     name="amount"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Monto ($)</FormLabel>
+                                            <FormLabel>Monto</FormLabel>
                                             <FormControl>
-                                                <Input type="number" min={0} step={0.01} {...field} />
+                                                <div className="relative">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none select-none">
+                                                        $
+                                                    </span>
+                                                    <Input
+                                                        inputMode="decimal"
+                                                        placeholder="0"
+                                                        className="pl-7 tabular-nums"
+                                                        value={amountText}
+                                                        onBlur={field.onBlur}
+                                                        name={field.name}
+                                                        ref={field.ref}
+                                                        onChange={(e) => {
+                                                            const { display, value } = parsePesosInput(e.target.value);
+                                                            setAmountText(display);
+                                                            field.onChange(value);
+                                                        }}
+                                                    />
+                                                </div>
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>

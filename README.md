@@ -32,9 +32,15 @@ cd <YOUR_PROJECT_NAME>
 # Step 3: Install the necessary dependencies.
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Step 4: Create your local env file (see .env.example for the required keys).
+#         .env.local is gitignored; production values live in the Vercel dashboard.
+cp .env.example .env.local
+
+# Step 5: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
+
+The dev server runs on port **8080** (see `vite.config.ts`).
 
 **Edit a file directly in GitHub**
 

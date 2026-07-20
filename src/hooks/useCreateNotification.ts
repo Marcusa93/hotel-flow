@@ -11,9 +11,28 @@ interface CreateNotificationParams {
     metadata?: Record<string, unknown>;
     /** If set, notification is personal (only this user sees it). */
     userId?: string;
-    /** If userId is not set, the notification is broadcast to these roles. Defaults to admin+reception. */
+    /** If userId is not set, broadcast to these roles. Defaults by category. */
     targetRoles?: UserRole[];
 }
+
+/**
+ * Who needs to act on each kind of notification.
+ *
+ * Everything used to default to admin+reception, which meant a "Habitación 203
+ * requiere limpieza" notice reached everyone except the people who clean.
+ */
+const CATEGORY_TARGETS: Record<NotificationCategory, UserRole[]> = {
+    housekeeping: ['admin', 'housekeeping'],
+    booking: ['admin', 'reception'],
+    payment: ['admin', 'reception'],
+    checkin: ['admin', 'reception'],
+    checkout: ['admin', 'reception'],
+    promotion: ['admin', 'reception'],
+    system: ['admin', 'reception'],
+};
+
+export const targetRolesForCategory = (category: NotificationCategory): UserRole[] =>
+    CATEGORY_TARGETS[category] ?? ['admin', 'reception'];
 
 const buildPayload = (params: CreateNotificationParams) => ({
     type: params.type,
@@ -23,7 +42,7 @@ const buildPayload = (params: CreateNotificationParams) => ({
     metadata: params.metadata || {},
     is_read: false,
     user_id: params.userId ?? null,
-    target_roles: params.userId ? null : (params.targetRoles ?? ['admin', 'reception']),
+    target_roles: params.userId ? null : (params.targetRoles ?? targetRolesForCategory(params.category)),
 });
 
 export const useCreateNotification = () => {

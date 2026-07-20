@@ -80,7 +80,9 @@ const AnimatedRoutes = () => {
         <Route path="/audit-log" element={<RoleGuard allowedRoles={['admin', 'auditor']}><PageWrapper><AuditLog /></PageWrapper></RoleGuard>} />
 
         {/* Sistema */}
-        <Route path="/notifications" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Notifications /></PageWrapper></RoleGuard>} />
+        {/* Housekeeping needs this: the bell is in the Topbar for every role, and
+            cleaning notices now target them. */}
+        <Route path="/notifications" element={<RoleGuard allowedRoles={['admin', 'reception', 'housekeeping']}><PageWrapper><Notifications /></PageWrapper></RoleGuard>} />
         <Route path="/settings" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Settings /></PageWrapper></RoleGuard>} />
 
         {/* Redirects */}

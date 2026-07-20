@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase';
 import { formatLocalDate } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useAppRole } from '@/context/AppRoleContext';
+import { targetRolesForCategory } from '@/hooks/useCreateNotification';
+import type { NotificationCategory } from '@/hooks/useNotifications';
 
 /**
  * Proactive alert engine — runs periodic checks and creates notifications
@@ -56,6 +58,10 @@ async function createAlertIfNew(
     message,
     metadata: { ...metadata, autoAlert: true, dedupeKey },
     is_read: false,
+    // This insert bypasses useCreateNotification, so the routing has to be
+    // applied here too — otherwise the DB default sends housekeeping alerts
+    // to admin+reception only.
+    target_roles: targetRolesForCategory(category as NotificationCategory),
   });
 
   // Also send push notification for warning/error alerts (fire-and-forget, don't block alert creation)

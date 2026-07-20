@@ -218,8 +218,11 @@ export function InvoiceDialog({ open, onOpenChange, preselectedBookingId }: Invo
                 </DialogHeader>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
-                        <ScrollArea className="flex-1 px-6">
+                    {/* Native scroll container: ScrollArea's height:100% viewport does not
+                        resolve reliably against a flex-sized parent, cutting off the end
+                        of the form. Same fix as NewPaymentDialog. */}
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                        <div className="flex-1 min-h-0 overflow-y-auto px-6">
                             <div className="space-y-5 pb-4">
                                 {/* Booking Selection */}
                                 <FormField
@@ -421,7 +424,7 @@ export function InvoiceDialog({ open, onOpenChange, preselectedBookingId }: Invo
                                     )}
                                 />
                             </div>
-                        </ScrollArea>
+                        </div>
 
                         {/* Footer */}
                         <div className="flex-shrink-0 p-4 border-t bg-slate-50 dark:bg-slate-900/50">

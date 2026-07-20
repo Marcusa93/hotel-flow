@@ -238,11 +238,12 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                 </DialogHeader>
 
                 <Form {...form}>
-                    {/* min-h-0 lets these flex children shrink below their content so the
-                        ScrollArea actually gets a bounded height; type="always" keeps the
-                        bar visible, otherwise Referencia and Comentario look unreachable. */}
+                    {/* Plain overflow-y-auto rather than ScrollArea: the Radix viewport
+                        sizes itself with height:100%, which does not resolve reliably
+                        against a flex-sized parent, so Referencia and Comentario ended
+                        up unreachable. A native scroll container also shows a real bar. */}
                     <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0 overflow-hidden">
-                        <ScrollArea type="always" className="flex-1 min-h-0 px-6">
+                        <div className="flex-1 min-h-0 overflow-y-auto px-6">
                             <div className="space-y-4 pb-4">
                                 {/* Booking Selection */}
                                 <FormField
@@ -522,7 +523,7 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                                     )}
                                 />
                             </div>
-                        </ScrollArea>
+                        </div>
 
                         <div className="flex-shrink-0 p-4 border-t bg-slate-50 dark:bg-slate-900/50">
                             {/* Confirmation step */}

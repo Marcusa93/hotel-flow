@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import {
     Select,
@@ -288,9 +287,9 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
 
     return (
         <Sheet open={isOpen} onOpenChange={onClose}>
-            <SheetContent className="w-full sm:max-w-xl p-0 bg-background/95 backdrop-blur-xl border-l border-border shadow-2xl">
+            <SheetContent hideClose className="w-full sm:max-w-xl p-0 flex flex-col overflow-hidden bg-background/95 backdrop-blur-xl border-l border-border shadow-2xl">
                 {/* Header */}
-                <div className="relative h-48 bg-gradient-to-br from-indigo-600 to-violet-700 text-white p-8 flex flex-col justify-end overflow-hidden">
+                <div className="relative h-48 shrink-0 bg-gradient-to-br from-indigo-600 to-violet-700 text-white p-8 flex flex-col justify-end overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-32 pointer-events-none"></div>
 
                     <div className="relative z-10 flex items-end gap-6">
@@ -337,7 +336,9 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                     </div>
                 </div>
 
-                <ScrollArea className="h-[calc(100vh-192px)] p-8">
+                {/* flex-1 instead of a hardcoded 100vh-192px, which broke as soon as
+                    the header wasn't exactly 192px tall. */}
+                <div className="flex-1 min-h-0 overflow-y-auto p-8">
                     <div className="grid gap-8">
                         {/* Personal Info */}
                         <section>
@@ -659,7 +660,7 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                             })()}
                         </section>
                     </div>
-                </ScrollArea>
+                </div>
 
                 {/* Sticky footer when editing */}
                 {isEditing && (

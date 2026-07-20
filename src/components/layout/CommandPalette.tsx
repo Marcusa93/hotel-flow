@@ -56,7 +56,7 @@ const navPages: NavPage[] = [
   { title: 'Gastos', href: '/expenses', icon: Receipt, group: 'Finanzas', keywords: ['gasto', 'costo', 'proveedor'], roles: ['admin', 'reception', 'auditor'] },
   { title: 'Tarifas', href: '/rates', icon: Percent, group: 'Finanzas', keywords: ['tarifa', 'precio', 'rate', 'estadisticas', 'reporte'], roles: ['admin', 'reception'] },
   { title: 'Auditoría', href: '/audit-log', icon: Shield, group: 'Reportes', keywords: ['audit', 'auditoria', 'actividad', 'historial', 'log'], roles: ['admin', 'auditor'] },
-  { title: 'Notificaciones', href: '/notifications', icon: Bell, group: 'Sistema', keywords: ['alerta', 'aviso'], roles: ['admin', 'reception'] },
+  { title: 'Notificaciones', href: '/notifications', icon: Bell, group: 'Sistema', keywords: ['alerta', 'aviso'], roles: ['admin', 'reception', 'housekeeping'] },
   { title: 'Configuración', href: '/settings', icon: Settings, group: 'Sistema', keywords: ['config', 'ajustes', 'preferencias'], roles: ['admin', 'reception'] },
 ];
 

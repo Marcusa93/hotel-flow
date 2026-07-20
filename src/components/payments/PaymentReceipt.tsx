@@ -141,7 +141,7 @@ export function PaymentReceipt({ open, onOpenChange, payment }: PaymentReceiptPr
                     </DialogTitle>
                 </DialogHeader>
 
-                <div className="flex-1 overflow-y-auto px-6 py-4" ref={receiptRef}>
+                <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4" ref={receiptRef}>
                     {/* Guest Info */}
                     <div className="mb-6">
                         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">

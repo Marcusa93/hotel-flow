@@ -71,7 +71,7 @@ const navItems: NavItem[] = [
   { title: 'Auditoría', href: '/audit-log', icon: Shield, roles: ['admin', 'auditor'], section: 'finanzas', readOnly: true },
 
   // Sistema
-  { title: 'Notificaciones', href: '/notifications', icon: Bell, roles: ['admin', 'reception'], section: 'sistema' },
+  { title: 'Notificaciones', href: '/notifications', icon: Bell, roles: ['admin', 'reception', 'housekeeping'], section: 'sistema' },
   { title: 'Configuración', href: '/settings', icon: Settings, roles: ['admin', 'reception'], section: 'sistema' },
 ];
 

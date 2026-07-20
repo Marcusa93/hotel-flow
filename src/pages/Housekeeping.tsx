@@ -6,6 +6,7 @@ import { PageHeader, EmptyState } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import {
   HousekeepingBoard,
+  HousekeepingLog,
   StaffPerformanceCard,
   MobileTaskList,
   TaskAlertBanner,
@@ -321,6 +322,9 @@ export default function Housekeeping() {
           </div>
         </div>
       )}
+
+      {/* What happened to each room, and when — the board only shows current state */}
+      <HousekeepingLog tasks={housekeepingTasks} rooms={rooms} />
 
       {/* Mobile View */}
       {isMobileView ? (

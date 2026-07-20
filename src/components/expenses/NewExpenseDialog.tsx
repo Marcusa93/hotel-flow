@@ -23,6 +23,7 @@ import { Expense, ExpenseType } from '@/types/hotel';
 import { Receipt, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
+import { formatPesosInput, parsePesosInput } from '@/lib/utils';
 import { z } from 'zod';
 
 const MAX_EXPENSE_AMOUNT = 100_000_000; // $100M ARS sanity cap
@@ -60,6 +61,7 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
     const isEditing = !!expense;
     const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [expenseType, setExpenseType] = useState<ExpenseType>('SUPERMERCADO');
+    // Grouped text as typed ("70.000"); the numeric value is derived on submit.
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
 
@@ -72,7 +74,7 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
         if (expense) {
             setDate(format(new Date(expense.date), 'yyyy-MM-dd'));
             setExpenseType(expense.expenseType);
-            setAmount(expense.amount.toString());
+            setAmount(formatPesosInput(expense.amount));
             setDescription(expense.description || '');
         } else {
             setDate(format(new Date(), 'yyyy-MM-dd'));
@@ -88,7 +90,8 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
         const parsed = expenseSchema.safeParse({
             date,
             expenseType,
-            amount,
+            // The field holds "70.000"; z.coerce.number() needs the plain number.
+            amount: parsePesosInput(amount).value,
             description: description || undefined,
         });
 
@@ -158,19 +161,22 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="amount">Monto ($)</Label>
-                            <Input
-                                id="amount"
-                                type="number"
-                                step="0.01"
-                                min="0.01"
-                                max={MAX_EXPENSE_AMOUNT}
-                                placeholder="0.00"
-                                value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
-                                autoFocus={!isEditing}
-                                required
-                            />
+                            <Label htmlFor="amount">Monto</Label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none select-none">
+                                    $
+                                </span>
+                                <Input
+                                    id="amount"
+                                    inputMode="decimal"
+                                    placeholder="0"
+                                    className="pl-7 tabular-nums"
+                                    value={amount}
+                                    onChange={(e) => setAmount(parsePesosInput(e.target.value).display)}
+                                    autoFocus={!isEditing}
+                                    required
+                                />
+                            </div>
                         </div>
                     </div>
 

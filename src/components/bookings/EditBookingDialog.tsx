@@ -101,8 +101,12 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
   const watchedRoomId = form.watch('roomId');
   const watchedCheckIn = form.watch('checkInDate');
   const watchedCheckOut = form.watch('checkOutDate');
-  const watchedAdults = form.watch('adults');
-  const watchedChildren = form.watch('children');
+  // watch() returns the raw input value, and type="number" inputs hand back a
+  // string. z.coerce.number() only runs at validation, so without Number() here
+  // "2" + "0" concatenates into "20", and "2" !== 2 marks Adultos as changed
+  // on every render.
+  const watchedAdults = Number(form.watch('adults')) || 0;
+  const watchedChildren = Number(form.watch('children')) || 0;
   const watchedNotes = form.watch('notes');
   const watchedArrival = form.watch('estimatedArrivalTime');
 
@@ -171,11 +175,11 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
       });
     }
 
-    if ((watchedChildren || 0) !== booking.children) {
+    if (watchedChildren !== booking.children) {
       diffs.push({
         label: 'Niños',
         from: String(booking.children),
-        to: String(watchedChildren || 0),
+        to: String(watchedChildren),
       });
     }
 
@@ -433,7 +437,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
             />
 
             {/* Over capacity warning */}
-            {selectedRoomType && (watchedAdults + (watchedChildren || 0)) > selectedRoomType.maxGuests && (
+            {selectedRoomType && (watchedAdults + watchedChildren) > selectedRoomType.maxGuests && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 <span>

@@ -149,8 +149,11 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
   });
 
   const watchedRoomId = form.watch('roomId');
-  const watchedAdults = form.watch('adults');
-  const watchedChildren = form.watch('children');
+  // watch() returns the raw input value, and type="number" inputs hand back a
+  // string. z.coerce.number() only runs at validation, so without Number() here
+  // "2" + "0" concatenates into "20" and fakes an over-capacity warning.
+  const watchedAdults = Number(form.watch('adults')) || 0;
+  const watchedChildren = Number(form.watch('children')) || 0;
   const watchedCheckIn = form.watch('checkInDate');
   const watchedCheckOut = form.watch('checkOutDate');
   const watchedHasVehicle = form.watch('hasVehicle');
@@ -171,7 +174,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
   const selectedRoom = rooms.find(r => r.id === watchedRoomId);
   const selectedRoomType = selectedRoom ? roomTypes.find(rt => rt.id === selectedRoom.roomTypeId) : null;
 
-  const totalGuests = (watchedAdults || 0) + (watchedChildren || 0);
+  const totalGuests = watchedAdults + watchedChildren;
   const isOverCapacity = selectedRoomType && totalGuests > selectedRoomType.maxGuests;
 
   // Check for conflicts

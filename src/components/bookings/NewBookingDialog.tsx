@@ -109,9 +109,11 @@ type BookingFormData = z.infer<typeof bookingSchema>;
 interface NewBookingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Pre-selects the room, for when the booking starts from Habitaciones. */
+  preselectedRoomId?: string;
 }
 
-export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) {
+export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewBookingDialogProps) {
   const { bookings, addBooking, checkRoomAvailability } = useBookingOperations();
   const { guests, addGuest } = useGuestOperations();
   const { rooms, roomTypes } = useRoomOperations();
@@ -439,6 +441,14 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
       setIsSubmitting(false);
     }
   };
+
+  // Carry the room over when the booking was started from Habitaciones, so the
+  // receptionist doesn't have to pick the room they were already looking at.
+  useEffect(() => {
+    if (open && preselectedRoomId) {
+      form.setValue('roomId', preselectedRoomId);
+    }
+  }, [open, preselectedRoomId, form]);
 
   // Reset all dialog state on close so reopening starts fresh
   const handleOpenChange = (nextOpen: boolean) => {

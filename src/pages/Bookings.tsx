@@ -42,10 +42,13 @@ export default function Bookings() {
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
+  const [preselectedRoomId, setPreselectedRoomId] = useState<string | undefined>(undefined);
 
   // Handle query params from Dashboard
   useEffect(() => {
     if (searchParams.get('new') === 'true') {
+      // ?room= arrives when the booking was started from Habitaciones.
+      setPreselectedRoomId(searchParams.get('room') || undefined);
       setIsNewDialogOpen(true);
       setSearchParams({}, { replace: true });
     }
@@ -237,7 +240,11 @@ export default function Bookings() {
       {/* Dialogs & Drawers */}
       <NewBookingDialog
         open={isNewDialogOpen}
-        onOpenChange={setIsNewDialogOpen}
+        onOpenChange={(open) => {
+          setIsNewDialogOpen(open);
+          if (!open) setPreselectedRoomId(undefined);
+        }}
+        preselectedRoomId={preselectedRoomId}
       />
 
       <ReservationDetailsDrawer

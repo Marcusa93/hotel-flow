@@ -40,7 +40,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
+import { cn, formatPesosInput, parsePesosInput } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { Rate } from '@/types/hotel';
@@ -76,6 +76,8 @@ export function RegisterPaymentDialog({
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmWarning, setConfirmWarning] = useState<string | null>(null);
   const [appliedPromo, setAppliedPromo] = useState<Rate | null>(null);
+  // Grouped text shown in the Monto field; the form keeps a plain number.
+  const [amountText, setAmountText] = useState('');
 
   const form = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
@@ -93,6 +95,7 @@ export function RegisterPaymentDialog({
   useEffect(() => {
     if (open && pendingAmount > 0) {
       form.setValue('amount', pendingAmount);
+      setAmountText(formatPesosInput(pendingAmount));
       setShowConfirm(false);
       setConfirmWarning(null);
       setAppliedPromo(null);
@@ -205,6 +208,7 @@ export function RegisterPaymentDialog({
       });
 
       form.reset();
+      setAmountText('');
       setAppliedPromo(null);
       setPromoCodeInput('');
       setShowConfirm(false);
@@ -279,9 +283,27 @@ export function RegisterPaymentDialog({
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Monto original ($)</FormLabel>
+                  <FormLabel>Monto original</FormLabel>
                   <FormControl>
-                    <Input type="number" min={0} step={0.01} {...field} />
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none select-none">
+                        $
+                      </span>
+                      <Input
+                        inputMode="decimal"
+                        placeholder="0"
+                        className="pl-7 tabular-nums"
+                        name={field.name}
+                        ref={field.ref}
+                        onBlur={field.onBlur}
+                        value={amountText}
+                        onChange={(e) => {
+                          const { display, value } = parsePesosInput(e.target.value);
+                          setAmountText(display);
+                          field.onChange(value);
+                        }}
+                      />
+                    </div>
                   </FormControl>
                   {pendingAmount > 0 && (
                     <p className="text-xs text-muted-foreground">

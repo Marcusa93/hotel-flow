@@ -153,7 +153,7 @@ export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, 
                                         className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg"
                                         onClick={() => {
                                             onClose();
-                                            navigate('/bookings?new=true');
+                                            navigate(`/bookings?new=true&room=${room.id}`);
                                         }}
                                     >
                                         <CalendarPlus className="w-4 h-4 mr-2" />

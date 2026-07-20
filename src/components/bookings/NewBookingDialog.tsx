@@ -23,6 +23,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -58,6 +59,7 @@ const bookingSchema = z.object({
   checkOutDate: z.date({ required_error: 'Fecha de check-out requerida' }),
   adults: z.coerce.number().min(1, 'Mínimo 1 adulto'),
   children: z.coerce.number().min(0),
+  estimatedArrivalTime: z.string().optional(),
   notes: z.string().optional(),
   receptionist: z.string().optional(),
   promoCode: z.string().optional(),
@@ -107,9 +109,11 @@ type BookingFormData = z.infer<typeof bookingSchema>;
 interface NewBookingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Pre-selects the room, for when the booking starts from Habitaciones. */
+  preselectedRoomId?: string;
 }
 
-export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) {
+export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewBookingDialogProps) {
   const { bookings, addBooking, checkRoomAvailability } = useBookingOperations();
   const { guests, addGuest } = useGuestOperations();
   const { rooms, roomTypes } = useRoomOperations();
@@ -129,6 +133,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
       roomId: '',
       adults: 1,
       children: 0,
+      estimatedArrivalTime: '',
       notes: '',
       receptionist: '',
       promoCode: '',
@@ -146,8 +151,11 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
   });
 
   const watchedRoomId = form.watch('roomId');
-  const watchedAdults = form.watch('adults');
-  const watchedChildren = form.watch('children');
+  // watch() returns the raw input value, and type="number" inputs hand back a
+  // string. z.coerce.number() only runs at validation, so without Number() here
+  // "2" + "0" concatenates into "20" and fakes an over-capacity warning.
+  const watchedAdults = Number(form.watch('adults')) || 0;
+  const watchedChildren = Number(form.watch('children')) || 0;
   const watchedCheckIn = form.watch('checkInDate');
   const watchedCheckOut = form.watch('checkOutDate');
   const watchedHasVehicle = form.watch('hasVehicle');
@@ -168,7 +176,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
   const selectedRoom = rooms.find(r => r.id === watchedRoomId);
   const selectedRoomType = selectedRoom ? roomTypes.find(rt => rt.id === selectedRoom.roomTypeId) : null;
 
-  const totalGuests = (watchedAdults || 0) + (watchedChildren || 0);
+  const totalGuests = watchedAdults + watchedChildren;
   const isOverCapacity = selectedRoomType && totalGuests > selectedRoomType.maxGuests;
 
   // Check for conflicts
@@ -394,6 +402,7 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
         roomId: data.roomId,
         checkInDate: data.checkInDate,
         checkOutDate: data.checkOutDate,
+        estimatedArrivalTime: data.estimatedArrivalTime?.trim() || undefined,
         adults: data.adults,
         children: data.children,
         status: 'CONFIRMED',
@@ -432,6 +441,14 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
       setIsSubmitting(false);
     }
   };
+
+  // Carry the room over when the booking was started from Habitaciones, so the
+  // receptionist doesn't have to pick the room they were already looking at.
+  useEffect(() => {
+    if (open && preselectedRoomId) {
+      form.setValue('roomId', preselectedRoomId);
+    }
+  }, [open, preselectedRoomId, form]);
 
   // Reset all dialog state on close so reopening starts fresh
   const handleOpenChange = (nextOpen: boolean) => {
@@ -1036,6 +1053,24 @@ export function NewBookingDialog({ open, onOpenChange }: NewBookingDialogProps) 
 
             {/* ═══ STEP 3: Notes, Vehicle, Summary ═══ */}
             {wizardStep === 3 && (<div className="space-y-5">
+            {/* Estimated arrival — the hour this guest announced, not the hotel policy */}
+            <FormField
+              control={form.control}
+              name="estimatedArrivalTime"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Hora estimada de llegada (opcional)</FormLabel>
+                  <FormControl>
+                    <Input type="time" className="w-40" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    Si el huésped avisó a qué hora llega. Se avisa en el panel si pasa la hora y no hizo el check-in.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             {/* Receptionist in charge */}
             <FormField
               control={form.control}

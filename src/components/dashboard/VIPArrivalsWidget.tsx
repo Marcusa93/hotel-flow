@@ -10,7 +10,7 @@ import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
-import { isToday, isTomorrow, addDays, startOfDay, isAfter, setHours } from 'date-fns';
+import { isToday, isTomorrow, addDays, startOfDay, isAfter, setHours, setMinutes } from 'date-fns';
 import { QuickCheckInDialog } from '@/components/bookings/QuickCheckInDialog';
 
 export function UpcomingArrivalsWidget() {
@@ -48,8 +48,16 @@ export function UpcomingArrivalsWidget() {
                 const bookingPayments = payments.filter(p => p.bookingId === booking.id);
                 const amountPaid = bookingPayments.reduce((sum, p) => sum + p.amount, 0);
 
-                // Check if guest is late (today's check-in, past 2 PM, not arrived)
-                const isLate = isToday(checkInDate) && isAfter(now, lateThreshold);
+                // Late = past the hour the guest announced, or past 2 PM when they gave none.
+                const eta = booking.estimatedArrivalTime;
+                let threshold = lateThreshold;
+                if (eta) {
+                    const [h, m] = eta.split(':').map(Number);
+                    if (!Number.isNaN(h) && !Number.isNaN(m)) {
+                        threshold = setMinutes(setHours(today, h), m);
+                    }
+                }
+                const isLate = isToday(checkInDate) && isAfter(now, threshold);
 
                 return {
                     id: booking.id,

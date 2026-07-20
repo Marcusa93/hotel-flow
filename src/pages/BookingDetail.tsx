@@ -399,7 +399,11 @@ export default function BookingDetail() {
                   <div className="space-y-1">
                     <span className="text-xs text-muted-foreground">Entrada</span>
                     <div className="font-semibold">{format(new Date(booking.checkInDate), "EEE d MMM", { locale: es })}</div>
-                    <div className="text-xs text-muted-foreground">desde {checkInTime} hs</div>
+                    {booking.estimatedArrivalTime ? (
+                      <div className="text-xs font-medium text-primary">llega ~{booking.estimatedArrivalTime} hs</div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">desde {checkInTime} hs</div>
+                    )}
                   </div>
                   <div className="space-y-1 text-right">
                     <span className="text-xs text-muted-foreground">Salida</span>

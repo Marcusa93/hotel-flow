@@ -3,14 +3,14 @@
   "configurations": [
     {
       "name": "vite-dev",
-      "runtimeExecutable": "/opt/homebrew/bin/node",
-      "runtimeArgs": ["node_modules/.bin/vite"],
-      "port": 5173
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 8080
     },
     {
       "name": "vite-preview",
-      "runtimeExecutable": "/opt/homebrew/bin/node",
-      "runtimeArgs": ["node_modules/.bin/vite", "preview"],
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview"],
       "port": 4173
     }
   ]

@@ -50,6 +50,7 @@ const editBookingSchema = z.object({
   roomId: z.string().min(1, 'Selecciona una habitación'),
   adults: z.coerce.number().min(1, 'Mínimo 1 adulto'),
   children: z.coerce.number().min(0),
+  estimatedArrivalTime: z.string().optional(),
   notes: z.string().optional(),
 }).refine((data) => data.checkOutDate > data.checkInDate, {
   message: 'Check-out debe ser posterior a check-in',
@@ -77,6 +78,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
       roomId: booking.roomId,
       adults: booking.adults,
       children: booking.children,
+      estimatedArrivalTime: booking.estimatedArrivalTime || '',
       notes: booking.notes || '',
     },
   });
@@ -90,6 +92,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
         roomId: booking.roomId,
         adults: booking.adults,
         children: booking.children,
+        estimatedArrivalTime: booking.estimatedArrivalTime || '',
         notes: booking.notes || '',
       });
     }
@@ -98,9 +101,14 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
   const watchedRoomId = form.watch('roomId');
   const watchedCheckIn = form.watch('checkInDate');
   const watchedCheckOut = form.watch('checkOutDate');
-  const watchedAdults = form.watch('adults');
-  const watchedChildren = form.watch('children');
+  // watch() returns the raw input value, and type="number" inputs hand back a
+  // string. z.coerce.number() only runs at validation, so without Number() here
+  // "2" + "0" concatenates into "20", and "2" !== 2 marks Adultos as changed
+  // on every render.
+  const watchedAdults = Number(form.watch('adults')) || 0;
+  const watchedChildren = Number(form.watch('children')) || 0;
   const watchedNotes = form.watch('notes');
+  const watchedArrival = form.watch('estimatedArrivalTime');
 
   const selectedRoom = rooms.find(r => r.id === watchedRoomId);
   const selectedRoomType = selectedRoom ? roomTypes.find(rt => rt.id === selectedRoom.roomTypeId) : null;
@@ -167,11 +175,11 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
       });
     }
 
-    if ((watchedChildren || 0) !== booking.children) {
+    if (watchedChildren !== booking.children) {
       diffs.push({
         label: 'Niños',
         from: String(booking.children),
-        to: String(watchedChildren || 0),
+        to: String(watchedChildren),
       });
     }
 
@@ -180,6 +188,14 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
         label: 'Notas',
         from: booking.notes || '(vacío)',
         to: watchedNotes || '(vacío)',
+      });
+    }
+
+    if ((watchedArrival || '') !== (booking.estimatedArrivalTime || '')) {
+      diffs.push({
+        label: 'Hora estimada de llegada',
+        from: booking.estimatedArrivalTime ? `${booking.estimatedArrivalTime} hs` : '(sin definir)',
+        to: watchedArrival ? `${watchedArrival} hs` : '(sin definir)',
       });
     }
 
@@ -192,7 +208,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
     }
 
     return diffs;
-  }, [watchedRoomId, watchedCheckIn, watchedCheckOut, watchedAdults, watchedChildren, watchedNotes, newTotalAmount, booking, rooms]);
+  }, [watchedRoomId, watchedCheckIn, watchedCheckOut, watchedAdults, watchedChildren, watchedNotes, watchedArrival, newTotalAmount, booking, rooms]);
 
   const hasChanges = changes.length > 0;
 
@@ -214,6 +230,8 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
         roomId: data.roomId,
         adults: data.adults,
         children: data.children,
+        // '' (not undefined) so bookingToRow writes NULL and the hour can be cleared.
+        estimatedArrivalTime: data.estimatedArrivalTime?.trim() || '',
         notes: data.notes,
         totalAmount: newTotalAmount,
       });
@@ -403,8 +421,23 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
               />
             </div>
 
+            {/* Estimated arrival — the hour this guest announced, not the hotel policy */}
+            <FormField
+              control={form.control}
+              name="estimatedArrivalTime"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Hora estimada de llegada</FormLabel>
+                  <FormControl>
+                    <Input type="time" className="w-40" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             {/* Over capacity warning */}
-            {selectedRoomType && (watchedAdults + (watchedChildren || 0)) > selectedRoomType.maxGuests && (
+            {selectedRoomType && (watchedAdults + watchedChildren) > selectedRoomType.maxGuests && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 <span>

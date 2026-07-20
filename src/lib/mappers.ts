@@ -60,6 +60,7 @@ export const mapBooking = (row: DbRow): Booking => ({
   roomId: row.room_id,
   checkInDate: parseLocalDate(row.check_in_date),
   checkOutDate: parseLocalDate(row.check_out_date),
+  estimatedArrivalTime: row.estimated_arrival_time || undefined,
   adults: row.adults,
   children: row.children,
   status: row.status,
@@ -205,6 +206,8 @@ export const bookingToRow = (booking: Partial<Booking>): DbRow => {
   // DATE columns: send the local calendar day, never toISOString() (UTC can shift the day)
   if (booking.checkInDate !== undefined) row.check_in_date = booking.checkInDate instanceof Date ? formatLocalDate(booking.checkInDate) : booking.checkInDate;
   if (booking.checkOutDate !== undefined) row.check_out_date = booking.checkOutDate instanceof Date ? formatLocalDate(booking.checkOutDate) : booking.checkOutDate;
+  // Empty string would violate the HH:MM check constraint; clear it as NULL instead.
+  if (booking.estimatedArrivalTime !== undefined) row.estimated_arrival_time = booking.estimatedArrivalTime || null;
   if (booking.adults !== undefined) row.adults = booking.adults;
   if (booking.children !== undefined) row.children = booking.children;
   if (booking.status !== undefined) row.status = booking.status;

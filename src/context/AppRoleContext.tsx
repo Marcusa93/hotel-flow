@@ -10,6 +10,8 @@ interface AppRoleContextType {
   profileLoading: boolean;
   profileError: Error | null;
   profileName: string | null;
+  /** True when an admin created this account and the user still has the handed-over password. */
+  mustChangePassword: boolean;
 }
 
 const AppRoleContext = createContext<AppRoleContextType | undefined>(undefined);
@@ -41,11 +43,11 @@ export function AppRoleProvider({ children }: { children: React.ReactNode }) {
         // Do NOT default to 'reception' — that would silently grant privileges.
         const softFailure = error.code === 'PGRST116' || error.code === '42P01' || error.message?.includes('does not exist');
         if (softFailure && isValidRole(metadataRole)) {
-          return { role: metadataRole, fullName: metadataName };
+          return { role: metadataRole, fullName: metadataName, mustChangePassword: false };
         }
         if (softFailure) {
           // Authenticated but no role anywhere — let the UI show an error.
-          return { role: null, fullName: metadataName };
+          return { role: null, fullName: metadataName, mustChangePassword: false };
         }
         // Network or permission error — propagate so React Query retries.
         throw new Error(`Profile fetch failed: ${error.message}`);
@@ -54,6 +56,7 @@ export function AppRoleProvider({ children }: { children: React.ReactNode }) {
       return {
         role: isValidRole(data.role) ? data.role : null,
         fullName: (data.full_name as string | null) ?? null,
+        mustChangePassword: data.must_change_password === true,
       };
     },
     enabled: !!user,
@@ -63,6 +66,7 @@ export function AppRoleProvider({ children }: { children: React.ReactNode }) {
 
   const currentRole: UserRole | null = profile?.role ?? null;
   const profileName: string | null = profile?.fullName ?? null;
+  const mustChangePassword: boolean = profile?.mustChangePassword ?? false;
   const profileError = (error as Error | null) ?? null;
 
   const value = useMemo(() => ({
@@ -70,7 +74,8 @@ export function AppRoleProvider({ children }: { children: React.ReactNode }) {
     profileLoading,
     profileError,
     profileName,
-  }), [currentRole, profileLoading, profileError, profileName]);
+    mustChangePassword,
+  }), [currentRole, profileLoading, profileError, profileName, mustChangePassword]);
 
   return (
     <AppRoleContext.Provider value={value}>

@@ -1,4 +1,5 @@
 export * from './HousekeepingBoard';
+export * from './HousekeepingLog';
 export * from './StaffPerformanceCard';
 export * from './MobileTaskCard';
 export * from './MobileTaskList';

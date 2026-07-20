@@ -4,6 +4,7 @@ import { useAppRole } from '@/context/AppRoleContext';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { useUpdateHotelSettings } from '@/hooks/useUpdateHotelSettings';
 import { PageHeader } from '@/components/shared';
+import { UserManagement } from '@/components/settings/UserManagement';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -19,7 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { UserRole, HotelSettings } from '@/types/hotel';
 import {
-  Building2, Users, Palette, Shield, User,
+  Building2, Users, UserCog, Palette, Shield, User,
   ClipboardList, Eye, Save, Loader2, Sun, Moon, Monitor, Bell
 } from 'lucide-react';
 import { PushNotificationSettings } from '@/components/settings/PushNotificationSettings';
@@ -58,6 +59,8 @@ const roles: { value: UserRole; label: string; description: string; icon: React.
 
 export default function Settings() {
   const { currentRole } = useAppRole();
+  // Creating users needs the service_role key and an admin-only RLS read policy.
+  const isAdmin = currentRole === 'admin';
   const { data: settings, isLoading } = useHotelSettings();
   const updateMutation = useUpdateHotelSettings();
   const { theme, setTheme } = useTheme();
@@ -111,7 +114,7 @@ export default function Settings() {
       />
 
       <Tabs defaultValue="hotel" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:w-auto lg:inline-grid">
+        <TabsList className={`grid w-full grid-cols-2 ${isAdmin ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} lg:w-auto lg:inline-grid`}>
           <TabsTrigger value="hotel" className="gap-2">
             <Building2 className="w-4 h-4 hidden sm:block" />
             Hotel
@@ -124,6 +127,12 @@ export default function Settings() {
             <Users className="w-4 h-4 hidden sm:block" />
             Roles
           </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="users" className="gap-2">
+              <UserCog className="w-4 h-4 hidden sm:block" />
+              Usuarios
+            </TabsTrigger>
+          )}
           <TabsTrigger value="appearance" className="gap-2">
             <Palette className="w-4 h-4 hidden sm:block" />
             Apariencia
@@ -271,6 +280,13 @@ export default function Settings() {
         <TabsContent value="notifications">
           <PushNotificationSettings />
         </TabsContent>
+
+        {/* TAB: User management (admin only) */}
+        {isAdmin && (
+          <TabsContent value="users">
+            <UserManagement />
+          </TabsContent>
+        )}
 
         {/* TAB 3: Users & Roles */}
         <TabsContent value="roles" className="space-y-6">

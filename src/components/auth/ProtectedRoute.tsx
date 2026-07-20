@@ -2,10 +2,13 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useAppRole } from '@/context/AppRoleContext';
+import { ForcePasswordChange } from '@/components/auth/ForcePasswordChange';
 import { Loader2 } from 'lucide-react';
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const { session, loading } = useAuth();
+    const { mustChangePassword, profileLoading } = useAppRole();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -26,6 +29,12 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
     if (!session) {
         return null; // Will redirect via useEffect
+    }
+
+    // Accounts created by an admin start with a handed-over password. Nothing
+    // else in the app is reachable until it's replaced.
+    if (!profileLoading && mustChangePassword) {
+        return <ForcePasswordChange />;
     }
 
     return <>{children}</>;

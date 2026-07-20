@@ -4,6 +4,12 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // Creating auth users requires the service_role key, which can never ship to the
 // browser. This function holds it server-side and only acts for callers whose
 // profile role is 'admin'.
+//
+// DEPLOY: the function name must be exactly "admin-create-user".
+// Turn OFF "Verify JWT" — the gateway check rejects the unauthenticated CORS
+// preflight, which surfaces in the browser as a misleading CORS error. Auth is
+// enforced below instead: the token is verified and the caller's profile must
+// be 'admin', which is stricter than the gateway check it replaces.
 
 const ALLOWED_ORIGINS = [
   "https://homeapp.com.ar",

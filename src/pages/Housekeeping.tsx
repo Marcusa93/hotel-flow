@@ -116,6 +116,8 @@ export default function Housekeeping() {
     roomId: string;
     priority: TaskPriority;
     assignedTo?: string;
+    assignedToUserId?: string;
+    roomNumber?: string;
     notes?: string;
   }) => {
     try {
@@ -126,7 +128,7 @@ export default function Housekeeping() {
         priority: data.priority,
         assignedTo: data.assignedTo,
         notes: data.notes,
-      });
+      }, { userId: data.assignedToUserId, roomNumber: data.roomNumber });
       if (result?.deduped) {
         toast({
           title: 'Ya existía una tarea para esa habitación',

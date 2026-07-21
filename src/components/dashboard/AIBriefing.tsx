@@ -7,7 +7,7 @@ import { isToday, isTomorrow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { cn, formatLastNameFirst } from '@/lib/utils';
-import { PendingArrivalsPanel } from './PendingArrivalsPanel';
+import { TodayMovementsPanel } from './TodayMovementsPanel';
 
 interface AIBriefingProps {
     bookings: Booking[];
@@ -76,27 +76,7 @@ export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProp
             route: '/rooms',
         });
 
-        // 3. Check-outs de hoy (las llegadas van en el panel de la derecha)
-        const todayCheckOuts = bookings.filter(b =>
-            isToday(new Date(b.checkOutDate)) && b.status === 'CHECKED_IN'
-        );
-        if (todayCheckOuts.length > 0) {
-            const names = todayCheckOuts.slice(0, 2).map(b => {
-                const guest = guests.find(g => g.id === b.guestId);
-                return guest ? formatLastNameFirst(guest.fullName) : 'Huésped';
-            });
-            const extra = todayCheckOuts.length > 2 ? ` +${todayCheckOuts.length - 2}` : '';
-            result.push({
-                icon: LogOut,
-                title: `${todayCheckOuts.length} salida${todayCheckOuts.length > 1 ? 's' : ''} hoy`,
-                detail: `${names.join(', ')}${extra}`,
-                color: 'text-amber-600',
-                priority: 2,
-                route: '/bookings?filter=checkout-today',
-            });
-        }
-
-        // 4. Pagos pendientes
+        // 3. Pagos pendientes
         const pendingPayments = payments.filter(p => p.status === 'PENDING');
         const pendingTotal = pendingPayments.reduce((s, p) => s + p.amount, 0);
         if (pendingTotal > 0) {
@@ -224,9 +204,9 @@ export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProp
                         )}
                     </div>
 
-                    {/* ── Llegadas pendientes ── */}
+                    {/* ── Entradas y salidas del día ── */}
                     <div className="lg:pl-6 border-t lg:border-t-0 border-slate-200/70 dark:border-slate-700/50 pt-3 lg:pt-0">
-                        <PendingArrivalsPanel />
+                        <TodayMovementsPanel />
                     </div>
                 </div>
             </CardContent>

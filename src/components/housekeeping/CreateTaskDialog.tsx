@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus, Loader2 } from 'lucide-react';
 import { Room, TaskPriority } from '@/types/hotel';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { StaffCombobox } from './StaffCombobox';
+import { StaffCombobox, AssignmentHint } from './StaffCombobox';
+import { useHousekeepingStaff, findStaffByName } from '@/hooks/useHousekeepingStaff';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,9 @@ interface CreateTaskDialogProps {
     roomId: string;
     priority: TaskPriority;
     assignedTo?: string;
+    /** profiles.id cuando la persona asignada tiene usuario en la app */
+    assignedToUserId?: string;
+    roomNumber?: string;
     notes?: string;
   }) => Promise<void>;
   isCreating?: boolean;
@@ -48,6 +52,14 @@ export function CreateTaskDialog({ rooms, staffSuggestions = [], onCreateTask, i
   const [assignedTo, setAssignedTo] = useState('');
   const [notes, setNotes] = useState('');
 
+  const { data: staff = [] } = useHousekeepingStaff();
+  const assignee = findStaffByName(staff, assignedTo);
+  // Los nombres del personal con usuario van primero: son los que reciben aviso.
+  const suggestions = useMemo(
+    () => Array.from(new Set([...staff.map(s => s.name), ...staffSuggestions])),
+    [staff, staffSuggestions]
+  );
+
   // Only show rooms that could need cleaning (DIRTY, OCCUPIED, AVAILABLE)
   const availableRooms = [...rooms].sort((a, b) => {
     // DIRTY rooms first
@@ -64,6 +76,8 @@ export function CreateTaskDialog({ rooms, staffSuggestions = [], onCreateTask, i
         roomId,
         priority,
         assignedTo: assignedTo.trim() || undefined,
+        assignedToUserId: assignee?.id,
+        roomNumber: rooms.find(r => r.id === roomId)?.roomNumber,
         notes: notes || undefined,
       });
       // Reset form
@@ -149,8 +163,9 @@ export function CreateTaskDialog({ rooms, staffSuggestions = [], onCreateTask, i
             <StaffCombobox
               value={assignedTo}
               onChange={setAssignedTo}
-              suggestions={staffSuggestions}
+              suggestions={suggestions}
             />
+            <AssignmentHint assigneeName={assignee?.name} typedName={assignedTo} hasStaff={staff.length > 0} />
           </div>
 
           {/* Notes */}

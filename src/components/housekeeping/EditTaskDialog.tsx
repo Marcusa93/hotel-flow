@@ -20,7 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { StaffCombobox } from './StaffCombobox';
+import { StaffCombobox, AssignmentHint } from './StaffCombobox';
+import { useHousekeepingStaff, findStaffByName } from '@/hooks/useHousekeepingStaff';
+import { notifyRoomAssignment } from '@/lib/housekeepingNotify';
 
 interface EditTaskDialogProps {
   open: boolean;
@@ -54,6 +56,13 @@ export function EditTaskDialog({
   const [assignedTo, setAssignedTo] = useState(task.assignedTo || '');
   const [notes, setNotes] = useState(task.notes || '');
   const [roomId, setRoomId] = useState(task.roomId);
+
+  const { data: staff = [] } = useHousekeepingStaff();
+  const assignee = findStaffByName(staff, assignedTo);
+  const suggestions = useMemo(
+    () => Array.from(new Set([...staff.map(s => s.name), ...staffSuggestions])),
+    [staff, staffSuggestions]
+  );
 
   // Reset form when task changes
   useEffect(() => {
@@ -97,8 +106,27 @@ export function EditTaskDialog({
     if (notes !== (task.notes || '')) updates.notes = notes || undefined;
     if (roomId !== task.roomId) updates.roomId = roomId;
 
+    const assignmentChanged = updates.assignedTo !== undefined || roomId !== task.roomId;
+
     try {
       await onSave(task.id, updates);
+
+      // Recién asignada (o movida de habitación): la persona tiene que enterarse.
+      if (assignee && assignmentChanged) {
+        const targetRoom = rooms.find(r => r.id === roomId) || room;
+        void notifyRoomAssignment({
+          userId: assignee.id,
+          roomNumber: targetRoom?.roomNumber,
+          roomId,
+          taskId: task.id,
+          reason: priority === 'CHECKOUT'
+            ? 'Check-out: la habitación quedó libre'
+            : priority === 'URGENT'
+              ? 'Urgente — te asignaron esta habitación'
+              : 'Te asignaron esta habitación',
+        });
+      }
+
       onOpenChange(false);
     } catch {
       // Error handled by parent
@@ -164,8 +192,9 @@ export function EditTaskDialog({
             <StaffCombobox
               value={assignedTo}
               onChange={setAssignedTo}
-              suggestions={staffSuggestions}
+              suggestions={suggestions}
             />
+            <AssignmentHint assigneeName={assignee?.name} typedName={assignedTo} hasStaff={staff.length > 0} />
           </div>
 
           {/* Notes */}

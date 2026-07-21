@@ -1,9 +1,13 @@
 import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Sparkles, LogIn, LogOut, AlertTriangle, BedDouble, Users, CreditCard, Star } from 'lucide-react';
+import { Sparkles, LogOut, AlertTriangle, BedDouble, Users, CreditCard, Star, ClipboardList, Car } from 'lucide-react';
+import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { Booking, Room, Guest, Payment } from '@/types/hotel';
 import { isToday, isTomorrow, format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 import { cn, formatLastNameFirst } from '@/lib/utils';
+import { PendingArrivalsPanel } from './PendingArrivalsPanel';
 
 interface AIBriefingProps {
     bookings: Booking[];
@@ -14,53 +18,25 @@ interface AIBriefingProps {
 
 interface BriefingItem {
     icon: typeof Sparkles;
-    text: string;
+    /** Dato principal: corto, en negrita — lo que se lee de un vistazo */
+    title: string;
+    /** Contexto secundario, gris y truncable */
+    detail?: string;
     color: string;
-    priority: number; // lower = more important
+    priority: number; // menor = más importante
+    urgent?: boolean;
+    route?: string;
 }
 
 export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProps) {
+    const navigate = useNavigate();
+    const { data: hotelSettings } = useHotelSettings();
+    const parkingSpots = hotelSettings?.parkingSpots ?? 0;
+
     const items = useMemo(() => {
         const result: BriefingItem[] = [];
-        const now = new Date();
 
-        // 1. Today's check-ins with guest names
-        const todayCheckIns = bookings.filter(b =>
-            isToday(new Date(b.checkInDate)) && (b.status === 'CONFIRMED' || b.status === 'PENDING')
-        );
-        if (todayCheckIns.length > 0) {
-            const names = todayCheckIns.slice(0, 3).map(b => {
-                const guest = guests.find(g => g.id === b.guestId);
-                const room = rooms.find(r => r.id === b.roomId);
-                return `**${guest ? formatLastNameFirst(guest.fullName) : 'Huésped'}** (Hab ${room?.roomNumber || '?'})`;
-            });
-            const extra = todayCheckIns.length > 3 ? ` y ${todayCheckIns.length - 3} más` : '';
-            result.push({
-                icon: LogIn,
-                text: `**${todayCheckIns.length} check-in${todayCheckIns.length > 1 ? 's' : ''} hoy**: ${names.join(', ')}${extra}`,
-                color: 'text-emerald-600',
-                priority: 1,
-            });
-        }
-
-        // 2. Today's check-outs
-        const todayCheckOuts = bookings.filter(b =>
-            isToday(new Date(b.checkOutDate)) && b.status === 'CHECKED_IN'
-        );
-        if (todayCheckOuts.length > 0) {
-            const names = todayCheckOuts.slice(0, 3).map(b => {
-                const guest = guests.find(g => g.id === b.guestId);
-                return `**${guest ? formatLastNameFirst(guest.fullName) : 'Huésped'}**`;
-            });
-            result.push({
-                icon: LogOut,
-                text: `**${todayCheckOuts.length} check-out${todayCheckOuts.length > 1 ? 's' : ''} hoy**: ${names.join(', ')}`,
-                color: 'text-amber-600',
-                priority: 2,
-            });
-        }
-
-        // 3. Dirty rooms bottleneck alert
+        // 1. Cuello de botella: limpieza vs llegadas de mañana
         const dirtyRooms = rooms.filter(r => r.status === 'DIRTY').length;
         const tomorrowCheckIns = bookings.filter(b =>
             isTomorrow(new Date(b.checkInDate)) && (b.status === 'CONFIRMED' || b.status === 'PENDING')
@@ -68,82 +44,125 @@ export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProp
         if (dirtyRooms > 0 && tomorrowCheckIns > 0 && dirtyRooms >= tomorrowCheckIns) {
             result.push({
                 icon: AlertTriangle,
-                text: `**Cuello de botella**: ${dirtyRooms} hab sucias y ${tomorrowCheckIns} check-in${tomorrowCheckIns > 1 ? 's' : ''} mañana — priorizar limpieza`,
+                title: 'Priorizar limpieza',
+                detail: `${dirtyRooms} hab. sucias y ${tomorrowCheckIns} llegada${tomorrowCheckIns > 1 ? 's' : ''} mañana`,
                 color: 'text-red-500',
                 priority: 0,
+                urgent: true,
+                route: '/housekeeping',
             });
-        } else if (dirtyRooms > 3) {
+        } else if (dirtyRooms > 0) {
             result.push({
                 icon: BedDouble,
-                text: `**${dirtyRooms} habitaciones** pendientes de limpieza`,
+                title: `${dirtyRooms} hab. a limpiar`,
+                detail: 'pendientes de housekeeping',
                 color: 'text-amber-500',
                 priority: 5,
+                route: '/housekeeping',
             });
         }
 
-        // 4. Frequent guests arriving today or tomorrow
-        const upcomingFrequent = bookings
-            .filter(b => (isToday(new Date(b.checkInDate)) || isTomorrow(new Date(b.checkInDate))) && (b.status === 'CONFIRMED' || b.status === 'PENDING'))
-            .map(b => {
-                const guest = guests.find(g => g.id === b.guestId);
-                if (!guest) return null;
-                const guestBookings = bookings.filter(bb => bb.guestId === guest.id).length;
-                if (guestBookings < 3) return null;
-                const totalSpend = bookings.filter(bb => bb.guestId === guest.id).reduce((s, bb) => s + bb.totalAmount, 0);
-                const room = rooms.find(r => r.id === b.roomId);
-                const when = isToday(new Date(b.checkInDate)) ? 'hoy' : 'mañana';
-                return { guest, guestBookings, totalSpend, room, when };
-            })
-            .filter(Boolean);
-
-        for (const freq of upcomingFrequent) {
-            if (!freq) continue;
-            result.push({
-                icon: Star,
-                text: `**Frecuente**: **${formatLastNameFirst(freq.guest.fullName)}** llega ${freq.when} (${freq.guestBookings} visitas, $${(freq.totalSpend / 1000).toFixed(0)}k) → Hab ${freq.room?.roomNumber || '?'}`,
-                color: 'text-indigo-500',
-                priority: 1,
-            });
-        }
-
-        // 5. Pending payments alert
-        const pendingPayments = payments.filter(p => p.status === 'PENDING');
-        const pendingTotal = pendingPayments.reduce((s, p) => s + p.amount, 0);
-        if (pendingTotal > 0) {
-            result.push({
-                icon: CreditCard,
-                text: `**$${pendingTotal.toLocaleString()}** en pagos pendientes (${pendingPayments.length} cobros)`,
-                color: 'text-orange-500',
-                priority: 4,
-            });
-        }
-
-        // 6. Occupancy summary
+        // 2. Ocupación
         const occupied = rooms.filter(r => r.status === 'OCCUPIED').length;
         const available = rooms.filter(r => r.status === 'AVAILABLE').length;
         const total = rooms.length;
         const rate = total > 0 ? ((occupied / total) * 100).toFixed(0) : '0';
         result.push({
             icon: Users,
-            text: `Ocupación **${rate}%** — ${occupied} ocupadas, ${available} disponibles de ${total}`,
+            title: `Ocupación ${rate}%`,
+            detail: `${occupied} ocupadas · ${available} libres de ${total}`,
             color: 'text-blue-600',
-            priority: 6,
+            priority: 1,
+            route: '/rooms',
         });
 
-        // 7. Tomorrow check-ins preview
-        if (tomorrowCheckIns > 0 && !result.some(r => r.text.includes('mañana'))) {
+        // 3. Check-outs de hoy (las llegadas van en el panel de la derecha)
+        const todayCheckOuts = bookings.filter(b =>
+            isToday(new Date(b.checkOutDate)) && b.status === 'CHECKED_IN'
+        );
+        if (todayCheckOuts.length > 0) {
+            const names = todayCheckOuts.slice(0, 2).map(b => {
+                const guest = guests.find(g => g.id === b.guestId);
+                return guest ? formatLastNameFirst(guest.fullName) : 'Huésped';
+            });
+            const extra = todayCheckOuts.length > 2 ? ` +${todayCheckOuts.length - 2}` : '';
             result.push({
-                icon: LogIn,
-                text: `**${tomorrowCheckIns} llegada${tomorrowCheckIns > 1 ? 's' : ''}** programada${tomorrowCheckIns > 1 ? 's' : ''} para mañana`,
-                color: 'text-blue-500',
-                priority: 7,
+                icon: LogOut,
+                title: `${todayCheckOuts.length} salida${todayCheckOuts.length > 1 ? 's' : ''} hoy`,
+                detail: `${names.join(', ')}${extra}`,
+                color: 'text-amber-600',
+                priority: 2,
+                route: '/bookings?filter=checkout-today',
+            });
+        }
+
+        // 4. Pagos pendientes
+        const pendingPayments = payments.filter(p => p.status === 'PENDING');
+        const pendingTotal = pendingPayments.reduce((s, p) => s + p.amount, 0);
+        if (pendingTotal > 0) {
+            result.push({
+                icon: CreditCard,
+                title: `$${pendingTotal.toLocaleString('es-AR')} por cobrar`,
+                detail: `${pendingPayments.length} pago${pendingPayments.length > 1 ? 's' : ''} pendiente${pendingPayments.length > 1 ? 's' : ''}`,
+                color: 'text-orange-500',
+                priority: 3,
+                route: '/payments',
+            });
+        }
+
+        // 5. Cocheras — solo si el hotel configuró cuántas tiene
+        if (parkingSpots > 0) {
+            const parkedNow = bookings.filter(b => b.status === 'CHECKED_IN' && b.hasVehicle).length;
+            const arrivingWithCar = bookings.filter(b =>
+                b.hasVehicle
+                && (b.status === 'CONFIRMED' || b.status === 'PENDING')
+                && isToday(new Date(b.checkInDate))
+            ).length;
+            const demand = parkedNow + arrivingWithCar;
+            const overbooked = demand > parkingSpots;
+            const free = parkingSpots - parkedNow;
+
+            result.push({
+                icon: Car,
+                title: `Cocheras ${parkedNow}/${parkingSpots}`,
+                detail: overbooked
+                    ? `${demand} autos para ${parkingSpots} lugares — falta lugar`
+                    : arrivingWithCar > 0
+                        ? `${arrivingWithCar} auto${arrivingWithCar > 1 ? 's' : ''} por llegar hoy`
+                        : `${free} libre${free === 1 ? '' : 's'}`,
+                color: overbooked ? 'text-red-500' : 'text-slate-500',
+                priority: overbooked ? 0 : 4,
+                urgent: overbooked,
+            });
+        }
+
+        // 6. Huéspedes frecuentes que llegan hoy o mañana
+        const frequent = bookings
+            .filter(b => (isToday(new Date(b.checkInDate)) || isTomorrow(new Date(b.checkInDate))) && (b.status === 'CONFIRMED' || b.status === 'PENDING'))
+            .map(b => {
+                const guest = guests.find(g => g.id === b.guestId);
+                if (!guest) return null;
+                const visits = bookings.filter(bb => bb.guestId === guest.id).length;
+                if (visits < 3) return null;
+                const totalSpend = bookings.filter(bb => bb.guestId === guest.id).reduce((s, bb) => s + bb.totalAmount, 0);
+                const when = isToday(new Date(b.checkInDate)) ? 'hoy' : 'mañana';
+                return { guest, visits, totalSpend, when };
+            })
+            .filter(Boolean);
+
+        for (const f of frequent) {
+            if (!f) continue;
+            result.push({
+                icon: Star,
+                title: `Frecuente: ${formatLastNameFirst(f.guest.fullName)}`,
+                detail: `llega ${f.when} · ${f.visits} visitas · $${(f.totalSpend / 1000).toFixed(0)}k`,
+                color: 'text-indigo-500',
+                priority: 4,
             });
         }
 
         return result.sort((a, b) => a.priority - b.priority).slice(0, 5);
-    }, [bookings, rooms, guests, payments]);
-
-    if (items.length === 0) return null;
+    }, [bookings, rooms, guests, payments, parkingSpots]);
 
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
@@ -158,31 +177,54 @@ export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProp
                     <h3 className="text-sm font-bold text-indigo-900 dark:text-indigo-100">
                         {greeting} — Resumen del día
                     </h3>
+                    <span className="text-xs text-muted-foreground capitalize ml-auto hidden sm:block">
+                        {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
+                    </span>
                 </div>
 
-                <div className="space-y-2">
-                    {items.map((item, i) => (
-                        <div key={i} className="flex items-start gap-2.5 text-sm">
-                            <item.icon className={cn("w-4 h-4 mt-0.5 shrink-0", item.color)} />
-                            <span className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                                <InlineMarkdown text={item.text} />
-                            </span>
-                        </div>
-                    ))}
+                <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-4 lg:gap-6 lg:divide-x lg:divide-slate-200/70 dark:lg:divide-slate-700/50">
+                    {/* ── Estado del día ── */}
+                    <div>
+                        <h4 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-2 px-2">
+                            <ClipboardList className="w-3.5 h-3.5 text-indigo-500" />
+                            Cómo viene el día
+                        </h4>
+                        {items.length === 0 ? (
+                            <p className="text-sm text-muted-foreground py-2">Todo tranquilo por ahora.</p>
+                        ) : (
+                            <div className="space-y-0.5">{items.map((item, i) => {
+                                const Row = item.route ? 'button' : 'div';
+                                return (
+                                    <Row
+                                        key={i}
+                                        onClick={item.route ? () => navigate(item.route!) : undefined}
+                                        className={cn(
+                                            'w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-colors',
+                                            item.urgent && 'bg-red-50/80 dark:bg-red-950/25',
+                                            item.route && 'hover:bg-white/80 dark:hover:bg-slate-800/60 cursor-pointer',
+                                        )}
+                                    >
+                                        <item.icon className={cn('w-4 h-4 shrink-0', item.color)} />
+                                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 shrink-0">
+                                            {item.title}
+                                        </span>
+                                        {item.detail && (
+                                            <span className="text-xs text-muted-foreground truncate min-w-0">
+                                                {item.detail}
+                                            </span>
+                                        )}
+                                    </Row>
+                                );
+                            })}</div>
+                        )}
+                    </div>
+
+                    {/* ── Llegadas pendientes ── */}
+                    <div className="lg:pl-6 border-t lg:border-t-0 border-slate-200/70 dark:border-slate-700/50 pt-3 lg:pt-0">
+                        <PendingArrivalsPanel />
+                    </div>
                 </div>
             </CardContent>
         </Card>
-    );
-}
-
-/** Minimal inline bold renderer */
-function InlineMarkdown({ text }: { text: string }) {
-    const parts = text.split(/\*\*(.+?)\*\*/g);
-    return (
-        <>
-            {parts.map((part, i) =>
-                i % 2 === 1 ? <strong key={i} className="font-semibold">{part}</strong> : part
-            )}
-        </>
     );
 }

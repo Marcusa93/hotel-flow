@@ -34,11 +34,17 @@ export function useHousekeepingOperations() {
   const updateRoomMutation = useUpdateRoom();
 
   const addHousekeepingTask = useCallback(
-    async (taskData: Omit<HousekeepingTask, 'id'>) => {
+    async (
+      taskData: Omit<HousekeepingTask, 'id'>,
+      /** Cuando la persona asignada tiene usuario, el aviso es personal en vez de para todo el equipo. */
+      assignee?: { userId?: string; roomNumber?: string }
+    ) => {
       return await createTaskMutation.mutateAsync({
         roomId: taskData.roomId,
         date: taskData.date instanceof Date ? taskData.date : undefined,
         assignedTo: taskData.assignedTo,
+        assignedToUserId: assignee?.userId,
+        roomNumber: assignee?.roomNumber,
         priority: taskData.priority,
         notes: taskData.notes,
         checkoutTriggered: taskData.checkoutTriggered,

@@ -11,7 +11,8 @@ import {
   ReservationsHeader,
   ReservationsFilters,
   ReservationBoard,
-  ReservationDetailsDrawer
+  ReservationDetailsDrawer,
+  WeeklyMovementsLog
 } from '@/components/reservations';
 import { NewBookingDialog } from '@/components/bookings/NewBookingDialog';
 import { Button } from '@/components/ui/button';
@@ -235,6 +236,16 @@ export default function Bookings() {
             />
           </div>
         </div>
+      </div>
+
+      {/* Weekly history — what actually came in and out, independent of the filters above */}
+      <div className="flex-none px-4 md:px-6 pb-4">
+        <WeeklyMovementsLog
+          bookings={bookings}
+          guests={guests}
+          rooms={rooms}
+          onSelect={(id) => navigate(`/bookings/${id}`)}
+        />
       </div>
 
       {/* Dialogs & Drawers */}

@@ -115,7 +115,7 @@ interface NewBookingDialogProps {
 
 export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewBookingDialogProps) {
   const { bookings, addBooking, checkRoomAvailability } = useBookingOperations();
-  const { guests, addGuest } = useGuestOperations();
+  const { guests, addGuest, updateGuest } = useGuestOperations();
   const { rooms, roomTypes } = useRoomOperations();
   const { data: rates = [] } = useRates();
   const checkAvailability = useCheckAvailability();
@@ -416,6 +416,28 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
         vehicleDescription: data.hasVehicle ? data.vehicleDescription : undefined,
         licensePlate: data.hasVehicle ? data.licensePlate?.toUpperCase() : undefined,
       });
+
+      // El auto se carga en la reserva, pero es un dato del huésped: sin esto la
+      // ficha seguía diciendo "Sin vehículo registrado" y no se prellenaba nunca.
+      // Si viene sin auto NO se borra lo que ya tenía: puede tener uno y no traerlo.
+      if (data.hasVehicle) {
+        const guest = guests.find(g => g.id === finalGuestId);
+        const licensePlate = data.licensePlate?.trim().toUpperCase() || undefined;
+        const vehicleDescription = data.vehicleDescription?.trim() || undefined;
+        const isNewInfo =
+          !guest?.hasVehicle ||
+          (guest.licensePlate || undefined) !== licensePlate ||
+          (guest.vehicleDescription || undefined) !== vehicleDescription;
+
+        if (guest && isNewInfo) {
+          try {
+            await updateGuest(guest.id, { hasVehicle: true, vehicleDescription, licensePlate });
+          } catch (err) {
+            // La reserva ya quedó creada con el vehículo; no la hacemos fallar por la ficha.
+            console.warn('[Reserva] No se pudo guardar el vehículo en la ficha del huésped:', err);
+          }
+        }
+      }
 
       toast({
         title: '✅ Reserva creada',

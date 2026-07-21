@@ -1,7 +1,38 @@
 import { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
-import { User } from 'lucide-react';
+import { User, BellRing } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+/** Deja claro, antes de guardar, si esa persona se entera o no. */
+export function AssignmentHint({
+  assigneeName,
+  typedName,
+  hasStaff,
+}: {
+  assigneeName?: string;
+  typedName: string;
+  hasStaff: boolean;
+}) {
+  const typed = typedName.trim();
+  if (!typed) return null;
+
+  if (assigneeName) {
+    return (
+      <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+        <BellRing className="w-3 h-3 shrink-0" />
+        Le llega la notificación a {assigneeName}
+      </p>
+    );
+  }
+
+  if (!hasStaff) return null;
+
+  return (
+    <p className="text-xs text-amber-600 dark:text-amber-500">
+      {typed} no tiene usuario con rol Limpieza: queda anotado, pero no recibe aviso.
+    </p>
+  );
+}
 
 interface StaffComboboxProps {
   value: string;

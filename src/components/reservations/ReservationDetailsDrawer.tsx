@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Phone, MapPin, Calendar, Clock, CreditCard, X, ExternalLink } from 'lucide-react';
+import { Mail, Phone, MapPin, Calendar, Clock, CreditCard, X, ExternalLink, Car } from 'lucide-react';
 import { Booking, Guest, Room, RoomType } from '@/types/hotel';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -130,6 +130,20 @@ export function ReservationDetailsDrawer({
                                     <p className="text-xs text-muted-foreground">11:00</p>
                                 </div>
                             </div>
+
+                            {(booking.hasVehicle || guest?.hasVehicle) && (
+                                <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/30">
+                                    <Car className="w-4 h-4 shrink-0 text-muted-foreground" />
+                                    <span className="text-sm truncate">
+                                        {booking.vehicleDescription || guest?.vehicleDescription || 'Llega en vehículo'}
+                                    </span>
+                                    {(booking.licensePlate || guest?.licensePlate) && (
+                                        <Badge variant="outline" className="ml-auto font-mono text-xs shrink-0">
+                                            {booking.licensePlate || guest?.licensePlate}
+                                        </Badge>
+                                    )}
+                                </div>
+                            )}
 
                             {booking.notes && (
                                 <div className="p-4 bg-yellow-50 dark:bg-yellow-900/10 rounded-xl border border-yellow-100 dark:border-yellow-900/20 text-sm italic text-yellow-800 dark:text-yellow-200">

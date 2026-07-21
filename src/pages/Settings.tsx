@@ -76,6 +76,7 @@ export default function Settings() {
     timezone: 'America/Buenos_Aires',
     checkInTime: '14:00',
     checkOutTime: '11:00',
+    parkingSpots: 0,
   });
 
   // Sync forms when settings load or actually change (keyed by updatedAt so
@@ -91,6 +92,7 @@ export default function Settings() {
         timezone: settings.timezone,
         checkInTime: settings.checkInTime || '14:00',
         checkOutTime: settings.checkOutTime || '11:00',
+        parkingSpots: settings.parkingSpots ?? 0,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -258,6 +260,22 @@ export default function Settings() {
                         value={hotelForm.checkOutTime}
                         onChange={(e) => setHotelForm(prev => ({ ...prev, checkOutTime: e.target.value }))}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="parkingSpots">Cocheras</Label>
+                      <Input
+                        id="parkingSpots"
+                        type="number"
+                        min={0}
+                        value={hotelForm.parkingSpots}
+                        onChange={(e) => setHotelForm(prev => ({
+                          ...prev,
+                          parkingSpots: Math.max(0, Number(e.target.value) || 0),
+                        }))}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Espacios de estacionamiento del hotel. En 0 no se controlan.
+                      </p>
                     </div>
                   </div>
                   <div className="flex justify-end pt-4 border-t">

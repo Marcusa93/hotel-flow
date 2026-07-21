@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -27,10 +27,22 @@ import {
     CreditCard,
     Loader2,
     BedDouble,
-    Clock
+    Clock,
+    Sparkles
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { useHousekeepingStaff } from '@/hooks/useHousekeepingStaff';
+
+/** Sentinel for "no personal assignee — notify every housekeeping user". */
+const TEAM_OPTION = 'TEAM';
 
 interface CheckoutDialogProps {
     open: boolean;
@@ -52,11 +64,21 @@ export function CheckoutDialog({
     const createBookingCharge = useCreateBookingCharge();
     const { data: bookingCharges = [] } = useBookingCharges(booking.id);
 
+    const { data: staff = [], isLoading: isLoadingStaff } = useHousekeepingStaff();
+
     const [generateInvoice, setGenerateInvoice] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isLateCheckout, setIsLateCheckout] = useState(false);
     const [lateCheckoutFee, setLateCheckoutFee] = useState(5000); // Default late fee
     const [confirmUnpaid, setConfirmUnpaid] = useState(false);
+    const [assigneeId, setAssigneeId] = useState(TEAM_OPTION);
+
+    const assignee = staff.find(s => s.id === assigneeId);
+
+    // Each check-out is its own decision — don't carry over the previous pick.
+    useEffect(() => {
+        if (open) setAssigneeId(TEAM_OPTION);
+    }, [open]);
 
     // Calculate payment summary
     const totalPaid = bookingPayments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + p.amount, 0);
@@ -85,8 +107,14 @@ export function CheckoutDialog({
                 });
             }
 
-            // 2. Update booking status (also marks room DIRTY + creates housekeeping task)
-            await updateBookingStatus(booking.id, 'CHECKED_OUT');
+            // 2. Update booking status (also marks room DIRTY + creates housekeeping task
+            //    and notifies whoever was picked above)
+            await updateBookingStatus(booking.id, 'CHECKED_OUT', {
+                assigneeId: assignee?.id,
+                assigneeName: assignee?.name,
+                roomNumber: booking.room.roomNumber,
+                guestName: booking.guest.fullName,
+            });
 
             // 3. Generate invoice if selected
             if (generateInvoice) {
@@ -120,6 +148,13 @@ export function CheckoutDialog({
                     notes: `Checkout automático - ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: es })}`
                 });
             }
+
+            toast({
+                title: '✅ Check-out realizado',
+                description: assignee
+                    ? `Se le avisó a ${assignee.name} que tiene que limpiar la habitación ${booking.room.roomNumber}.`
+                    : `Se avisó al equipo de limpieza — habitación ${booking.room.roomNumber}.`,
+            });
 
             onCheckoutComplete();
             onOpenChange(false);
@@ -288,10 +323,39 @@ export function CheckoutDialog({
                         )}
                     </div>
 
-                    {/* Room Status Notice */}
-                    <div className="text-xs text-muted-foreground bg-muted/30 rounded-lg p-3 flex items-center gap-2">
-                        <BedDouble className="w-4 h-4" />
-                        La habitación {booking.room.roomNumber} se marcará como "Sucia" para limpieza
+                    {/* Housekeeping handoff */}
+                    <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                            <Sparkles className="w-4 h-4 text-blue-500" />
+                            Avisar a limpieza
+                        </div>
+                        <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+                            <BedDouble className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                            La habitación {booking.room.roomNumber} queda marcada como "Sucia". Elegí quién la
+                            limpia y le llega la notificación al instante.
+                        </p>
+
+                        {staff.length === 0 ? (
+                            <p className="text-xs text-amber-600 dark:text-amber-500">
+                                {isLoadingStaff
+                                    ? 'Buscando personal de limpieza…'
+                                    : 'No hay usuarios con rol Limpieza todavía. Se avisa al equipo; podés crear usuarios en Configuración → Usuarios.'}
+                            </p>
+                        ) : (
+                            <Select value={assigneeId} onValueChange={setAssigneeId}>
+                                <SelectTrigger className="h-9">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={TEAM_OPTION}>Todo el equipo de limpieza</SelectItem>
+                                    {staff.map(member => (
+                                        <SelectItem key={member.id} value={member.id}>
+                                            {member.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                     </div>
                 </div>
 

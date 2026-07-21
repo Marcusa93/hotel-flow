@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Sparkles, LogOut, AlertTriangle, BedDouble, Users, CreditCard, Star, ClipboardList } from 'lucide-react';
+import { Sparkles, LogOut, AlertTriangle, BedDouble, Users, CreditCard, Star, ClipboardList, Car } from 'lucide-react';
+import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { Booking, Room, Guest, Payment } from '@/types/hotel';
 import { isToday, isTomorrow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -29,6 +30,8 @@ interface BriefingItem {
 
 export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProps) {
     const navigate = useNavigate();
+    const { data: hotelSettings } = useHotelSettings();
+    const parkingSpots = hotelSettings?.parkingSpots ?? 0;
 
     const items = useMemo(() => {
         const result: BriefingItem[] = [];
@@ -107,7 +110,33 @@ export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProp
             });
         }
 
-        // 5. Huéspedes frecuentes que llegan hoy o mañana
+        // 5. Cocheras — solo si el hotel configuró cuántas tiene
+        if (parkingSpots > 0) {
+            const parkedNow = bookings.filter(b => b.status === 'CHECKED_IN' && b.hasVehicle).length;
+            const arrivingWithCar = bookings.filter(b =>
+                b.hasVehicle
+                && (b.status === 'CONFIRMED' || b.status === 'PENDING')
+                && isToday(new Date(b.checkInDate))
+            ).length;
+            const demand = parkedNow + arrivingWithCar;
+            const overbooked = demand > parkingSpots;
+            const free = parkingSpots - parkedNow;
+
+            result.push({
+                icon: Car,
+                title: `Cocheras ${parkedNow}/${parkingSpots}`,
+                detail: overbooked
+                    ? `${demand} autos para ${parkingSpots} lugares — falta lugar`
+                    : arrivingWithCar > 0
+                        ? `${arrivingWithCar} auto${arrivingWithCar > 1 ? 's' : ''} por llegar hoy`
+                        : `${free} libre${free === 1 ? '' : 's'}`,
+                color: overbooked ? 'text-red-500' : 'text-slate-500',
+                priority: overbooked ? 0 : 4,
+                urgent: overbooked,
+            });
+        }
+
+        // 6. Huéspedes frecuentes que llegan hoy o mañana
         const frequent = bookings
             .filter(b => (isToday(new Date(b.checkInDate)) || isTomorrow(new Date(b.checkInDate))) && (b.status === 'CONFIRMED' || b.status === 'PENDING'))
             .map(b => {
@@ -133,7 +162,7 @@ export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProp
         }
 
         return result.sort((a, b) => a.priority - b.priority).slice(0, 5);
-    }, [bookings, rooms, guests, payments]);
+    }, [bookings, rooms, guests, payments, parkingSpots]);
 
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';

@@ -238,6 +238,7 @@ export const mapHotelSettings = (row: DbRow): HotelSettings => ({
   checkInTime: row.check_in_time || '14:00',
   checkOutTime: row.check_out_time || '11:00',
   dailyCashFloat: Number(row.daily_cash_float ?? 0),
+  parkingSpots: Number(row.parking_spots ?? 0),
   createdAt: new Date(row.created_at),
   updatedAt: new Date(row.updated_at),
 });
@@ -260,6 +261,7 @@ export const hotelSettingsToRow = (settings: Partial<HotelSettings>): DbRow => {
   if (settings.checkInTime !== undefined) row.check_in_time = settings.checkInTime;
   if (settings.checkOutTime !== undefined) row.check_out_time = settings.checkOutTime;
   if (settings.dailyCashFloat !== undefined) row.daily_cash_float = settings.dailyCashFloat;
+  if (settings.parkingSpots !== undefined) row.parking_spots = settings.parkingSpots;
   row.updated_at = new Date().toISOString();
   return row;
 };

@@ -252,6 +252,7 @@ export interface HotelSettings {
   checkInTime?: string;   // e.g. "14:00"
   checkOutTime?: string;  // e.g. "11:00"
   dailyCashFloat?: number; // "Fijo del día" — cash float kept in the register
+  parkingSpots?: number;   // Cocheras del hotel; 0 = sin control de cocheras
   notificationEmailEnabled: boolean;
   notificationWhatsappEnabled: boolean;
   notificationSendOnBooking: boolean;

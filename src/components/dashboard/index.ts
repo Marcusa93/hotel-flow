@@ -1,5 +1,5 @@
 export * from './RevenueChart';
-export { UpcomingArrivalsWidget } from './VIPArrivalsWidget';
+export * from './PendingArrivalsPanel';
 export * from './RoomStatusMap';
 export * from './OperationalAlerts';
 export * from './AIBriefing';

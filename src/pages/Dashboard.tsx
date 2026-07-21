@@ -10,7 +10,6 @@ import {
   RoomStatusMap,
   OperationalAlerts,
   RevenueChart,
-  UpcomingArrivalsWidget,
   AIBriefing,
   AIInsights,
 } from '@/components/dashboard';
@@ -238,15 +237,10 @@ export default function Dashboard() {
           />
         </motion.div>
 
-        {/* ── BOTTOM GRID: Revenue + Arrivals ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }}>
-            <RevenueChart />
-          </motion.div>
-          <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
-            <UpcomingArrivalsWidget />
-          </motion.div>
-        </div>
+        {/* ── REVENUE (las llegadas ahora viven en el resumen del día) ── */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+          <RevenueChart />
+        </motion.div>
       </div>
 
       {/* Inline Dialogs */}

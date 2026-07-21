@@ -6,3 +6,4 @@ export * from './ReservationCard';
 export * from './ReservationColumn';
 export * from './ReservationBoard';
 export * from './ReservationDetailsDrawer';
+export * from './WeeklyMovementsLog';

@@ -361,7 +361,7 @@ export function AtlasChatbot() {
                     <div className="flex items-center gap-3">
                         {/* Atlas Avatar Small */}
                         <div className="relative w-8 h-8 rounded-full border border-yellow-500 overflow-hidden shadow-[0_0_10px_rgba(255,215,0,0.5)]">
-                            <img src="/atlas.png" alt="Atlas" className="w-full h-full object-cover" />
+                            <img src="/bot.png" alt="Atlas" className="w-full h-full object-cover scale-[1.18]" />
                         </div>
                         <div>
                             <h3 className="text-white font-bold text-sm">Atlas</h3>
@@ -558,18 +558,16 @@ export function AtlasChatbot() {
                 {/* Golden Radiant Effect */}
                 <div className="absolute inset-0 rounded-full bg-yellow-500/30 blur-xl animate-pulse group-hover:bg-yellow-400/50 transition-colors" />
 
-                {/* Main Circle container with Pillars Concept */}
+                {/* Main Circle container */}
                 <div className="relative w-16 h-16 rounded-full bg-sidebar border-2 border-yellow-500 shadow-[0_0_20px_rgba(255,215,0,0.4)] flex items-center justify-center overflow-hidden">
 
-                    {/* "Pillars" simulated by vertical borders/gradients on the sides inside the circle */}
-                    <div className="absolute left-1 top-0 bottom-0 w-1 bg-gradient-to-b from-yellow-600 via-yellow-300 to-yellow-600 opacity-80" />
-                    <div className="absolute right-1 top-0 bottom-0 w-1 bg-gradient-to-b from-yellow-600 via-yellow-300 to-yellow-600 opacity-80" />
-
-                    {/* Avatar Image */}
+                    {/* Avatar Image — sin padding y escalada: el PNG trae su propio
+                        anillo claro y esquinas blancas, así que se agranda para que
+                        eso quede fuera del recorte y la cara llene el círculo. */}
                     <img
-                        src="/atlas.png"
+                        src="/bot.png"
                         alt="Atlas Chatbot"
-                        className="w-full h-full object-cover p-1.5 z-10"
+                        className="w-full h-full object-cover scale-[1.18] z-10"
                         onError={(e) => {
                             // Fallback if image fails
                             e.currentTarget.style.display = 'none';

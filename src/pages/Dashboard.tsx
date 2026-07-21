@@ -24,7 +24,7 @@ import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  Sun, Moon, CloudSun, CalendarPlus, UserPlus, CreditCard, Sparkles, Receipt,
+  CalendarPlus, UserPlus, CreditCard, Sparkles, Receipt,
   BedDouble, TrendingUp, Users, DollarSign, LogIn, LogOut, ArrowUp, ArrowDown, Minus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -120,7 +120,6 @@ export default function Dashboard() {
   // Greeting
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
-  const GreetingIcon = hour < 12 ? Sun : hour < 20 ? CloudSun : Moon;
 
   const canDoActions = currentRole === 'admin' || currentRole === 'reception';
   const canHousekeeping = currentRole === 'admin' || currentRole === 'housekeeping';
@@ -135,8 +134,12 @@ export default function Dashboard() {
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-50 to-blue-50/40 dark:from-slate-900/80 dark:to-slate-800/40 border border-slate-200/60 dark:border-slate-700/40 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/40 dark:to-orange-900/30 shadow-sm">
-                <GreetingIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              <div className="w-11 h-11 rounded-xl overflow-hidden shadow-sm shrink-0 ring-1 ring-slate-200/70 dark:ring-slate-700/50">
+                <img
+                  src="/icon-512.png"
+                  alt={hotelSettings?.hotelName || 'Hotel'}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground font-medium">{greeting}</p>

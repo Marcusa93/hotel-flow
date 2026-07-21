@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CalendarCheck, AlertCircle, ArrowRight } from 'lucide-react';
+import { CalendarCheck, AlertCircle, ArrowRight, Car } from 'lucide-react';
 import { formatLastNameFirst } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
@@ -72,6 +72,8 @@ export function PendingArrivalsPanel() {
                     amountPaid,
                     adults: booking.adults,
                     children: booking.children,
+                    hasVehicle: booking.hasVehicle,
+                    licensePlate: booking.licensePlate,
                 };
             })
             .sort((a, b) => {
@@ -113,9 +115,14 @@ export function PendingArrivalsPanel() {
                                 key={arrival.id}
                                 role="button"
                                 tabIndex={0}
-                                title={arrival.isLate
-                                    ? `${arrival.guestName} — llegaba hoy y todavía no se presentó`
-                                    : `${arrival.guestName} — llega ${arrival.isToday ? 'hoy' : 'mañana'}`}
+                                title={[
+                                    arrival.isLate
+                                        ? `${arrival.guestName} — llegaba hoy y todavía no se presentó`
+                                        : `${arrival.guestName} — llega ${arrival.isToday ? 'hoy' : 'mañana'}`,
+                                    arrival.hasVehicle
+                                        ? `En auto${arrival.licensePlate ? ` (${arrival.licensePlate})` : ''}`
+                                        : '',
+                                ].filter(Boolean).join(' · ')}
                                 onClick={() => navigate(`/bookings/${arrival.id}`)}
                                 onKeyDown={e => e.key === 'Enter' && navigate(`/bookings/${arrival.id}`)}
                                 className={`group flex items-center gap-2 px-2 py-1.5 rounded-lg border cursor-pointer transition-colors ${arrival.isLate
@@ -130,6 +137,13 @@ export function PendingArrivalsPanel() {
                                 <span className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate flex-1 min-w-0">
                                     {arrival.guestName}
                                 </span>
+                                {/* Quién de los que faltan llegar ocupa cochera */}
+                                {arrival.hasVehicle && (
+                                    <Car
+                                        className="w-3.5 h-3.5 shrink-0 text-muted-foreground"
+                                        aria-label="Llega en auto"
+                                    />
+                                )}
                                 <span className="text-xs text-muted-foreground shrink-0">
                                     Hab {arrival.roomNumber}
                                 </span>

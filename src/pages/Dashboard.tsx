@@ -264,14 +264,22 @@ function computeTrend(
   suffix: string,
   opts?: { percent?: boolean },
 ): TrendInfo | undefined {
-  if (previous === 0 && current === 0) return { direction: 'flat', label: `0 ${suffix}` };
-  if (previous === 0) return { direction: 'up', label: `nuevo ${suffix}` };
   const delta = current - previous;
-  if (delta === 0) return { direction: 'flat', label: `=${suffix ? ` ${suffix}` : ''}` };
+
+  // "= vs ayer" y "0 vs ayer" se leían como si el valor fuera cero, no como
+  // que no cambió. Va corto para no comerle lugar al label de la tarjeta.
+  if (delta === 0) return { direction: 'flat', label: 'igual' };
+
+  // Sin base previa no hay porcentaje posible.
+  if (opts?.percent && previous === 0) {
+    return { direction: 'up', label: 'sin datos ant.' };
+  }
+
   if (opts?.percent) {
     const pct = Math.round((delta / previous) * 100);
     return { direction: pct >= 0 ? 'up' : 'down', label: `${pct > 0 ? '+' : ''}${pct}% ${suffix}` };
   }
+
   return { direction: delta >= 0 ? 'up' : 'down', label: `${delta > 0 ? '+' : ''}${delta} ${suffix}` };
 }
 
@@ -312,8 +320,10 @@ function MiniStat({
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-xl font-extrabold text-slate-900 dark:text-white leading-none tracking-tight">{value}</p>
-        <div className="flex items-center gap-1.5 mt-1 min-w-0">
-          <p className="text-[11px] text-muted-foreground truncate">{sub}</p>
+        {/* En mobile la tarjeta no da para sub + tendencia en una línea: en vez de
+            cortar "llegadas" a "lle…", la tendencia baja a la línea de abajo. */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-1.5 mt-1 min-w-0">
+          <p className="text-[11px] text-muted-foreground sm:truncate">{sub}</p>
           {trend && (
             <span className={cn('inline-flex items-center gap-0.5 text-[10px] font-semibold shrink-0', trendColor)}>
               <TrendIcon className="w-2.5 h-2.5" />

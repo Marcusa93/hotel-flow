@@ -5,6 +5,7 @@ import { MobileTabBar } from './MobileTabBar';
 import { AtlasChatbot } from '@/components/chat/AtlasChatbot';
 import { useNotificationToast } from '@/hooks/useNotificationToast';
 import { useProactiveAlerts } from '@/hooks/useProactiveAlerts';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 import { PWAInstallPrompt } from '@/components/pwa/PWAInstallPrompt';
 
 interface MainLayoutProps {
@@ -14,6 +15,7 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
   useNotificationToast();
   useProactiveAlerts();
+  useRealtimeSync();
 
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-50/50 via-background to-background dark:from-blue-950/20 dark:via-background dark:to-background">

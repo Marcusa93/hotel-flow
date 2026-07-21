@@ -361,7 +361,7 @@ export function AtlasChatbot() {
                     <div className="flex items-center gap-3">
                         {/* Atlas Avatar Small */}
                         <div className="relative w-8 h-8 rounded-full border border-yellow-500 overflow-hidden shadow-[0_0_10px_rgba(255,215,0,0.5)]">
-                            <img src="/atlas.png" alt="Atlas" className="w-full h-full object-cover" />
+                            <img src="/bot.png" alt="Atlas" className="w-full h-full object-cover" />
                         </div>
                         <div>
                             <h3 className="text-white font-bold text-sm">Atlas</h3>
@@ -567,7 +567,7 @@ export function AtlasChatbot() {
 
                     {/* Avatar Image */}
                     <img
-                        src="/atlas.png"
+                        src="/bot.png"
                         alt="Atlas Chatbot"
                         className="w-full h-full object-cover p-1.5 z-10"
                         onError={(e) => {

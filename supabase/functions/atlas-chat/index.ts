@@ -1355,7 +1355,10 @@ function callLLMStream(messages: any[]): ReadableStream {
 
 // ─── CORS headers helper ─────────────────────────────────────────────────
 
-const ALLOWED_ORIGINS = ["https://homeapp.com.ar", "https://www.homeapp.com.ar", "http://localhost:4000", "http://localhost:5173"];
+// 8080 es el puerto del dev server (vite.config.ts). Sin él, probar en local
+// devuelve "Failed to fetch": el navegador bloquea la respuesta por CORS antes
+// de entregarla, y parece un problema de API key o de la función.
+const ALLOWED_ORIGINS = ["https://homeapp.com.ar", "https://www.homeapp.com.ar", "http://localhost:8080", "http://localhost:4000", "http://localhost:5173"];
 
 function makeCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("origin") || "";

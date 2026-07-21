@@ -10,7 +10,9 @@ const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY') || 'BH02tKZzZ-2mV6Gg0G
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') || '';
 const VAPID_SUBJECT = 'mailto:info@homeapp.com.ar';
 
-const ALLOWED_ORIGINS = ['https://homeapp.com.ar', 'https://www.homeapp.com.ar', 'http://localhost:4000', 'http://localhost:5173'];
+// 8080 es el puerto del dev server (vite.config.ts): sin él los push nunca
+// salen al probar en local, el navegador corta la respuesta por CORS.
+const ALLOWED_ORIGINS = ['https://homeapp.com.ar', 'https://www.homeapp.com.ar', 'http://localhost:8080', 'http://localhost:4000', 'http://localhost:5173'];
 
 function makeCorsHeaders(req: Request) {
   const origin = req.headers.get('origin') || '';

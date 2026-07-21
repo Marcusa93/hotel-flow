@@ -2,7 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 
-const VAPID_PUBLIC_KEY = 'BH02tKZzZ-2mV6Gg0GXkOLStmq1YCUZ6RuWdBdM67sDHP3WAnqrF8s8HQcZftFOaIxW_l70MPnxraespWIIA9-U';
+// Par VAPID del proyecto. La privada vive como secret en Supabase
+// (VAPID_PRIVATE_KEY) y la usa la función send-push para firmar; esta pública
+// tiene que ser la del MISMO par o el navegador se suscribe contra una firma
+// que el servidor no puede generar.
+const VAPID_PUBLIC_KEY = 'BD1HprL48j3X06HVSoNAkL3ANTG9ku9wgO4Hqg_autTO6TBrYK1MtNmq_-ElAn6-pvgcMKc4wXtO7M8ajCQYGtk';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);

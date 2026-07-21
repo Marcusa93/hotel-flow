@@ -6,7 +6,10 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import webpush from 'https://esm.sh/web-push@3.6.7';
 
-const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY') || 'BH02tKZzZ-2mV6Gg0GXkOLStmq1YCUZ6RuWdBdM67sDHP3WAnqrF8s8HQcZftFOaIxW_l70MPnxraespWIIA9-U';
+// Sin fallback a propósito: tenía la pública de un par viejo hardcodeada, así
+// que si el secret faltaba se firmaba con una clave que no era la del navegador
+// y los push se perdían en silencio.
+const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY') || '';
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') || '';
 const VAPID_SUBJECT = 'mailto:info@homeapp.com.ar';
 
@@ -73,8 +76,8 @@ serve(async (req) => {
   }
 
   try {
-    if (!VAPID_PRIVATE_KEY) {
-      return new Response(JSON.stringify({ error: 'VAPID_PRIVATE_KEY not configured' }), {
+    if (!VAPID_PRIVATE_KEY || !VAPID_PUBLIC_KEY) {
+      return new Response(JSON.stringify({ error: 'VAPID keys not configured' }), {
         status: 500,
         headers: { ...cors, 'Content-Type': 'application/json' },
       });

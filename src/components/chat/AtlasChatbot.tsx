@@ -6,7 +6,7 @@ import { MessageSquare, X, Send, Loader2, Mic, MicOff, Plus, History, Check, XCi
 import { cn } from '@/lib/utils';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import { supabase } from '@/lib/supabase';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { useChatHistory } from '@/hooks/useChatHistory';
 import { ChatMarkdown } from './ChatMarkdown';
@@ -244,8 +244,10 @@ export function AtlasChatbot() {
 
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-            const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+            // Sanitizadas en lib/supabase: leerlas crudas de import.meta.env deja
+            // pasar espacios de más cargados en el panel de Vercel.
+            const supabaseUrl = SUPABASE_URL;
+            const anonKey = SUPABASE_ANON_KEY;
 
             const response = await fetch(
                 `${supabaseUrl}/functions/v1/atlas-chat?stream=1`,

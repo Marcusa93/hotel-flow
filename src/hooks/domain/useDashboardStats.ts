@@ -43,6 +43,14 @@ export function useDashboardStats() {
       return checkOut.getTime() === today.getTime() && b.status === 'CHECKED_IN';
     }).length;
 
+    // Lo que todavía falta hacer hoy. checkInsToday incluye a los que ya
+    // entraron, así que sirve para el total del día pero no para "pendiente".
+    const pendingCheckInsToday = bookings.filter((b) => {
+      const checkIn = new Date(b.checkInDate);
+      checkIn.setHours(0, 0, 0, 0);
+      return checkIn.getTime() === today.getTime() && b.status === 'CONFIRMED';
+    }).length;
+
     const upcomingBookings7Days = bookings.filter((b) => {
       const checkIn = new Date(b.checkInDate);
       checkIn.setHours(0, 0, 0, 0);
@@ -70,6 +78,7 @@ export function useDashboardStats() {
       maintenanceRooms,
       checkInsToday,
       checkOutsToday,
+      pendingCheckInsToday,
       upcomingBookings7Days,
       monthlyRevenue,
       pendingPayments,

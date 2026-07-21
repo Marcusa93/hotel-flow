@@ -206,6 +206,8 @@ export interface DashboardStats {
   maintenanceRooms: number;
   checkInsToday: number;
   checkOutsToday: number;
+  /** Llegadas de hoy que todavía no hicieron check-in (checkInsToday incluye las ya hechas) */
+  pendingCheckInsToday: number;
   upcomingBookings7Days: number;
   monthlyRevenue: number;
   pendingPayments: number;

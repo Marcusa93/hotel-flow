@@ -73,13 +73,29 @@ export function Topbar() {
         {/* Quick stats */}
         <div className="hidden lg:flex items-center gap-4 text-sm">
           <div className="flex items-center gap-2">
-            <span className="text-sidebar-foreground/60">Ocupación:</span>
-            <span className="font-semibold text-sidebar-foreground">{stats.occupancyRate.toFixed(0)}%</span>
+            <span className="text-sidebar-foreground/60">Ocupadas:</span>
+            <span className="font-semibold text-sidebar-foreground">
+              {stats.occupiedRooms}/{stats.totalRooms}
+            </span>
+            <span className="text-sidebar-foreground/60">({stats.occupancyRate.toFixed(0)}%)</span>
           </div>
           <div className="w-px h-4 bg-sidebar-foreground/20" />
-          <div className="flex items-center gap-2">
-            <span className="text-sidebar-foreground/60">Check-ins hoy:</span>
-            <span className="font-semibold text-sidebar-foreground">{stats.checkInsToday}</span>
+          {/* Solo lo que falta hacer: "Check-ins hoy" contaba también los ya
+              hechos, así que marcaba 2 cuando abajo no quedaba nada pendiente. */}
+          <div className="flex items-center gap-2" title="Movimientos que faltan hacer hoy">
+            <span className="text-sidebar-foreground/60">Pendiente hoy:</span>
+            <span className="font-semibold text-sidebar-foreground">
+              {stats.pendingCheckInsToday === 0 && stats.checkOutsToday === 0
+                ? 'nada'
+                : [
+                  stats.pendingCheckInsToday > 0
+                    ? `${stats.pendingCheckInsToday} entrada${stats.pendingCheckInsToday > 1 ? 's' : ''}`
+                    : '',
+                  stats.checkOutsToday > 0
+                    ? `${stats.checkOutsToday} salida${stats.checkOutsToday > 1 ? 's' : ''}`
+                    : '',
+                ].filter(Boolean).join(' · ')}
+            </span>
           </div>
         </div>
 

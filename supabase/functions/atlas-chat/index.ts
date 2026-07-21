@@ -376,6 +376,35 @@ async function getHotelSnapshot(
 - Total habitaciones: ${totalRooms}
 - Disponibles: ${available} | Ocupadas: ${occupied} | Sucias: ${dirty} | Mantenimiento: ${maintenance}
 - Tasa de ocupación: ${occupancyRate}%`);
+
+    // Cocheras: el cupo vive en hotel_settings y sin esto el bot sabe qué autos
+    // hay pero no cuántos lugares quedan. En 0 el hotel no controla cocheras.
+    const settingsRes = await supabase
+      .from("hotel_settings")
+      .select("parking_spots")
+      .limit(1)
+      .maybeSingle();
+    const parkingSpots = Number(settingsRes.data?.parking_spots ?? 0);
+
+    if (parkingSpots > 0) {
+      const parkedRes = await supabase
+        .from("bookings")
+        .select("status, check_in_date, has_vehicle")
+        .eq("has_vehicle", true)
+        .in("status", ["CHECKED_IN", "CONFIRMED", "PENDING"]);
+      const withCar = parkedRes.data || [];
+      const parkedNow = withCar.filter((b: any) => b.status === "CHECKED_IN").length;
+      const arrivingToday = withCar.filter(
+        (b: any) => b.status !== "CHECKED_IN" && b.check_in_date === today
+      ).length;
+
+      parts.push(`
+🚗 COCHERAS:
+- Cocheras del hotel: ${parkingSpots}
+- Ocupadas ahora: ${parkedNow} (huéspedes alojados con vehículo)
+- Autos que llegan hoy y todavía no entraron: ${arrivingToday}
+- Libres: ${parkingSpots - parkedNow}${parkedNow + arrivingToday > parkingSpots ? " — ATENCIÓN: hay más autos que lugares" : ""}`);
+    }
   }
 
   // Bookings data (needed for today + bookings + recent sections)

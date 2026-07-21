@@ -122,17 +122,22 @@ export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProp
             const overbooked = demand > parkingSpots;
             const free = parkingSpots - parkedNow;
 
+            // Los libres van siempre: si solo se mostraban las llegadas, después de
+            // un check-in parecía que el auto que ya entró seguía "por llegar".
+            const pending = arrivingWithCar > 0
+                ? ` · falta${arrivingWithCar > 1 ? 'n' : ''} llegar ${arrivingWithCar} auto${arrivingWithCar > 1 ? 's' : ''}`
+                : '';
+
             result.push({
                 icon: Car,
                 title: `Cocheras ${parkedNow}/${parkingSpots}`,
                 detail: overbooked
                     ? `${demand} autos para ${parkingSpots} lugares — falta lugar`
-                    : arrivingWithCar > 0
-                        ? `${arrivingWithCar} auto${arrivingWithCar > 1 ? 's' : ''} por llegar hoy`
-                        : `${free} libre${free === 1 ? '' : 's'}`,
+                    : `${free} libre${free === 1 ? '' : 's'}${pending}`,
                 color: overbooked ? 'text-red-500' : 'text-slate-500',
                 priority: overbooked ? 0 : 4,
                 urgent: overbooked,
+                route: '/bookings?filter=checkin-today',
             });
         }
 

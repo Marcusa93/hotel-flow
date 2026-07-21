@@ -3,12 +3,17 @@ import { supabase } from '@/lib/supabase';
 import { TaskPriority } from '@/types/hotel';
 import { logAuditEvent } from './useCreateAuditLog';
 import { createNotificationIfEnabled } from './useCreateNotification';
+import { notifyRoomAssignment } from '@/lib/housekeepingNotify';
 import { formatLocalDate } from '@/lib/utils';
 
 interface CreateTaskParams {
     roomId: string;
     date?: Date;
     assignedTo?: string;
+    /** profiles.id of the assignee — turns the notification into a personal one */
+    assignedToUserId?: string;
+    /** Only for the notification text; the task itself references the room by id */
+    roomNumber?: string;
     priority?: TaskPriority;
     notes?: string;
     checkoutTriggered?: boolean;
@@ -45,7 +50,9 @@ export const useCreateHousekeepingTask = () => {
                         .update({
                             priority: 'CHECKOUT',
                             checkout_triggered: true,
-                            notes: params.notes || 'Checkout automático'
+                            notes: params.notes || 'Checkout automático',
+                            // Reception may have picked someone else this time
+                            ...(params.assignedTo ? { assigned_to: params.assignedTo } : {}),
                         })
                         .eq('id', existingTasks[0].id);
                 }
@@ -73,24 +80,53 @@ export const useCreateHousekeepingTask = () => {
         onSuccess: (result, variables) => {
             queryClient.invalidateQueries({ queryKey: ['housekeepingTasks'] });
 
-            // No CREATE audit log / notification when we reused an existing task
-            if (result.deduped) return;
+            // No CREATE audit log when we reused an existing task
+            if (!result.deduped) {
+                logAuditEvent({
+                    entityType: 'housekeeping_task',
+                    entityId: result.task.id,
+                    action: 'CREATE',
+                    description: `Tarea de limpieza creada (prioridad: ${variables.priority || 'NORMAL'})`,
+                    newValues: { roomId: variables.roomId, priority: variables.priority || 'NORMAL', assignedTo: variables.assignedTo },
+                });
+            }
 
-            logAuditEvent({
-                entityType: 'housekeeping_task',
-                entityId: result.task.id,
-                action: 'CREATE',
-                description: `Tarea de limpieza creada (prioridad: ${variables.priority || 'NORMAL'})`,
-                newValues: { roomId: variables.roomId, priority: variables.priority || 'NORMAL', assignedTo: variables.assignedTo },
-            });
+            // A reused task normally has nothing new to announce — except after a
+            // check-out, where the room just became free and someone has to clean it.
+            if (result.deduped && !variables.checkoutTriggered) return;
 
-            createNotificationIfEnabled({
-                type: 'info',
-                category: 'housekeeping',
-                title: 'Nueva tarea de limpieza',
-                message: `Tarea creada con prioridad ${variables.priority || 'NORMAL'}${variables.assignedTo ? ` asignada a ${variables.assignedTo}` : ''}`,
-                metadata: { taskId: result.task.id, roomId: variables.roomId, priority: variables.priority || 'NORMAL' },
-            });
+            const roomLabel = variables.roomNumber ? `Habitación ${variables.roomNumber}` : 'Una habitación';
+            const title = variables.checkoutTriggered
+                ? `${roomLabel} lista para limpiar`
+                : `Nueva tarea de limpieza — ${roomLabel}`;
+            const message = variables.notes
+                || `Prioridad ${variables.priority || 'NORMAL'}${variables.assignedTo ? ` · ${variables.assignedTo}` : ''}`;
+            const metadata = {
+                taskId: result.task.id,
+                roomId: variables.roomId,
+                roomNumber: variables.roomNumber,
+                priority: variables.priority || 'NORMAL',
+                assignedTo: variables.assignedTo,
+            };
+
+            if (variables.assignedToUserId) {
+                // Personal: only the assigned person sees it (plus a push to their devices)
+                void notifyRoomAssignment({
+                    userId: variables.assignedToUserId,
+                    roomNumber: variables.roomNumber,
+                    roomId: variables.roomId,
+                    taskId: result.task.id,
+                    reason: message,
+                });
+            } else {
+                createNotificationIfEnabled({
+                    type: 'info',
+                    category: 'housekeeping',
+                    title,
+                    message,
+                    metadata,
+                });
+            }
         },
     });
 };

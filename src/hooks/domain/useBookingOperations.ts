@@ -14,6 +14,16 @@ import type {
   Payment,
 } from '@/types/hotel';
 
+/** Who cleans the room after a check-out — chosen in the check-out dialog. */
+export interface CheckoutHousekeeping {
+  /** profiles.id of the housekeeping user; omitted means "notify the whole team" */
+  assigneeId?: string;
+  /** Name stored on the task, so it shows on the housekeeping board */
+  assigneeName?: string;
+  roomNumber?: string;
+  guestName?: string;
+}
+
 export function useBookingOperations() {
   const { data: bookings = [], isLoading } = useBookings();
   const createBookingMutation = useCreateBooking();
@@ -61,7 +71,7 @@ export function useBookingOperations() {
   );
 
   const updateBookingStatus = useCallback(
-    async (id: string, status: BookingStatus) => {
+    async (id: string, status: BookingStatus, housekeeping?: CheckoutHousekeeping) => {
       // Capture the previous status before the update
       const booking = bookings.find((b) => b.id === id);
       const previousStatus = booking?.status;
@@ -84,7 +94,14 @@ export function useBookingOperations() {
           await createHousekeepingTaskMutation.mutateAsync({
             roomId: booking.roomId,
             date: new Date(),
-            notes: 'Check-out - Limpieza requerida',
+            priority: 'CHECKOUT',
+            checkoutTriggered: true,
+            assignedTo: housekeeping?.assigneeName,
+            assignedToUserId: housekeeping?.assigneeId,
+            roomNumber: housekeeping?.roomNumber,
+            notes: housekeeping?.guestName
+              ? `Check-out de ${housekeeping.guestName} — limpieza requerida`
+              : 'Check-out - Limpieza requerida',
           });
         } else if (status === 'CANCELLED' && previousStatus === 'CHECKED_IN') {
           // Guest was in the room: mark it dirty so it doesn't stay OCCUPIED

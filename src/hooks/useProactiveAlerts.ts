@@ -21,12 +21,19 @@ const CHECK_INTERVAL = 10 * 60 * 1000; // 10 minutes
 const ALERT_PREFIX = '[AUTO]'; // Prefix to identify auto-generated alerts
 const ARRIVAL_GRACE_MINUTES = 60; // How late a guest can be before recepción is alerted
 
-async function sendPushNotification(title: string, body: string, url?: string) {
+async function sendPushNotification(
+  title: string,
+  body: string,
+  category: NotificationCategory,
+  url?: string
+) {
   try {
     // invoke() no lanza si la función responde 4xx/5xx: devuelve { error }.
     // Sin mirarlo, un push rechazado era indistinguible de uno entregado.
     const { data, error } = await supabase.functions.invoke('send-push', {
-      body: { title, body, url, tag: 'proactive-alert' },
+      // Mismo público que la notificación en la app: sin esto, un aviso de saldo
+      // pendiente le sonaba también al teléfono de limpieza.
+      body: { title, body, url, tag: 'proactive-alert', targetRoles: targetRolesForCategory(category) },
     });
     if (error) {
       console.warn('[ProactiveAlerts] send-push falló:', error);
@@ -73,7 +80,12 @@ async function createAlertIfNew(
 
   // Also send push notification for warning/error alerts (fire-and-forget, don't block alert creation)
   if (type === 'warning' || type === 'error') {
-    sendPushNotification(title.replace(ALERT_PREFIX + ' ', ''), message, '/notifications');
+    sendPushNotification(
+      title.replace(ALERT_PREFIX + ' ', ''),
+      message,
+      category as NotificationCategory,
+      '/notifications'
+    );
   }
 }
 

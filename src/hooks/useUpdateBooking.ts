@@ -1,7 +1,7 @@
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { BookingStatus } from '@/types/hotel';
+import { BookingStatus, Room, Guest } from '@/types/hotel';
 import { logAuditEvent } from './useCreateAuditLog';
 import { createNotificationIfEnabled } from './useCreateNotification';
 import { formatLocalDate } from '@/lib/utils';
@@ -21,6 +21,34 @@ interface UpdateBookingParams {
     licensePlate?: string;
     needsReview?: boolean;
 }
+
+/**
+ * Describe la reserva para el cuerpo de la notificación.
+ *
+ * Estos mensajes ahora viajan al teléfono: "Reserva a1b2c3d4 → CHECKED_IN" no le
+ * dice nada a nadie en una pantalla bloqueada. Huésped y habitación salen de la
+ * caché de react-query, que ya los tiene cargados — sin round-trip extra. Si
+ * falta alguno, se degrada a lo que haya antes que al id crudo.
+ */
+const describeBooking = (
+    queryClient: QueryClient,
+    booking: { room_id?: string; guest_id?: string } | null,
+    bookingId: string
+): string => {
+    const room = booking?.room_id
+        ? queryClient.getQueryData<Room[]>(['rooms'])?.find(r => r.id === booking.room_id)
+        : undefined;
+    const guest = booking?.guest_id
+        ? queryClient.getQueryData<Guest[]>(['guests'])?.find(g => g.id === booking.guest_id)
+        : undefined;
+
+    const parts = [
+        guest?.fullName,
+        room?.roomNumber ? `Habitación ${room.roomNumber}` : undefined,
+    ].filter(Boolean);
+
+    return parts.length > 0 ? parts.join(' — ') : `Reserva ${bookingId.slice(0, 8)}`;
+};
 
 export const useUpdateBooking = () => {
     const queryClient = useQueryClient();
@@ -76,11 +104,11 @@ export const useUpdateBooking = () => {
 
             // Notifications for status changes
             if (variables.status) {
-                const statusLabels: Record<string, { title: string; category: 'checkin' | 'checkout' | 'booking'; type: 'success' | 'info' | 'warning' }> = {
-                    CHECKED_IN: { title: 'Check-in realizado', category: 'checkin', type: 'success' },
-                    CHECKED_OUT: { title: 'Check-out realizado', category: 'checkout', type: 'info' },
-                    CANCELLED: { title: 'Reserva cancelada', category: 'booking', type: 'warning' },
-                    NO_SHOW: { title: 'No-show registrado', category: 'booking', type: 'warning' },
+                const statusLabels: Record<string, { title: string; category: 'checkin' | 'checkout' | 'booking'; type: 'success' | 'info' | 'warning'; push: boolean }> = {
+                    CHECKED_IN: { title: 'Check-in realizado', category: 'checkin', type: 'success', push: true },
+                    CHECKED_OUT: { title: 'Check-out realizado', category: 'checkout', type: 'info', push: true },
+                    CANCELLED: { title: 'Reserva cancelada', category: 'booking', type: 'warning', push: false },
+                    NO_SHOW: { title: 'No-show registrado', category: 'booking', type: 'warning', push: false },
                 };
                 const statusInfo = statusLabels[variables.status];
                 if (statusInfo) {
@@ -88,8 +116,9 @@ export const useUpdateBooking = () => {
                         type: statusInfo.type,
                         category: statusInfo.category,
                         title: statusInfo.title,
-                        message: `Reserva ${variables.id.slice(0, 8)} → ${variables.status}`,
+                        message: describeBooking(queryClient, data, variables.id),
                         metadata: { bookingId: variables.id, status: variables.status },
+                        push: statusInfo.push,
                     });
                 }
             }

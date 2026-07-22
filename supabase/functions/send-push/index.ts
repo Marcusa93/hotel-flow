@@ -83,7 +83,7 @@ serve(async (req) => {
       });
     }
 
-    const { userId, title, body, url, tag } = await req.json();
+    const { userId, targetRoles, excludeUserId, title, body, url, tag } = await req.json();
 
     if (!title || !body) {
       return new Response(JSON.stringify({ error: 'title and body are required' }), {
@@ -97,12 +97,37 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get subscriptions — either for specific user or all users
+    // A quién le llega: un usuario puntual, los que tienen ciertos roles, o
+    // todos. Sin targetRoles un aviso de cobro le sonaba también al teléfono de
+    // limpieza, que no tiene nada que hacer con eso.
     let query = supabase.from('push_subscriptions').select('endpoint, p256dh, auth, user_id');
+
     if (userId) {
       query = query.eq('user_id', userId);
+    } else if (Array.isArray(targetRoles) && targetRoles.length > 0) {
+      const { data: profiles, error: rolesError } = await supabase
+        .from('profiles')
+        .select('id')
+        .in('role', targetRoles);
+
+      if (rolesError) {
+        return new Response(JSON.stringify({ error: rolesError.message }), {
+          status: 500,
+          headers: { ...cors, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const ids = (profiles || []).map((p: { id: string }) => p.id);
+      if (ids.length === 0) {
+        return new Response(
+          JSON.stringify({ sent: 0, total: 0, message: 'No users in target roles' }),
+          { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } }
+        );
+      }
+      query = query.in('user_id', ids);
     }
-    const { data: subscriptions, error: dbError } = await query;
+
+    const { data: allSubscriptions, error: dbError } = await query;
 
     if (dbError) {
       return new Response(JSON.stringify({ error: dbError.message }), {
@@ -111,8 +136,14 @@ serve(async (req) => {
       });
     }
 
-    if (!subscriptions || subscriptions.length === 0) {
-      return new Response(JSON.stringify({ sent: 0, message: 'No subscriptions found' }), {
+    // Quien hizo la acción no necesita que le suene el teléfono por su propia
+    // acción: acaba de hacerla y está mirando la pantalla.
+    const subscriptions = excludeUserId
+      ? (allSubscriptions || []).filter(s => s.user_id !== excludeUserId)
+      : (allSubscriptions || []);
+
+    if (subscriptions.length === 0) {
+      return new Response(JSON.stringify({ sent: 0, total: 0, message: 'No subscriptions found' }), {
         status: 200,
         headers: { ...cors, 'Content-Type': 'application/json' },
       });

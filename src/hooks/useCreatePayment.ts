@@ -58,7 +58,8 @@ export const useCreatePayment = () => {
                 category: 'payment',
                 title: '💰 Pago registrado',
                 message: `Pago de $${payment.amount.toLocaleString('es-AR')} recibido por ${methodLabel}`,
-                metadata: { paymentId: payment.id, bookingId: payment.bookingId }
+                metadata: { paymentId: payment.id, bookingId: payment.bookingId },
+                push: true,
             });
 
             // Audit log

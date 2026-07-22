@@ -40,3 +40,6 @@ dist-ssr
 
 # Vite transient artifacts
 vite.config.ts.timestamp-*.mjs
+
+# Estado local del CLI de Supabase (a qué proyecto está linkeada esta copia)
+supabase/.temp/

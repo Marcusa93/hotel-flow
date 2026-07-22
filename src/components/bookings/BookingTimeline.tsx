@@ -101,9 +101,12 @@ export function BookingTimeline({ bookings, rooms, guests }: BookingTimelineProp
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="border rounded-xl bg-card overflow-hidden">
+      {/* h-full + flex para que la grilla scrollee adentro. Antes el bloque crecía
+          con las 24 habitaciones, se pasaba del alto de la página y el
+          overflow-hidden lo recortaba: las filas de abajo no había forma de verlas. */}
+      <div className="border rounded-xl bg-card overflow-hidden h-full flex flex-col">
         {/* Header controls */}
-        <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+        <div className="flex-none flex items-center justify-between px-4 py-3 border-b bg-muted/30">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigateDays(-7)}>
               <ChevronLeft className="w-4 h-4" />
@@ -129,8 +132,9 @@ export function BookingTimeline({ bookings, rooms, guests }: BookingTimelineProp
           </div>
         </div>
 
-        {/* Timeline grid */}
-        <div className="overflow-x-auto" ref={scrollRef}>
+        {/* Timeline grid — scrollea en los dos ejes; el sticky del encabezado de
+            días recién funciona ahora que este contenedor scrollea en vertical */}
+        <div className="flex-1 min-h-0 overflow-auto" ref={scrollRef}>
           <div style={{ minWidth: ROOM_COL_WIDTH + DAYS_VISIBLE * COL_WIDTH }}>
             {/* Day headers */}
             <div className="flex border-b sticky top-0 bg-card z-10">

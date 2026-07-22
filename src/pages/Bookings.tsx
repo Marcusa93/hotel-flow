@@ -61,12 +61,13 @@ export default function Bookings() {
     }
   }, [searchParams, setSearchParams]);
 
-  // Pre-compute paid amounts per booking
+  // Cuánto quedó saldado por reserva: cobrado + descontado. Sin el descuento,
+  // una reserva pagada con cupón se muestra como que debe justo esa diferencia.
   const paidByBooking = useMemo(() => {
     const map = new Map<string, number>();
     for (const p of payments) {
       if (p.status === 'PAID' && p.bookingId) {
-        map.set(p.bookingId, (map.get(p.bookingId) || 0) + p.amount);
+        map.set(p.bookingId, (map.get(p.bookingId) || 0) + p.amount + (p.discountAmount || 0));
       }
     }
     return map;

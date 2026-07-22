@@ -100,7 +100,7 @@ async function runProactiveChecks() {
       supabase.from('rooms').select('id, room_number, floor, status'),
       supabase.from('bookings').select('id, guest_id, room_id, check_in_date, check_out_date, estimated_arrival_time, status, total_amount')
         .in('status', ['CONFIRMED', 'CHECKED_IN', 'PENDING']),
-      supabase.from('payments').select('booking_id, amount, status').eq('status', 'PAID'),
+      supabase.from('payments').select('booking_id, amount, status, discount_amount').eq('status', 'PAID'),
     ]);
 
     const rooms = roomsRes.data || [];
@@ -109,10 +109,14 @@ async function runProactiveChecks() {
 
     // Build lookup maps
     const roomMap = new Map(rooms.map(r => [r.id, r]));
+    // Saldado = cobrado + descontado. Esta consulta va contra la base en snake_case,
+    // así que no pasa por el mapper. Sin sumar discount_amount, una reserva pagada
+    // con cupón dispara una alerta —y un push— por una deuda que no existe.
     const paidByBooking = new Map<string, number>();
     for (const p of payments) {
       if (p.booking_id) {
-        paidByBooking.set(p.booking_id, (paidByBooking.get(p.booking_id) || 0) + p.amount);
+        const settled = Number(p.amount) + Number(p.discount_amount || 0);
+        paidByBooking.set(p.booking_id, (paidByBooking.get(p.booking_id) || 0) + settled);
       }
     }
 

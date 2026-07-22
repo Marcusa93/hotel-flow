@@ -45,6 +45,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn, formatPesosInput, parsePesosInput } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { PAYMENT_METHODS } from '@/lib/constants';
+import { settledAmount } from '@/lib/bookingAccount';
 
 const MAX_PAYMENT_AMOUNT = 100_000_000; // $100M ARS sanity cap
 
@@ -131,9 +132,9 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
         form.setValue('bookingId', bookingId);
         const booking = bookings.find(b => b.id === bookingId);
         if (booking) {
-            const paidAmount = payments
-                .filter(p => p.bookingId === bookingId && p.status === 'PAID')
-                .reduce((sum, p) => sum + p.amount, 0);
+            // settledAmount incluye el descuento: sin eso el formulario propone
+            // cobrar de nuevo lo que ya se bonificó con un cupón.
+            const paidAmount = settledAmount(payments.filter(p => p.bookingId === bookingId));
             const pending = Math.max(0, booking.totalAmount - paidAmount);
             form.setValue('amount', pending);
             setAmountText(formatPesosInput(pending));
@@ -287,9 +288,7 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                                                                 activeBookings.map((booking) => {
                                                                     const guest = guests.find(g => g.id === booking.guestId);
                                                                     const room = rooms.find(r => r.id === booking.roomId);
-                                                                    const paid = payments
-                                                                        .filter(p => p.bookingId === booking.id && p.status === 'PAID')
-                                                                        .reduce((sum, p) => sum + p.amount, 0);
+                                                                    const paid = settledAmount(payments.filter(p => p.bookingId === booking.id));
                                                                     const pending = booking.totalAmount - paid;
 
                                                                     return (

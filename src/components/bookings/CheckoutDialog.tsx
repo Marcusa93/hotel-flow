@@ -40,6 +40,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useHousekeepingStaff } from '@/hooks/useHousekeepingStaff';
+import { buildBookingAccount } from '@/lib/bookingAccount';
 
 /** Sentinel for "no personal assignee — notify every housekeeping user". */
 const TEAM_OPTION = 'TEAM';
@@ -48,7 +49,8 @@ interface CheckoutDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     booking: BookingWithDetails;
-    bookingPayments: Array<{ id: string; amount: number; status: string; method: string; date: Date }>;
+    /** discountAmount hace falta para que un cupón no se lea como saldo pendiente */
+    bookingPayments: Array<{ id: string; amount: number; status: string; method: string; date: Date; discountAmount?: number }>;
     onCheckoutComplete: () => void;
 }
 
@@ -81,12 +83,17 @@ export function CheckoutDialog({
     }, [open]);
 
     // Calculate payment summary
-    const totalPaid = bookingPayments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + p.amount, 0);
-    const totalCharges = bookingCharges.reduce((sum, c) => sum + c.amount * c.quantity, 0);
     const lateCharge = isLateCheckout ? lateCheckoutFee : 0;
-    const adjustedTotal = booking.totalAmount + totalCharges + lateCharge;
-    const pendingAmount = adjustedTotal - totalPaid;
-    const isPaidInFull = pendingAmount <= 0;
+    const account = buildBookingAccount({
+        booking,
+        payments: bookingPayments,
+        charges: bookingCharges,
+        pendingExtra: lateCharge,
+    });
+    const { paid: totalPaid, extras: totalChargesWithLate, total: adjustedTotal, discount: totalDiscount } = account;
+    const totalCharges = totalChargesWithLate - lateCharge;
+    const pendingAmount = account.balance;
+    const isPaidInFull = account.isSettled;
 
     const nights = Math.ceil(
         (new Date(booking.checkOutDate).getTime() - new Date(booking.checkInDate).getTime()) /
@@ -228,6 +235,12 @@ export function CheckoutDialog({
                                         Check-out tardío
                                     </span>
                                     <span className="font-medium">+${lateCharge.toLocaleString('es-AR')}</span>
+                                </div>
+                            )}
+                            {totalDiscount > 0 && (
+                                <div className="flex justify-between text-emerald-600">
+                                    <span className="text-sm">Descuento promoción</span>
+                                    <span className="font-medium">-${totalDiscount.toLocaleString('es-AR')}</span>
                                 </div>
                             )}
                             <div className="flex justify-between">

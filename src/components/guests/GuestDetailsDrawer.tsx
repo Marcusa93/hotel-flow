@@ -30,6 +30,7 @@ import { COUNTRIES, DOCUMENT_TYPES } from '@/lib/constants';
 import { toast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn, escapeHtml, formatLastNameFirst, getInitials } from '@/lib/utils';
+import { settledAmount } from '@/lib/bookingAccount';
 
 const STATUS_LABELS: Record<string, string> = {
     PENDING: 'Pendiente',
@@ -88,7 +89,9 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
         .reduce((sum, p) => sum + p.amount, 0);
 
     const totalBilled = guestBookings.reduce((sum, b) => sum + b.totalAmount, 0);
-    const pendingBalance = Math.max(0, totalBilled - totalPaid);
+    // settledAmount suma el descuento: sin eso, un cupón le deja al huésped una
+    // deuda histórica que no existe.
+    const pendingBalance = Math.max(0, totalBilled - settledAmount(guestPayments));
 
     if (!guest) return null;
 

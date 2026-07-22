@@ -23,9 +23,16 @@ const ARRIVAL_GRACE_MINUTES = 60; // How late a guest can be before recepción i
 
 async function sendPushNotification(title: string, body: string, url?: string) {
   try {
-    await supabase.functions.invoke('send-push', {
+    // invoke() no lanza si la función responde 4xx/5xx: devuelve { error }.
+    // Sin mirarlo, un push rechazado era indistinguible de uno entregado.
+    const { data, error } = await supabase.functions.invoke('send-push', {
       body: { title, body, url, tag: 'proactive-alert' },
     });
+    if (error) {
+      console.warn('[ProactiveAlerts] send-push falló:', error);
+    } else if (data && data.sent === 0 && data.total > 0) {
+      console.warn('[ProactiveAlerts] ninguna suscripción recibió el push:', data);
+    }
   } catch (err) {
     console.warn('[ProactiveAlerts] Push send failed:', err);
   }

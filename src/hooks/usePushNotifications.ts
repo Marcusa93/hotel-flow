@@ -19,6 +19,25 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return output;
 }
 
+/**
+ * ¿Esta suscripción se creó con el par VAPID que usamos hoy?
+ *
+ * El navegador conserva las suscripciones viejas y las devuelve como válidas,
+ * pero el servicio de push rechaza la firma con 403 si el par cambió. Sin este
+ * chequeo el dispositivo queda mudo para siempre y la app igual dice
+ * "notificaciones activadas".
+ */
+function matchesCurrentVapidKey(subscription: PushSubscription): boolean {
+  const raw = subscription.options?.applicationServerKey;
+  if (!raw) return false;
+
+  const actual = new Uint8Array(raw);
+  const expected = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+  if (actual.length !== expected.length) return false;
+
+  return actual.every((byte, i) => byte === expected[i]);
+}
+
 type PushPermission = 'default' | 'granted' | 'denied' | 'unsupported';
 
 export function usePushNotifications() {
@@ -36,10 +55,13 @@ export function usePushNotifications() {
 
     setPermission(Notification.permission as PushPermission);
 
-    // Check if already subscribed
+    // Check if already subscribed.
+    // Una suscripción de un par VAPID anterior existe pero está muerta: contarla
+    // como activa deja el interruptor en "sí" mientras los push se pierden.
+    // Mostrarla como inactiva hace que un toque la rehaga.
     navigator.serviceWorker.ready.then(async (reg) => {
       const sub = await reg.pushManager.getSubscription();
-      setIsSubscribed(!!sub);
+      setIsSubscribed(!!sub && matchesCurrentVapidKey(sub));
     });
   }, []);
 
@@ -67,6 +89,15 @@ export function usePushNotifications() {
 
       const reg = await navigator.serviceWorker.ready;
       let subscription = await reg.pushManager.getSubscription();
+
+      // Una suscripción de un par VAPID anterior se reusaba tal cual y el push
+      // se perdía en silencio. Se rehace: primero se borra la fila vieja (con su
+      // endpoint, que está por cambiar) para no dejarla huérfana en la tabla.
+      if (subscription && !matchesCurrentVapidKey(subscription)) {
+        await supabase.from('push_subscriptions').delete().eq('endpoint', subscription.endpoint);
+        await subscription.unsubscribe();
+        subscription = null;
+      }
 
       if (!subscription) {
         subscription = await reg.pushManager.subscribe({

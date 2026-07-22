@@ -129,6 +129,10 @@ serve(async (req) => {
 
     let sent = 0;
     const expired: string[] = [];
+    // Los rechazos del servicio de push se descartaban en silencio: la respuesta
+    // decía sent:0 y no había forma de saber por qué. Un 403 acá es casi siempre
+    // par VAPID que no coincide con el de la suscripción del navegador.
+    const failures: { status: number; error: string }[] = [];
 
     // Send to all subscriptions concurrently
     const results = await Promise.allSettled(
@@ -136,13 +140,26 @@ serve(async (req) => {
     );
 
     for (const result of results) {
-      if (result.status === 'fulfilled') {
-        if (result.value.success) {
-          sent++;
-        } else if (result.value.error === 'expired') {
-          expired.push(result.value.endpoint);
-        }
+      if (result.status === 'rejected') {
+        failures.push({ status: 0, error: String(result.reason).slice(0, 300) });
+        continue;
       }
+      if (result.value.success) {
+        sent++;
+      } else if (result.value.error === 'expired') {
+        expired.push(result.value.endpoint);
+      } else {
+        failures.push({
+          status: result.value.status || 0,
+          error: String(result.value.error || '').slice(0, 300),
+        });
+      }
+    }
+
+    // Sin el endpoint: es una URL-capacidad, quien la tenga puede notificar al
+    // dispositivo. El status y el cuerpo del error alcanzan para diagnosticar.
+    if (failures.length > 0) {
+      console.error('[send-push] envíos rechazados:', JSON.stringify(failures));
     }
 
     // Clean up expired subscriptions
@@ -157,7 +174,13 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ sent, total: subscriptions.length, expired: expired.length }),
+      JSON.stringify({
+        sent,
+        total: subscriptions.length,
+        expired: expired.length,
+        failed: failures.length,
+        failures,
+      }),
       { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } }
     );
   } catch (err) {

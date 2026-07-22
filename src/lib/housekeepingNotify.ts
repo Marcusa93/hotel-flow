@@ -40,9 +40,16 @@ export async function notifyRoomAssignment({
 
     // El push es "si llega, llega": la notificación en la app ya quedó guardada.
     try {
-        await supabase.functions.invoke('send-push', {
+        // invoke() no lanza si la función responde 4xx/5xx: devuelve { error }.
+        // Sin mirarlo, un push rechazado era indistinguible de uno entregado.
+        const { data, error } = await supabase.functions.invoke('send-push', {
             body: { userId, title, body: message, url: '/housekeeping', tag: 'housekeeping-task' },
         });
+        if (error) {
+            console.warn('[Limpieza] send-push falló:', error);
+        } else if (data && data.sent === 0 && data.total > 0) {
+            console.warn('[Limpieza] ninguna suscripción recibió el push:', data);
+        }
     } catch (err) {
         console.warn('[Limpieza] No se pudo enviar el push:', err);
     }

@@ -129,60 +129,63 @@ export default function Bookings() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden">
+    // El alto se descuenta a mano porque PageWrapper no define altura y un h-full
+    // colapsaría al alto del contenido. Lo que se resta es la topbar (64px) más el
+    // padding vertical de main, que cambia entre mobile (16+80) y desktop (24+24).
+    // El calc anterior restaba 80 e ignoraba ese padding: la página desbordaba
+    // 32px y había que scrollear la ventana entera para ver el final del tablero.
+    // El padding horizontal también lo pone main — repetirlo acá comía 48px de
+    // ancho del tablero.
+    <div className="flex flex-col h-[calc(100vh-160px)] md:h-[calc(100vh-112px)] overflow-hidden">
       {/* Top Section */}
-      <div className="flex-none px-4 md:px-6 pt-4 md:pt-6 pb-3">
+      <div className="flex-none pb-3">
         <ReservationsHeader onNewBooking={() => setIsNewDialogOpen(true)} onScanQR={() => setIsQRScannerOpen(true)} stats={stats} />
 
         <div className="mt-3">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="flex-1">
-              <ReservationsFilters
-                search={search}
-                onSearchChange={setSearch}
-                statusFilter={statusFilter}
-                onStatusFilterChange={(v) => { setStatusFilter(v); setTodayFilter(null); }}
-              />
-            </div>
-          </div>
+          <ReservationsFilters
+            search={search}
+            onSearchChange={setSearch}
+            statusFilter={statusFilter}
+            onStatusFilterChange={(v) => { setStatusFilter(v); setTodayFilter(null); }}
+            trailing={
+              <div className="hidden md:flex items-center bg-muted/50 rounded-xl p-1">
+                <Button
+                  variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                  size="icon"
+                  className="h-8 w-8 rounded-lg"
+                  onClick={() => setViewMode('kanban')}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="icon"
+                  className="h-8 w-8 rounded-lg"
+                  onClick={() => setViewMode('list')}
+                >
+                  <List className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'timeline' ? 'default' : 'ghost'}
+                  size="icon"
+                  className="h-8 w-8 rounded-lg"
+                  onClick={() => setViewMode('timeline')}
+                  title="Timeline"
+                >
+                  <CalendarRange className="w-4 h-4" />
+                </Button>
+              </div>
+            }
+          />
 
-          {/* View toggle + active filters */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {todayFilter && (
-                <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/10 rounded-lg" onClick={() => setTodayFilter(null)}>
-                  {todayFilter === 'checkin-today' ? 'Check-ins de hoy' : 'Check-outs de hoy'} ✕
-                </Badge>
-              )}
+          {/* Solo ocupa alto cuando hay un filtro de hoy activo */}
+          {todayFilter && (
+            <div className="mt-2">
+              <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/10 rounded-lg" onClick={() => setTodayFilter(null)}>
+                {todayFilter === 'checkin-today' ? 'Check-ins de hoy' : 'Check-outs de hoy'} ✕
+              </Badge>
             </div>
-            <div className="hidden md:flex items-center bg-muted/50 rounded-xl p-1 shrink-0">
-              <Button
-                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-                size="icon"
-                className="h-8 w-8 rounded-lg"
-                onClick={() => setViewMode('kanban')}
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size="icon"
-                className="h-8 w-8 rounded-lg"
-                onClick={() => setViewMode('list')}
-              >
-                <List className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'timeline' ? 'default' : 'ghost'}
-                size="icon"
-                className="h-8 w-8 rounded-lg"
-                onClick={() => setViewMode('timeline')}
-                title="Timeline"
-              >
-                <CalendarRange className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -190,7 +193,7 @@ export default function Bookings() {
       <div className="flex-1 min-h-0 relative mt-2">
         <div className="absolute inset-0 bg-slate-50/50 dark:bg-slate-950/50 -z-10" />
 
-        <div className="h-full px-4 md:px-6 pb-6">
+        <div className="h-full pb-2">
           {/* Desktop: Kanban, List, or Timeline based on toggle. Mobile: always cards */}
           <div className="hidden md:block h-full">
             {viewMode === 'kanban' ? (
@@ -239,7 +242,7 @@ export default function Bookings() {
       </div>
 
       {/* Weekly history — what actually came in and out, independent of the filters above */}
-      <div className="flex-none px-4 md:px-6 pb-4">
+      <div className="flex-none">
         <WeeklyMovementsLog
           bookings={bookings}
           guests={guests}

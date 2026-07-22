@@ -8,6 +8,13 @@ interface ReservationsFiltersProps {
     onSearchChange: (value: string) => void;
     statusFilter: string;
     onStatusFilterChange: (value: string) => void;
+    /**
+     * Controles que van a la derecha de los chips, en la misma fila.
+     *
+     * El selector de vista vivía en una fila propia de 40px que estaba vacía
+     * salvo por ese botón. Acá aprovecha el hueco que dejan los chips.
+     */
+    trailing?: React.ReactNode;
 }
 
 const STATUS_CHIPS = [
@@ -24,6 +31,7 @@ export function ReservationsFilters({
     onSearchChange,
     statusFilter,
     onStatusFilterChange,
+    trailing,
 }: ReservationsFiltersProps) {
     return (
         <div className="space-y-3">
@@ -39,7 +47,8 @@ export function ReservationsFilters({
             </div>
 
             {/* Status filter chips — scrollable on mobile */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+            <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none flex-1 min-w-0">
                 {STATUS_CHIPS.map(chip => (
                     <Button
                         key={chip.value}
@@ -56,6 +65,8 @@ export function ReservationsFilters({
                         {chip.label}
                     </Button>
                 ))}
+                </div>
+                {trailing && <div className="shrink-0">{trailing}</div>}
             </div>
         </div>
     );

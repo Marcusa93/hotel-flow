@@ -14,8 +14,10 @@ interface ReservationColumnProps {
 }
 
 export function ReservationColumn({ id, title, count, headerColorClass, children }: ReservationColumnProps) {
+    // Sin ancho fijo: la columna se estira a lo que le dé el tablero. Con 320px
+    // fijos, cuatro columnas no entraban y aparecía el scroll lateral siempre.
     return (
-        <div className="flex flex-col h-full min-w-[320px] max-w-[320px]">
+        <div className="flex flex-col h-full w-full">
             {/* Header */}
             <div className="flex items-center justify-between p-1 mb-2">
                 <div className="flex items-center gap-3">

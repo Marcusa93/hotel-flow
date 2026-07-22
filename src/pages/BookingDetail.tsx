@@ -54,6 +54,7 @@ import { BookingChargesSection } from '@/components/bookings/BookingChargesSecti
 import { BookingQRCode } from '@/components/bookings/BookingQRCode';
 import { useBookingCharges } from '@/hooks/useBookingCharges';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
+import { buildBookingAccount } from '@/lib/bookingAccount';
 import { toast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 
@@ -94,11 +95,10 @@ export default function BookingDetail() {
   }
 
   const bookingPayments = payments.filter(p => p.bookingId === booking.id);
-  const totalPaid = bookingPayments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + p.amount, 0);
-  const totalCharges = bookingCharges.reduce((sum, c) => sum + c.amount * c.quantity, 0);
-  const totalAccount = booking.totalAmount + totalCharges;
-  const pendingAmount = totalAccount - totalPaid;
-  const paymentProgress = totalAccount > 0 ? Math.min((totalPaid / totalAccount) * 100, 100) : 0;
+  const account = buildBookingAccount({ booking, payments: bookingPayments, charges: bookingCharges });
+  const { paid: totalPaid, extras: totalCharges, total: totalAccount, discount: totalDiscount } = account;
+  const pendingAmount = account.balance;
+  const paymentProgress = account.progress;
 
   const handleStatusChange = (newStatus: BookingStatus) => {
     updateBookingStatus(booking.id, newStatus);
@@ -506,6 +506,12 @@ export default function BookingDetail() {
                     <span>Total</span>
                     <span>${totalAccount.toLocaleString('es-AR')}</span>
                   </div>
+                  {totalDiscount > 0 && (
+                    <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+                      <span>Descuento promoción</span>
+                      <span>-${totalDiscount.toLocaleString('es-AR')}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2 mb-6">

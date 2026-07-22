@@ -13,6 +13,7 @@ import { isToday, isTomorrow, startOfDay, isAfter, isBefore, setHours, setMinute
 import { QuickCheckInDialog } from '@/components/bookings/QuickCheckInDialog';
 import { CheckoutDialog } from '@/components/bookings/CheckoutDialog';
 import type { BookingWithDetails } from '@/types/hotel';
+import { settledAmount } from '@/lib/bookingAccount';
 
 const VISIBLE_ROWS = 3;
 
@@ -75,9 +76,10 @@ export function TodayMovementsPanel() {
             const room = rooms.find(r => r.id === booking.roomId);
             const checkInDate = new Date(booking.checkInDate);
             const checkOutDate = new Date(booking.checkOutDate);
-            const amountPaid = payments
-                .filter(p => p.bookingId === booking.id)
-                .reduce((sum, p) => sum + p.amount, 0);
+            // settledAmount filtra por estado PAID y suma el descuento. Antes
+            // sumaba cualquier pago —incluso pendientes o fallidos— e ignoraba
+            // los cupones.
+            const amountPaid = settledAmount(payments.filter(p => p.bookingId === booking.id));
 
             const base = {
                 bookingId: booking.id,

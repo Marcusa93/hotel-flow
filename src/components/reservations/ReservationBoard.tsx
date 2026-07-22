@@ -59,9 +59,15 @@ export function ReservationBoard({ bookings, guests, rooms, roomTypes, payments 
 
     return (
         <DragDropContext onDragEnd={onDragEnd}>
-            <div className="flex h-full gap-2 overflow-x-auto pb-4 snap-x snap-mandatory px-4 md:px-0 scrollbar-hide">
+            {/* Las columnas reparten el ancho en partes iguales. El min-w es el
+                piso: recién cuando el tablero es más angosto que eso vuelve a
+                aparecer el scroll lateral, en vez de aparecer siempre. */}
+            <div className="flex h-full gap-3 overflow-x-auto pb-4 snap-x snap-mandatory px-4 md:px-0 scrollbar-hide">
                 {COLUMNS.map(col => (
-                    <div key={col.id} className="snap-start flex-shrink-0">
+                    // min-w 240px: piso elegido para que 1366 —la resolución de
+                    // notebook más común— entre sin scroll. Con 260 faltaban 14px
+                    // y volvía a aparecer.
+                    <div key={col.id} className="snap-start flex-1 min-w-[240px]">
                         <ReservationColumn
                             id={col.id}
                             title={col.title}

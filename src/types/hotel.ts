@@ -79,6 +79,17 @@ export interface Booking {
   vehicleDescription?: string;
   licensePlate?: string;
   receptionist?: string;
+  /**
+   * Promoción aplicada. Se guarda el id y además el nombre y el código en texto:
+   * la tarifa puede renombrarse o borrarse, y el reporte tiene que seguir
+   * diciendo qué se aplicó ese día.
+   */
+  rateId?: string;
+  promoCode?: string;
+  promoLabel?: string;
+  /** Lo que habría costado sin promoción. Ausente en reservas previas al seguimiento. */
+  baseAmount?: number;
+  discountAmount?: number;
   createdAt: Date;
   updatedAt?: Date;
 }
@@ -102,6 +113,11 @@ export interface Payment {
   comment?: string;
   status: PaymentStatus;
   amount: number;
+  /** Promoción aplicada al cobro. Ver la nota en Booking sobre por qué va el texto además del id. */
+  rateId?: string;
+  promoCode?: string;
+  promoLabel?: string;
+  discountAmount?: number;
 }
 
 export interface HousekeepingTask {

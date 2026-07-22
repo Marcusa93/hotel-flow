@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 const StatisticsContent = lazy(() => import('./Statistics'));
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { SeasonalityChart, RateCalendarWidget } from '@/components/rates';
+import { SeasonalityChart, RateCalendarWidget, PromoPerformance } from '@/components/rates';
 import { Switch } from '@/components/ui/switch';
 import {
   Table,
@@ -40,6 +40,8 @@ import {
 } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { useRates } from '@/hooks/useRates';
+import { useBookings } from '@/hooks/useBookings';
+import { usePayments } from '@/hooks/usePayments';
 import { useCreateRate } from '@/hooks/useCreateRate';
 import { useUpdateRate } from '@/hooks/useUpdateRate';
 import { useDeleteRate } from '@/hooks/useDeleteRate';
@@ -64,6 +66,8 @@ export default function Rates() {
   const { roomTypes } = useRoomOperations();
   const updateRoomTypeMutation = useUpdateRoomType();
   const { data: rates = [], isLoading } = useRates();
+  const { data: bookings = [] } = useBookings();
+  const { data: payments = [] } = usePayments();
   const createRateMutation = useCreateRate();
   const updateRateMutation = useUpdateRate();
   const deleteRateMutation = useDeleteRate();
@@ -389,6 +393,9 @@ export default function Rates() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Promo usage & discount cost */}
+      <PromoPerformance rates={promotions} bookings={bookings} payments={payments} />
 
       {/* Active Promotions Table */}
       <Card className="glass border-none shadow-lg">

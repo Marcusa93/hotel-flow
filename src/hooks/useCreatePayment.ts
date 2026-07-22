@@ -25,6 +25,16 @@ export const useCreatePayment = () => {
                         : paymentData.date,
                     reference: paymentData.reference || null,
                     comment: paymentData.comment || null,
+                    // Solo cuando hay promo: ver la nota en useCreateBooking sobre
+                    // el orden entre la migración y el deploy del cliente.
+                    ...(paymentData.rateId || paymentData.promoLabel
+                        ? {
+                            rate_id: paymentData.rateId ?? null,
+                            promo_code: paymentData.promoCode ?? null,
+                            promo_label: paymentData.promoLabel ?? null,
+                            discount_amount: paymentData.discountAmount ?? null,
+                        }
+                        : {}),
                 })
                 .select()
                 .single();
@@ -43,6 +53,10 @@ export const useCreatePayment = () => {
                 date: new Date(data.date),
                 reference: data.reference,
                 comment: data.comment,
+                rateId: data.rate_id || undefined,
+                promoCode: data.promo_code || undefined,
+                promoLabel: data.promo_label || undefined,
+                discountAmount: data.discount_amount == null ? undefined : Number(data.discount_amount),
             } as Payment;
         },
         onSuccess: (payment) => {

@@ -71,6 +71,14 @@ export const mapBooking = (row: DbRow): Booking => ({
   vehicleDescription: row.vehicle_description,
   licensePlate: row.license_plate,
   receptionist: row.receptionist,
+  rateId: row.rate_id || undefined,
+  promoCode: row.promo_code || undefined,
+  promoLabel: row.promo_label || undefined,
+  // Number() explícito: DECIMAL vuelve como string desde PostgREST y sumarlo
+  // concatenaría en vez de sumar. null se mantiene undefined — "no se registró"
+  // no es lo mismo que "descuento de 0".
+  baseAmount: row.base_amount == null ? undefined : Number(row.base_amount),
+  discountAmount: row.discount_amount == null ? undefined : Number(row.discount_amount),
   createdAt: new Date(row.created_at || new Date()),
   updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
 });
@@ -104,6 +112,10 @@ export const mapPayment = (row: DbRow): Payment => ({
   date: new Date(row.date),
   reference: row.reference,
   comment: row.comment,
+  rateId: row.rate_id || undefined,
+  promoCode: row.promo_code || undefined,
+  promoLabel: row.promo_label || undefined,
+  discountAmount: row.discount_amount == null ? undefined : Number(row.discount_amount),
 });
 
 /** Parse a date-only string (YYYY-MM-DD) as local midnight instead of UTC */

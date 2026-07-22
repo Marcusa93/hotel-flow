@@ -397,6 +397,13 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
         notes: appliedPromo
           ? `${data.notes || ''}\n[Promoción: ${appliedPromo.label}${appliedPromo.promoCode ? ` (${appliedPromo.promoCode})` : ''}]`.trim()
           : data.notes,
+        // Los números ya estaban calculados y se descartaban: sin esto no había
+        // forma de contar usos ni sumar el descuento otorgado por promoción.
+        rateId: appliedPromo?.id,
+        promoCode: appliedPromo?.promoCode,
+        promoLabel: appliedPromo?.label,
+        baseAmount: appliedPromo ? baseTotalAmount : undefined,
+        discountAmount: appliedPromo ? totalSavings : undefined,
         needsReview: isOverCapacity,
         receptionist: data.receptionist?.trim() || undefined,
         hasVehicle: data.hasVehicle ?? false,

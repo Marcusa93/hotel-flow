@@ -203,6 +203,10 @@ export function RegisterPaymentDialog({
         reference: data.reference,
         comment,
         status: data.status,
+        rateId: appliedPromo?.id,
+        promoCode: appliedPromo?.promoCode,
+        promoLabel: appliedPromo?.label,
+        discountAmount: appliedPromo ? discount : undefined,
       });
 
       toast({

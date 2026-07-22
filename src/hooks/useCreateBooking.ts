@@ -32,6 +32,19 @@ export const useCreateBooking = () => {
                     vehicle_description: bookingData.vehicleDescription,
                     license_plate: bookingData.licensePlate,
                     needs_review: bookingData.needsReview ?? false,
+                    // Solo cuando hay promo: si el código se despliega antes que
+                    // la migración, PostgREST rechaza el insert por columna
+                    // desconocida. Así una reserva sin promoción —la enorme
+                    // mayoría— sigue funcionando igual.
+                    ...(bookingData.rateId || bookingData.promoLabel
+                        ? {
+                            rate_id: bookingData.rateId ?? null,
+                            promo_code: bookingData.promoCode ?? null,
+                            promo_label: bookingData.promoLabel ?? null,
+                            base_amount: bookingData.baseAmount ?? null,
+                            discount_amount: bookingData.discountAmount ?? null,
+                        }
+                        : {}),
                 })
                 .select()
                 .single();
@@ -55,6 +68,11 @@ export const useCreateBooking = () => {
                 vehicleDescription: data.vehicle_description,
                 licensePlate: data.license_plate,
                 needsReview: data.needs_review ?? false,
+                rateId: data.rate_id || undefined,
+                promoCode: data.promo_code || undefined,
+                promoLabel: data.promo_label || undefined,
+                baseAmount: data.base_amount == null ? undefined : Number(data.base_amount),
+                discountAmount: data.discount_amount == null ? undefined : Number(data.discount_amount),
                 createdAt: new Date(data.created_at)
             } as Booking;
         },

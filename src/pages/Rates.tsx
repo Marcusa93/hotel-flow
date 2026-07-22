@@ -44,7 +44,7 @@ import { useCreateRate } from '@/hooks/useCreateRate';
 import { useUpdateRate } from '@/hooks/useUpdateRate';
 import { useDeleteRate } from '@/hooks/useDeleteRate';
 import { Rate, DiscountType } from '@/types/hotel';
-import { PAYMENT_METHOD_LABELS } from '@/lib/constants';
+import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUpdateRoomType } from '@/hooks/useUpdateRoomType';
@@ -126,6 +126,20 @@ export default function Rates() {
     });
   };
 
+  // A promo needs a way to change the price: either a flat promo price or a
+  // discount of the selected type. Requiring both blocks the plain "esta semana
+  // la noche sale $80.000" case, which the booking engine handles fine.
+  const hasPricing =
+    formData.price > 0 ||
+    (formData.discountType === 'PERCENTAGE' ? formData.discountPercent > 0 : formData.discountAmount > 0);
+
+  const canSave =
+    !!formData.label.trim() &&
+    !!formData.startDate &&
+    !!formData.endDate &&
+    formData.endDate >= formData.startDate &&
+    hasPricing;
+
   // Detect overlapping promotions
   const overlappingPromos = useMemo(() => {
     if (!formData.startDate || !formData.endDate) return [];
@@ -135,9 +149,10 @@ export default function Rates() {
     return promotions.filter(r => {
       if (editingRate && r.id === editingRate.id) return false; // Skip self
       // A promo with no room type ("Todas las categorías") overlaps every category,
-      // and an all-categories new promo conflicts with any specific one — treat empty/null as wildcard.
-      const sameScope =
-        !r.roomTypeId || !formData.roomTypeId || r.roomTypeId === formData.roomTypeId;
+      // and an all-categories new promo conflicts with any specific one. The select
+      // stores that choice as the sentinel 'all', so it counts as a wildcard too.
+      const formScope = formData.roomTypeId === 'all' ? '' : formData.roomTypeId;
+      const sameScope = !r.roomTypeId || !formScope || r.roomTypeId === formScope;
       if (!sameScope) return false;
       if (!r.isActive) return false;
       const rStart = new Date(r.startDate);
@@ -544,7 +559,7 @@ export default function Rates() {
         setEditingRate(null);
         resetForm();
       }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Percent className="w-5 h-5 text-purple-500" />
@@ -585,7 +600,7 @@ export default function Rates() {
               </div>
 
               <div>
-                <Label>Precio promocional *</Label>
+                <Label>Precio promocional</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                   <Input
@@ -658,6 +673,7 @@ export default function Rates() {
 
               {formData.discountType === 'PERCENTAGE' ? (
                 <div>
+                  {/* Clamped on change: the number input's max attr doesn't stop typing 150 */}
                   <Label>Descuento (%)</Label>
                   <div className="relative">
                     <Input
@@ -666,7 +682,10 @@ export default function Rates() {
                       max="100"
                       placeholder="0"
                       value={formData.discountPercent || ''}
-                      onChange={e => setFormData({ ...formData, discountPercent: Number(e.target.value) })}
+                      onChange={e => setFormData({
+                        ...formData,
+                        discountPercent: Math.min(100, Math.max(0, Number(e.target.value))),
+                      })}
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
                   </div>
@@ -699,6 +718,13 @@ export default function Rates() {
                 />
               </div>
 
+              <div className="col-span-1 sm:col-span-2">
+                <p className="text-xs text-muted-foreground">
+                  Cargá un precio promocional fijo o un descuento (al menos uno). Si cargás
+                  ambos, manda el precio promocional.
+                </p>
+              </div>
+
               <div className="col-span-2">
                 <Label>Código promocional</Label>
                 <Input
@@ -717,7 +743,7 @@ export default function Rates() {
             <div>
               <Label className="mb-2 block">Métodos de pago aceptados</Label>
               <div className="flex flex-wrap gap-2">
-                {Object.entries(PAYMENT_METHOD_LABELS).map(([key, label]) => {
+                {PAYMENT_METHODS.map(({ value: key, label }) => {
                   const isSelected = formData.paymentMethods.includes(key);
                   return (
                     <button
@@ -773,7 +799,7 @@ export default function Rates() {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={!formData.label || !formData.startDate || !formData.endDate || formData.endDate < formData.startDate || (formData.discountType === 'PERCENTAGE' ? !formData.discountPercent : !formData.discountAmount)}
+              disabled={!canSave}
               className="bg-purple-600 hover:bg-purple-700"
             >
               {editingRate ? 'Guardar Cambios' : 'Crear Promoción'}

@@ -108,6 +108,9 @@ export function RegisterPaymentDialog({
     const now = new Date();
     return rates.filter(rate => {
       if (!rate.isActive || !rate.promoCode) return false;
+      // A flat-price promo has no percentage to take off a payment amount;
+      // applying it would say "código aplicado" and change nothing.
+      if (!rate.discountPercent && !rate.discountAmount) return false;
       const start = startOfDay(new Date(rate.startDate));
       const end = startOfDay(new Date(rate.endDate));
       return isWithinInterval(now, { start, end });

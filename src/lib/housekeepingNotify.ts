@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/supabase';
 import { createNotificationIfEnabled } from '@/hooks/useCreateNotification';
 
 interface RoomAssignmentParams {
@@ -36,14 +35,7 @@ export async function notifyRoomAssignment({
         message,
         userId,
         metadata: { taskId, roomId, roomNumber },
+        push: true,
+        pushUrl: '/housekeeping',
     });
-
-    // El push es "si llega, llega": la notificación en la app ya quedó guardada.
-    try {
-        await supabase.functions.invoke('send-push', {
-            body: { userId, title, body: message, url: '/housekeeping', tag: 'housekeeping-task' },
-        });
-    } catch (err) {
-        console.warn('[Limpieza] No se pudo enviar el push:', err);
-    }
 }

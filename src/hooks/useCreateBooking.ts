@@ -69,7 +69,8 @@ export const useCreateBooking = () => {
                 category: 'booking',
                 title: '📅 Nueva reserva creada',
                 message: `Reserva del ${format(booking.checkInDate, 'dd MMM', { locale: es })} al ${format(booking.checkOutDate, 'dd MMM', { locale: es })} - Total: $${booking.totalAmount.toLocaleString('es-AR')}`,
-                metadata: { bookingId: booking.id }
+                metadata: { bookingId: booking.id },
+                push: true,
             });
 
             // Audit log

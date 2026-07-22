@@ -11,6 +11,7 @@ import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useRates } from '@/hooks/useRates';
 import { useCheckAvailability } from '@/hooks/useCheckAvailability';
 import { COUNTRIES, DOCUMENT_TYPES } from '@/lib/constants';
+import { getBestPromo, getPromoNightlyPrice } from '@/lib/promoPricing';
 import type { DocumentType } from '@/types/hotel';
 import {
   Dialog,
@@ -213,18 +214,15 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
     });
   }, [rates, selectedRoom, watchedCheckIn, watchedCheckOut, nights]);
 
-  // Best automatic promotion (lowest price, no code required)
-  const bestAutoPromo = useMemo(() => {
-    const autoPromos = applicablePromotions.filter(p => !p.promoCode);
-    if (autoPromos.length === 0) return null;
-    return autoPromos.reduce((best, current) =>
-      current.price < best.price ? current : best
-    );
-  }, [applicablePromotions]);
-
   // Calculate pricing
   const basePrice = selectedRoomType?.basePrice || 0;
   const baseTotalAmount = nights * basePrice;
+
+  // Best automatic promotion (cheapest for the guest, no code required)
+  const bestAutoPromo = useMemo(
+    () => getBestPromo(applicablePromotions.filter(p => !p.promoCode), basePrice),
+    [applicablePromotions, basePrice]
+  );
 
   // Determine effective price (considering promotions)
   const { effectivePrice, appliedPromo, savings } = useMemo(() => {
@@ -239,20 +237,9 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
       return { effectivePrice: basePrice, appliedPromo: null, savings: 0 };
     }
 
-    let finalPrice = basePrice;
+    const finalPrice = getPromoNightlyPrice(promo, basePrice);
 
-    // Apply discount based on type
-    if (promo.discountType === 'FIXED' && promo.discountAmount) {
-      finalPrice = Math.max(0, basePrice - promo.discountAmount);
-    } else if (promo.discountPercent) {
-      finalPrice = basePrice * (1 - promo.discountPercent / 100);
-    } else if (promo.price && promo.price < basePrice) {
-      finalPrice = promo.price;
-    }
-
-    const savings = basePrice - finalPrice;
-
-    return { effectivePrice: finalPrice, appliedPromo: promo, savings };
+    return { effectivePrice: finalPrice, appliedPromo: promo, savings: basePrice - finalPrice };
   }, [basePrice, appliedPromoCode, bestAutoPromo, applicablePromotions]);
 
   const totalAmount = nights * effectivePrice;

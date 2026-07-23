@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { Booking, Payment, DashboardStats, OccupancyByType, AuditLog } from '@/types/hotel';
 import { escapeHtml } from '@/lib/utils';
+import { PRINT_FONT_LINK, PRINT_FONT_CSS } from '@/lib/printStyles';
 
 // ---------- Excel Export ----------
 
@@ -131,8 +132,10 @@ export function exportToPDF({
 
   printWindow.document.write(`<!DOCTYPE html>
 <html><head><title>Reporte - ${h(hotelName)}</title>
+${PRINT_FONT_LINK}
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 800px; margin: 0 auto; padding: 40px; color: #1e293b; }
+  ${PRINT_FONT_CSS}
+  body { max-width: 800px; margin: 0 auto; padding: 40px; color: #1e293b; }
   .header { text-align: center; margin-bottom: 32px; border-bottom: 2px solid #003366; padding-bottom: 20px; }
   .hotel-name { font-size: 24px; font-weight: bold; color: #003366; }
   .subtitle { font-size: 14px; color: #64748b; margin-top: 4px; }

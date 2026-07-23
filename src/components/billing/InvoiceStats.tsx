@@ -64,7 +64,7 @@ export function InvoiceStats({ invoices }: InvoiceStatsProps) {
                                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
                                     {stat.label}
                                 </p>
-                                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                                <p className="num-display text-2xl font-bold text-slate-900 dark:text-white">
                                     {stat.value}
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-1">

@@ -84,7 +84,7 @@ export function SummaryInsights({ bookings, payments }: SummaryInsightsProps) {
               <Clock className="w-4 h-4" />
               Estadía Promedio
             </div>
-            <div className="text-3xl font-bold text-foreground">
+            <div className="num-display text-3xl font-bold text-foreground">
               {avgStay} <span className="text-base font-normal text-muted-foreground">noches</span>
             </div>
             <p className="text-xs text-muted-foreground">

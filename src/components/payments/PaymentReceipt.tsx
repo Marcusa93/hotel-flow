@@ -198,7 +198,7 @@ export function PaymentReceipt({ open, onOpenChange, payment }: PaymentReceiptPr
                     {/* Amount */}
                     <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl p-6 text-center mb-6">
                         <p className="text-xs text-muted-foreground mb-1">Monto Total</p>
-                        <p className="text-3xl font-bold text-emerald-600">${payment.amount.toLocaleString('es-AR')}</p>
+                        <p className="num-display text-3xl font-bold text-emerald-600">${payment.amount.toLocaleString('es-AR')}</p>
                     </div>
 
                     {/* Signature Pad */}

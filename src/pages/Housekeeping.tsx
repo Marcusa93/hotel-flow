@@ -279,19 +279,19 @@ export default function Housekeeping() {
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div className="bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/20 dark:to-slate-900 rounded-2xl p-3 text-center shadow-sm">
-            <p className="text-2xl font-extrabold text-orange-600 dark:text-orange-400">{dirtyRooms.length}</p>
+            <p className="num-display text-2xl font-extrabold text-orange-600 dark:text-orange-400">{dirtyRooms.length}</p>
             <p className="text-[10px] text-orange-600/70 dark:text-orange-400/70 font-semibold">Sucias</p>
           </div>
           <div className="bg-gradient-to-br from-rose-50 to-white dark:from-rose-950/20 dark:to-slate-900 rounded-2xl p-3 text-center shadow-sm">
-            <p className="text-2xl font-extrabold text-rose-600 dark:text-rose-400">{pendingCount}</p>
+            <p className="num-display text-2xl font-extrabold text-rose-600 dark:text-rose-400">{pendingCount}</p>
             <p className="text-[10px] text-rose-600/70 dark:text-rose-400/70 font-semibold">Pendientes</p>
           </div>
           <div className="bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/20 dark:to-slate-900 rounded-2xl p-3 text-center shadow-sm">
-            <p className="text-2xl font-extrabold text-amber-600 dark:text-amber-400">{inProgressCount}</p>
+            <p className="num-display text-2xl font-extrabold text-amber-600 dark:text-amber-400">{inProgressCount}</p>
             <p className="text-[10px] text-amber-600/70 dark:text-amber-400/70 font-semibold">Limpiando</p>
           </div>
           <div className="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-slate-900 rounded-2xl p-3 text-center shadow-sm">
-            <p className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">{completedToday}</p>
+            <p className="num-display text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">{completedToday}</p>
             <p className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 font-semibold">Listas</p>
           </div>
         </div>

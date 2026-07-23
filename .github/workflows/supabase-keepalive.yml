@@ -1,3 +1,16 @@
+# Latido contra la pausa por inactividad del plan gratuito de Supabase.
+#
+# Dos veces por día y no una: si GitHub se saltea una corrida —los cron
+# programados se posponen o se pierden cuando la cola está cargada, no hay
+# garantía de puntualidad— todavía quedan trece días de margen contra la
+# ventana de siete días de inactividad.
+#
+# OJO con la trampa de fondo: GitHub deshabilita los cron de un repositorio
+# después de 60 días sin actividad, y avisa por mail al dueño. O sea que
+# justo cuando el proyecto queda quieto —que es cuando este workflow importa—
+# es cuando GitHub lo apaga. Si el repo va a estar dormido mucho tiempo, hay
+# que entrar a la pestaña Actions y reactivarlo, o mover el latido a un cron
+# externo.
 name: Supabase Keepalive
 
 on:
@@ -21,20 +34,43 @@ jobs:
           : "${SUPABASE_PROJECT_URL:?Missing SUPABASE_PROJECT_URL secret}"
           : "${SUPABASE_ANON_KEY:?Missing SUPABASE_ANON_KEY secret}"
 
+          # Sin headers de perfil: la función vive en public, que es el único
+          # esquema que PostgREST expone sin configurar nada en el dashboard.
+          # Pedir Accept-Profile: api es lo que devolvía PGRST106 en cada
+          # corrida desde abril.
+          http_code=0
           response="$(
-            curl --silent --show-error --fail-with-body \
+            curl --silent --show-error \
               --retry 3 \
               --retry-delay 5 \
+              --retry-all-errors \
+              -w '\n%{http_code}' \
               -X POST \
               "${SUPABASE_PROJECT_URL%/}/rest/v1/rpc/keepalive" \
               -H "apikey: ${SUPABASE_ANON_KEY}" \
               -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
               -H "Accept: application/json" \
               -H "Content-Type: application/json" \
-              -H "Accept-Profile: api" \
-              -H "Content-Profile: api" \
               -d '{}'
           )"
 
-          echo "$response"
-          echo "$response" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true'
+          http_code="$(printf '%s' "$response" | tail -n1)"
+          body="$(printf '%s' "$response" | sed '$d')"
+
+          echo "HTTP $http_code"
+          echo "$body"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::El keepalive no respondió 200. La base puede pausarse por inactividad."
+            exit 1
+          fi
+
+          # El cuerpo se revisa además del código porque PostgREST contesta
+          # 200 con un JSON de error en algunos casos, y un latido que falla
+          # en verde es peor que uno que falla en rojo: nadie lo mira.
+          if ! printf '%s' "$body" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true'; then
+            echo "::error::Respuesta inesperada del RPC keepalive."
+            exit 1
+          fi
+
+          echo "Latido registrado."

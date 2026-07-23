@@ -159,7 +159,7 @@ export function RoomStatusMap({ rooms, bookings, guests, roomTypes }: RoomStatus
 
                                                         {/* Room number + capacity */}
                                                         <div className="flex items-baseline gap-1.5 mb-1.5">
-                                                            <span className={cn('text-2xl font-extrabold leading-none tracking-tight', config.text)}>
+                                                            <span className={cn('num-display text-2xl font-extrabold leading-none', config.text)}>
                                                                 {room.roomNumber}
                                                             </span>
                                                             <span className="text-[9px] text-muted-foreground font-medium">

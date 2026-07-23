@@ -140,7 +140,7 @@ export function MobileTaskCard({ task, room, onStatusChange, onEdit }: MobileTas
                     <div className="flex items-center gap-3">
                         {/* Room Number - Big and Bold */}
                         <div className="h-14 w-14 rounded-xl bg-white dark:bg-slate-800 shadow-md flex items-center justify-center">
-                            <span className="text-2xl font-bold text-slate-800 dark:text-white">{room.roomNumber}</span>
+                            <span className="num-display text-2xl font-bold text-slate-800 dark:text-white">{room.roomNumber}</span>
                         </div>
                         <div>
                             <p className="text-xs text-muted-foreground">Piso {room.floor}</p>

@@ -65,7 +65,7 @@ export function PromoPerformance({ rates, bookings, payments }: PromoPerformance
                                 <Icon className={cn('w-4 h-4', tone)} />
                                 <span className="text-xs text-muted-foreground">{label}</span>
                             </div>
-                            <p className="text-2xl font-bold text-slate-900 dark:text-white">{value}</p>
+                            <p className="num-display text-2xl font-bold text-slate-900 dark:text-white">{value}</p>
                         </div>
                     ))}
                 </div>

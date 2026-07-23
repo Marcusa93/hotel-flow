@@ -32,7 +32,7 @@ export function RevenueChart() {
                 <div className="flex items-center justify-between flex-wrap gap-2">
                     <div>
                         <CardTitle className="text-lg">Ingresos</CardTitle>
-                        <p className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">
+                        <p className="num-display text-2xl font-extrabold text-slate-900 dark:text-white mt-1">
                             ${total.toLocaleString('es-AR')}
                         </p>
                     </div>

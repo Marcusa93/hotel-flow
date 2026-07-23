@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PAYMENT_METHODS, EXPENSE_TYPE_LABELS } from '@/lib/constants';
 import { escapeHtml } from '@/lib/utils';
+import { PRINT_FONT_LINK, PRINT_FONT_CSS } from '@/lib/printStyles';
 
 const money = (n: number) => `$${n.toLocaleString('es-AR')}`;
 
@@ -70,8 +71,10 @@ export default function BalanceMensual() {
       .map(([t, v]) => `<tr><td>${h(EXPENSE_TYPE_LABELS[t] || t)}</td><td class="num">${money(v)}</td></tr>`)
       .join('') || '<tr><td colspan="2">Sin gastos</td></tr>';
     w.document.write(`<!DOCTYPE html><html><head><title>Balance ${h(month)}</title>
+    ${PRINT_FONT_LINK}
     <style>
-      body{font-family:-apple-system,Segoe UI,sans-serif;max-width:720px;margin:0 auto;padding:32px;color:#1e293b}
+      ${PRINT_FONT_CSS}
+      body{max-width:720px;margin:0 auto;padding:32px;color:#1e293b}
       h1{font-size:20px;color:#003366;margin:0}.sub{color:#64748b;font-size:13px;margin-bottom:20px;text-transform:capitalize}
       h2{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:#003366;border-bottom:2px solid #D4A017;padding-bottom:4px;margin:20px 0 8px}
       table{width:100%;border-collapse:collapse}td{padding:6px 4px;border-bottom:1px solid #f1f5f9;font-size:13px}

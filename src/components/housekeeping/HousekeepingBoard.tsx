@@ -61,7 +61,7 @@ function RoomCard({ room, task, onStatusChange }: { room: Room; task?: Housekeep
         >
             <CardContent className="p-4 flex flex-col items-center justify-center min-h-[140px] text-center">
                 <span className="text-xs font-mono text-muted-foreground mb-1">Piso {room.floor}</span>
-                <h3 className="text-2xl font-bold tracking-tighter mb-1 text-slate-800 dark:text-slate-100">
+                <h3 className="num-display text-2xl font-bold mb-1 text-slate-800 dark:text-slate-100">
                     {room.roomNumber}
                 </h3>
 

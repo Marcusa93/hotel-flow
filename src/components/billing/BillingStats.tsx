@@ -9,7 +9,7 @@ export function BillingStats() {
                     <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
                         <Receipt className="w-4 h-4" /> Facturado (Mes)
                     </p>
-                    <p className="text-2xl font-bold text-indigo-900 dark:text-indigo-100 mt-2">$1.2M</p>
+                    <p className="num-display text-2xl font-bold text-indigo-900 dark:text-indigo-100 mt-2">$1.2M</p>
                 </CardContent>
             </Card>
 
@@ -18,7 +18,7 @@ export function BillingStats() {
                     <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Emitidas
                     </p>
-                    <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-2">142</p>
+                    <p className="num-display text-2xl font-bold text-slate-800 dark:text-slate-200 mt-2">142</p>
                 </CardContent>
             </Card>
 
@@ -27,7 +27,7 @@ export function BillingStats() {
                     <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
                         IVA Recaudado
                     </p>
-                    <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-2">$252k</p>
+                    <p className="num-display text-2xl font-bold text-slate-800 dark:text-slate-200 mt-2">$252k</p>
                     <p className="text-xs text-muted-foreground">21% sobre base</p>
                 </CardContent>
             </Card>
@@ -37,7 +37,7 @@ export function BillingStats() {
                     <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
                         <AlertCircle className="w-4 h-4 text-amber-500" /> Notas de Crédito
                     </p>
-                    <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-2">$12k</p>
+                    <p className="num-display text-2xl font-bold text-slate-800 dark:text-slate-200 mt-2">$12k</p>
                 </CardContent>
             </Card>
         </div>

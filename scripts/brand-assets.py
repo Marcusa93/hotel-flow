@@ -143,6 +143,34 @@ def main():
     )
     print(f"  {'favicon.ico':<26} 16/32/48 {os.path.getsize(ruta) / 1024:>6.1f} KB")
 
+    hotel()
+
+
+def hotel():
+    """El isotipo del hotel cliente, para la banda del Dashboard.
+
+    public/logo.png es el lockup del Hotel Mediterraneo: estrellas y arcos
+    arriba, y debajo "MEDITERRANEO / HOTEL" en texto blanco —invisible sobre
+    fondo claro, que es donde estaba usado hasta ahora—. En la banda del
+    Dashboard el nombre del hotel ya aparece al lado, en un h1 que sale de
+    hotelSettings, asi que el lockup completo lo decia dos veces.
+
+    Se recorta solo el simbolo. Las bandas se midieron sobre los 426x164 del
+    original: estrellas en y 2-19, arcos en y 29-72, y el texto recien desde
+    y 93.
+    """
+    src = os.path.join(OUT, "logo.png")
+    im = Image.open(src).convert("RGBA").crop((135, 0, 290, 80))
+
+    ancho = 320  # se muestra a 36px de alto; sobra para retina
+    alto = round(ancho * im.size[1] / im.size[0])
+    im = im.resize((ancho, alto), Image.LANCZOS)
+
+    ruta = os.path.join(OUT, "hotel-symbol.png")
+    im.save(ruta, "PNG", optimize=True)
+    print("hotel cliente:")
+    print(f"  {'hotel-symbol.png':<26} {ancho:>4}x{alto:<4} {os.path.getsize(ruta) / 1024:>6.1f} KB")
+
 
 if __name__ == "__main__":
     main()

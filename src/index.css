@@ -63,6 +63,19 @@
     --sidebar-border: 213 40% 22%;
     --sidebar-ring: 38 62% 50%;
 
+    /**
+     * El navy de la marca del hotel, muestreado del fondo de su logo
+     * (public/icon-512.png): #0a1628. Resultó ser el mismo que ya estaba puesto
+     * a mano como theme-color en index.html.
+     *
+     * Va aparte de --primary y de --sidebar-background, que son colores del
+     * sistema de diseño de HomeApp y cambian con el tema. Este es del cliente:
+     * el día que la app corra en otro hotel, se cambia acá y nada más. Por eso
+     * tampoco se invierte en modo oscuro — la marca de un hotel no tiene
+     * variante clara.
+     */
+    --hotel-brand: 216 60% 10%;
+
     /* Chart colors */
     --chart-1: 212 60% 22%;
     --chart-2: 38 62% 48%;

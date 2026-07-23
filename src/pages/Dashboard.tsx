@@ -31,6 +31,21 @@ import { cn } from '@/lib/utils';
 
 type DialogKey = 'booking' | 'guest' | 'payment' | 'expense' | null;
 
+/**
+ * Los accesos rápidos, sobre el navy del hotel.
+ *
+ * El variant outline del botón trae fondo opaco y texto oscuro, pensado para
+ * una tarjeta blanca: sobre la banda navy quedaban como parches blancos
+ * flotando. En vidrio se apoyan sobre el color en vez de taparlo.
+ *
+ * El hover del variant también hay que pisarlo: por defecto vira a
+ * accent-foreground, que es oscuro, y el texto desaparecía justo al pasar por
+ * encima.
+ */
+const QUICK_ACTION_CLASS =
+  'rounded-xl bg-white/10 border-white/20 text-white backdrop-blur-sm ' +
+  'hover:bg-white/20 hover:text-white hover:border-white/30';
+
 export default function Dashboard() {
   const { stats } = useDashboardStats();
   const { rooms, roomTypes } = useRoomOperations();
@@ -132,46 +147,71 @@ export default function Dashboard() {
 
         {/* ── COMPACT HEADER ── */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-50 to-blue-50/40 dark:from-slate-900/80 dark:to-slate-800/40 border border-slate-200/60 dark:border-slate-700/40 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl overflow-hidden shadow-sm shrink-0 ring-1 ring-slate-200/70 dark:ring-slate-700/50">
-                <img
-                  src="/icon-512.png"
-                  alt={hotelSettings?.hotelName || 'Hotel'}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+          {/* Banda con el navy de la marca del hotel. Es el único bloque de la
+              app que lleva el color del cliente y no el del sistema de diseño,
+              así que no se invierte en modo oscuro: se ve igual siempre.
+
+              Al pasar de claro a oscuro hay que dar vuelta todo lo de adentro
+              —textos, anillo del logo y botones—, porque estaba pensado para
+              fondo blanco y sobre el navy quedaba ilegible. El botón Reserva es
+              el único que no cambia: el ámbar sobre navy ya es la combinación
+              de la marca. */}
+          <div className="brass-top relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-hotel-brand border border-white/10 shadow-lg">
+            {/* Mismo brillo cálido que la tarjeta del login, para que la banda
+                no quede como un rectángulo plano. */}
+            <div
+              className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top_left,_rgba(212,160,23,0.10),_transparent_60%)]"
+              aria-hidden
+            />
+
+            <div className="flex items-center gap-3.5 relative">
+              {/* Acá había un chip cuadrado con icon-512.png, que trae el navy
+                  del hotel quemado en el fondo: sobre la banda, que ahora es
+                  exactamente ese mismo navy, el chip desaparecía y quedaba un
+                  anillo flotando alrededor de nada.
+
+                  Va el isotipo solo y no logo.png entero: ese trae debajo
+                  "MEDITERRANEO / HOTEL" en texto blanco, y el nombre del hotel
+                  ya está al lado en el h1, que además sale de hotelSettings y
+                  sirve para cualquier hotel. Los arcos dorados sobre el navy
+                  son la combinación de marca, sin recuadro que la encierre. */}
+              <img
+                src="/hotel-symbol.png"
+                alt=""
+                aria-hidden
+                className="h-9 w-auto shrink-0"
+              />
               <div>
-                <p className="text-xs text-muted-foreground font-medium">{greeting}</p>
-                <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                <p className="text-xs text-amber-200/60 font-medium">{greeting}</p>
+                <h1 className="text-xl font-extrabold text-white tracking-tight">
                   {hotelSettings?.hotelName || 'Hotel'}
                 </h1>
               </div>
-              <span className="text-xs text-muted-foreground/70 ml-2 hidden sm:block capitalize">
+              <span className="text-xs text-white/45 ml-2 hidden sm:block capitalize">
                 {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
               </span>
             </div>
 
             {/* Quick actions inline */}
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap relative">
               {canDoActions && (
                 <>
                   <Button size="sm" className="rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold shadow-sm" onClick={() => setOpenDialog('booking')}>
                     <CalendarPlus className="w-4 h-4 mr-1.5" /> Reserva
                   </Button>
-                  <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setOpenDialog('guest')}>
+                  <Button size="sm" variant="outline" className={QUICK_ACTION_CLASS} onClick={() => setOpenDialog('guest')}>
                     <UserPlus className="w-4 h-4 mr-1.5" /> Huésped
                   </Button>
-                  <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setOpenDialog('payment')}>
+                  <Button size="sm" variant="outline" className={QUICK_ACTION_CLASS} onClick={() => setOpenDialog('payment')}>
                     <CreditCard className="w-4 h-4 mr-1.5" /> Pago
                   </Button>
-                  <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setOpenDialog('expense')}>
+                  <Button size="sm" variant="outline" className={QUICK_ACTION_CLASS} onClick={() => setOpenDialog('expense')}>
                     <Receipt className="w-4 h-4 mr-1.5" /> Gasto
                   </Button>
                 </>
               )}
               {canHousekeeping && (
-                <Button size="sm" variant="outline" className="rounded-xl" onClick={() => navigate('/housekeeping')}>
+                <Button size="sm" variant="outline" className={QUICK_ACTION_CLASS} onClick={() => navigate('/housekeeping')}>
                   <Sparkles className="w-4 h-4 mr-1.5" /> Limpieza
                 </Button>
               )}

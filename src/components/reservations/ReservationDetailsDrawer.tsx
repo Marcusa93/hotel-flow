@@ -163,7 +163,7 @@ export function ReservationDetailsDrawer({
                                 <div className="relative z-10 flex justify-between items-end">
                                     <div>
                                         <p className="text-slate-400 text-xs uppercase font-medium mb-1">Total a Pagar</p>
-                                        <p className="text-3xl font-bold tracking-tight">${booking.totalAmount.toLocaleString()}</p>
+                                        <p className="num-display text-3xl font-bold">${booking.totalAmount.toLocaleString()}</p>
                                     </div>
                                     <div className="text-right">
                                         <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white border-0 mb-2">

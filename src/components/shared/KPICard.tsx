@@ -91,7 +91,7 @@ export function KPICard({
           <h3 className="text-sm font-medium text-muted-foreground tracking-wide">
             {title}
           </h3>
-          <div className="text-3xl font-bold tracking-tight text-foreground">
+          <div className="num-display text-3xl font-bold text-foreground">
             {value}
           </div>
           {subtitle && (

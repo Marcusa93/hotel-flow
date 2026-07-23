@@ -377,7 +377,7 @@ export default function BookingDetail() {
               <div className="flex justify-between items-end mb-4">
                 <div className="bg-background/80 backdrop-blur-md p-4 rounded-xl border shadow-sm">
                   <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Habitación</p>
-                  <p className="text-3xl font-bold text-primary">{booking.room.roomNumber}</p>
+                  <p className="num-display text-3xl font-bold text-primary">{booking.room.roomNumber}</p>
                 </div>
                 <Badge variant="outline" className="mb-4 bg-background/50 h-8 px-3">
                   {booking.roomType.maxGuests} personas
@@ -489,7 +489,7 @@ export default function BookingDetail() {
                 <CreditCard className="w-4 h-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold mb-1">${totalAccount.toLocaleString('es-AR')}</div>
+                <div className="num-display text-3xl font-bold mb-1">${totalAccount.toLocaleString('es-AR')}</div>
                 <div className="flex items-center gap-2 text-sm mb-4">
                   <Badge variant={pendingAmount <= 0 ? "default" : "destructive"} className="rounded-full">
                     {pendingAmount <= 0 ? 'Pagado' : 'Pendiente'}

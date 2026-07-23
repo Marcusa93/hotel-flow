@@ -32,6 +32,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn, escapeHtml, formatLastNameFirst, getInitials } from '@/lib/utils';
 import { buildAccountsByBooking } from '@/lib/bookingAccount';
 import { useAllBookingCharges } from '@/hooks/useAllBookingCharges';
+import { PRINT_FONT_LINK, PRINT_FONT_CSS } from '@/lib/printStyles';
 
 const STATUS_LABELS: Record<string, string> = {
     PENDING: 'Pendiente',
@@ -220,8 +221,10 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
             <html>
             <head>
                 <title>Ficha de Huésped - ${h(guest.fullName)}</title>
+                ${PRINT_FONT_LINK}
                 <style>
-                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #1e293b; }
+                    ${PRINT_FONT_CSS}
+                    body { padding: 40px; color: #1e293b; }
                     .header { display: flex; align-items: center; gap: 20px; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; }
                     .logo { font-size: 24px; font-weight: 700; color: #4f46e5; }
                     .logo-sub { font-size: 12px; color: #64748b; }

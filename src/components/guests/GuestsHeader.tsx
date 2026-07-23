@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from '@/hooks/use-toast';
 import { escapeHtml, cn } from '@/lib/utils';
+import { PRINT_FONT_LINK, PRINT_FONT_CSS } from '@/lib/printStyles';
 
 interface GuestsHeaderProps {
     guestCount: number;
@@ -70,8 +71,10 @@ export function GuestsHeader({ guestCount, guests, hotelName, onNewGuest, hosted
             <html>
             <head>
                 <title>Listado de Huéspedes - ${h(hotelName)}</title>
+                ${PRINT_FONT_LINK}
                 <style>
-                    body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 30px; color: #1e293b; }
+                    ${PRINT_FONT_CSS}
+                    body { padding: 30px; color: #1e293b; }
                     .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #4f46e5; }
                     .logo { font-size: 28px; font-weight: 700; color: #4f46e5; }
                     .logo-sub { font-size: 14px; color: #64748b; margin-top: 4px; }

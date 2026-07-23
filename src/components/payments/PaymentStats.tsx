@@ -39,7 +39,7 @@ export function PaymentStats({
                         <TrendingUp className="w-4 h-4" />
                         <span>Ingresos Totales</span>
                     </div>
-                    <p className="text-3xl font-extrabold tracking-tight text-emerald-900 dark:text-emerald-100">
+                    <p className="num-display text-3xl font-extrabold text-emerald-900 dark:text-emerald-100">
                         ${totalPaid.toLocaleString('es-AR')}
                     </p>
                     <p className="text-sm text-emerald-600/60 dark:text-emerald-400/60 mt-1">
@@ -59,7 +59,7 @@ export function PaymentStats({
                         <Clock className="w-4 h-4" />
                         <span>Pendiente de Cobro</span>
                     </div>
-                    <p className="text-3xl font-extrabold tracking-tight text-amber-900 dark:text-amber-100">
+                    <p className="num-display text-3xl font-extrabold text-amber-900 dark:text-amber-100">
                         ${outstanding.toLocaleString('es-AR')}
                     </p>
                     <p className="text-sm text-amber-600/60 dark:text-amber-400/60 mt-1">
@@ -87,7 +87,7 @@ export function PaymentStats({
                     <div className="flex items-center justify-between mb-4">
                         <div>
                             <p className="text-sm font-medium text-muted-foreground">Tasa de Éxito</p>
-                            <p className="text-2xl font-bold mt-1">
+                            <p className="num-display text-2xl font-bold mt-1">
                                 {successRate !== null ? `${successRate.toFixed(1)}%` : '—'}
                             </p>
                         </div>

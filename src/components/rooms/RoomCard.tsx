@@ -76,7 +76,7 @@ export function RoomCard({ room, guest, roomTypeName, onClick, onQuickAction, ne
                             <span className="text-xs bg-white/70 dark:bg-slate-800 text-slate-500 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                                 {roomTypeName}
                             </span>
-                            <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">
+                            <h3 className="num-display text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">
                                 {room.roomNumber}
                             </h3>
                         </div>

@@ -232,9 +232,26 @@
     opacity: 0.85;
   }
 
-  /* Tabular display numerals for money/KPIs */
+  /**
+   * La cifra protagonista de una tarjeta: plata y métricas hero.
+   *
+   * Fraunces es lo que hace que la app se lea como un hotel y no como un panel
+   * de control genérico, pero entraba casi solo por los h1/h2 —o sea, títulos
+   * de página— mientras que los números, que es lo que el recepcionista mira
+   * todo el día, salían en la sans junto con el resto de la interfaz.
+   *
+   * La regla es una cifra por tarjeta y de text-2xl para arriba. Aplicada a los
+   * montos chicos que viven dentro de una fila o un badge, la serif compite con
+   * el texto que la rodea y ensucia la lectura en vez de jerarquizarla.
+   *
+   * Para volver atrás de todo esto de una: cambiar el font-family de acá a la
+   * sans y el reparto queda deshecho sin tocar ninguna pantalla.
+   */
   .num-display {
     font-family: 'Fraunces', Georgia, serif;
+    /* Sin esto la variable usa la óptica del cuerpo de texto: a 30px o más los
+       trazos quedan gruesos y el contraste se pierde. */
+    font-optical-sizing: auto;
     font-feature-settings: "tnum" 1;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.02em;

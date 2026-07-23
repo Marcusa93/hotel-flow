@@ -17,6 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn, escapeHtml } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useAppRole } from '@/context/AppRoleContext';
+import { PRINT_FONT_LINK, PRINT_FONT_CSS } from '@/lib/printStyles';
 
 interface InvoicePreviewProps {
     open: boolean;
@@ -95,9 +96,11 @@ export function InvoicePreview({
       <html>
       <head>
         <title>Factura ${invoice.invoiceNumber}</title>
+        ${PRINT_FONT_LINK}
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; padding: 40px; color: #1e293b; }
+          ${PRINT_FONT_CSS}
+          body { padding: 40px; color: #1e293b; }
           
           .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
           .logo { font-size: 24px; font-weight: 700; color: #003366; }

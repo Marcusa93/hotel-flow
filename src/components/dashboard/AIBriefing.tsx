@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sparkles, LogOut, AlertTriangle, BedDouble, Users, CreditCard, Star, ClipboardList, Car } from 'lucide-react';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
+import { useAllBookingCharges } from '@/hooks/useAllBookingCharges';
+import { buildOutstandingTotals } from '@/lib/bookingAccount';
 import { Booking, Room, Guest, Payment } from '@/types/hotel';
 import { isToday, isTomorrow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -31,6 +33,7 @@ interface BriefingItem {
 export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProps) {
     const navigate = useNavigate();
     const { data: hotelSettings } = useHotelSettings();
+    const { data: charges = [] } = useAllBookingCharges();
     const parkingSpots = hotelSettings?.parkingSpots ?? 0;
 
     const items = useMemo(() => {
@@ -76,14 +79,20 @@ export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProp
             route: '/rooms',
         });
 
-        // 3. Pagos pendientes
-        const pendingPayments = payments.filter(p => p.status === 'PENDING');
-        const pendingTotal = pendingPayments.reduce((s, p) => s + p.amount, 0);
-        if (pendingTotal > 0) {
+        // 3. Lo que falta cobrar. Antes sumaba los pagos en estado PENDING, que
+        // es otra cosa —lo cargado sin marcar cobrado— y daba casi siempre $0.
+        const { outstanding, outstandingCount, departedDebt } = buildOutstandingTotals({
+            bookings,
+            payments,
+            charges,
+        });
+        if (outstanding > 0) {
             result.push({
                 icon: CreditCard,
-                title: `$${pendingTotal.toLocaleString('es-AR')} por cobrar`,
-                detail: `${pendingPayments.length} pago${pendingPayments.length > 1 ? 's' : ''} pendiente${pendingPayments.length > 1 ? 's' : ''}`,
+                title: `$${outstanding.toLocaleString('es-AR')} por cobrar`,
+                detail: departedDebt > 0
+                    ? `${outstandingCount} reserva${outstandingCount > 1 ? 's' : ''} · $${departedDebt.toLocaleString('es-AR')} de huéspedes que ya salieron`
+                    : `${outstandingCount} reserva${outstandingCount > 1 ? 's' : ''} con saldo`,
                 color: 'text-orange-500',
                 priority: 3,
                 route: '/payments',
@@ -147,7 +156,7 @@ export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProp
         }
 
         return result.sort((a, b) => a.priority - b.priority).slice(0, 5);
-    }, [bookings, rooms, guests, payments, parkingSpots]);
+    }, [bookings, rooms, guests, payments, charges, parkingSpots]);
 
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';

@@ -5,6 +5,8 @@ import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
+import { useAllBookingCharges } from '@/hooks/useAllBookingCharges';
+import { buildOutstandingTotals } from '@/lib/bookingAccount';
 import { useAppRole } from '@/context/AppRoleContext';
 import { PageHeader, EmptyState, TableSkeleton } from '@/components/shared';
 import { Button } from '@/components/ui/button';
@@ -32,6 +34,7 @@ export default function Payments() {
   const { bookings } = useBookingOperations();
   const { guests } = useGuestOperations();
   const { rooms } = useRoomOperations();
+  const { data: charges = [] } = useAllBookingCharges();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'ALL'>('ALL');
@@ -137,7 +140,13 @@ export default function Payments() {
       return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
     })
     .reduce((sum, p) => sum + p.amount, 0);
-  const totalPending = payments.filter(p => p.status === 'PENDING').reduce((sum, p) => sum + p.amount, 0);
+  // Lo que falta cobrar sale de las reservas, no de los pagos en estado
+  // PENDING: ver buildOutstandingTotals.
+  const { outstanding, outstandingCount, departedDebt, upcoming } = useMemo(
+    () => buildOutstandingTotals({ bookings, payments, charges }),
+    [bookings, payments, charges]
+  );
+
   const totalFailed = payments.filter(p => p.status === 'FAILED').length;
   const settledCount = payments.filter(p => p.status === 'PAID' || p.status === 'FAILED').length;
   const successRate = settledCount > 0
@@ -182,7 +191,10 @@ export default function Payments() {
           <PaymentStats
             totalPaid={totalPaid}
             totalPaidMonth={totalPaidMonth}
-            totalPending={totalPending}
+            outstanding={outstanding}
+            outstandingCount={outstandingCount}
+            departedDebt={departedDebt}
+            upcoming={upcoming}
             totalFailed={totalFailed}
             successRate={successRate}
           />

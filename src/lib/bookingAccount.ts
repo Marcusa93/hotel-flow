@@ -186,3 +186,67 @@ export const buildAccountsByBooking = ({
         ])
     );
 };
+
+export interface OutstandingTotals {
+    /** Lo que falta cobrar de estadías ya devengadas: alojados o ya salidos */
+    outstanding: number;
+    /** Cuántas reservas componen ese saldo */
+    outstandingCount: number;
+    /** Cuánto de ese saldo quedó en huéspedes que ya se fueron */
+    departedDebt: number;
+    /** Saldo de reservas que todavía no empezaron. Expectativa, no deuda. */
+    upcoming: number;
+}
+
+interface BuildOutstandingParams {
+    bookings: (Pick<Booking, 'id' | 'totalAmount'> & { status: Booking['status'] | string })[];
+    payments: (SettleablePayment & { bookingId?: string })[];
+    charges?: (Pick<BookingCharge, 'amount' | 'quantity'> & { bookingId: string })[];
+}
+
+/**
+ * Cuánta plata falta cobrar, mirando las reservas y no los pagos.
+ *
+ * Las pantallas que mostraban esto sumaban los pagos en estado PENDING, que no
+ * es lo que se debe sino lo que alguien cargó sin marcar como cobrado. Como
+ * recepción registra el pago recién cuando cobra, casi nunca hay ninguno: el
+ * número daba $0 con huéspedes debiendo la estadía y los consumos.
+ *
+ * Lo devengado va separado de lo futuro a propósito. Una reserva de diciembre
+ * sin seña debe su total entero; sumada acá, el número lo terminan dominando
+ * reservas que ni empezaron. Deuda es la del que está en la habitación o ya se
+ * fue.
+ *
+ * Un pago en PENDING no achica el saldo —la cuenta solo suma los PAID—, así que
+ * ya está adentro de estos totales sin contarse dos veces.
+ */
+export const buildOutstandingTotals = ({
+    bookings,
+    payments,
+    charges = [],
+}: BuildOutstandingParams): OutstandingTotals => {
+    const accounts = buildAccountsByBooking({ bookings, payments, charges });
+    const totals: OutstandingTotals = {
+        outstanding: 0,
+        outstandingCount: 0,
+        departedDebt: 0,
+        upcoming: 0,
+    };
+
+    for (const booking of bookings) {
+        if (booking.status === 'CANCELLED' || booking.status === 'NO_SHOW') continue;
+
+        const balance = accounts.get(booking.id)?.balance ?? 0;
+        if (balance <= 0) continue;
+
+        if (booking.status === 'CHECKED_IN' || booking.status === 'CHECKED_OUT') {
+            totals.outstanding += balance;
+            totals.outstandingCount += 1;
+            if (booking.status === 'CHECKED_OUT') totals.departedDebt += balance;
+        } else {
+            totals.upcoming += balance;
+        }
+    }
+
+    return totals;
+};

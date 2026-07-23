@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     buildBookingAccount,
     buildAccountsByBooking,
+    buildOutstandingTotals,
     paymentState,
     paymentStateLabel,
 } from '@/lib/bookingAccount';
@@ -223,5 +224,87 @@ describe('buildAccountsByBooking', () => {
 
         expect(accounts.get('b1')?.total).toBe(100_000);
         expect(accounts.get('b1')?.balance).toBe(100_000);
+    });
+});
+
+describe('buildOutstandingTotals', () => {
+    it('cuenta los consumos impagos del que está alojado', () => {
+        // El caso que daba $0 en Finanzas: habitación cobrada, extras no.
+        const totals = buildOutstandingTotals({
+            bookings: [{ id: 'b1', totalAmount: 240_000, status: 'CHECKED_IN' }],
+            payments: [payment({ bookingId: 'b1', amount: 240_000 })],
+            charges: [{ bookingId: 'b1', amount: 80_000, quantity: 2 }],
+        });
+
+        expect(totals.outstanding).toBe(160_000);
+        expect(totals.outstandingCount).toBe(1);
+    });
+
+    it('separa la deuda del que ya se fue', () => {
+        const totals = buildOutstandingTotals({
+            bookings: [
+                { id: 'adentro', totalAmount: 100_000, status: 'CHECKED_IN' },
+                { id: 'salido', totalAmount: 50_000, status: 'CHECKED_OUT' },
+            ],
+            payments: [],
+        });
+
+        expect(totals.outstanding).toBe(150_000);
+        expect(totals.outstandingCount).toBe(2);
+        expect(totals.departedDebt).toBe(50_000);
+    });
+
+    it('deja las reservas futuras afuera del total', () => {
+        // Una reserva de diciembre sin seña debe todo. Sumada al principal, el
+        // número lo dominarían estadías que ni empezaron.
+        const totals = buildOutstandingTotals({
+            bookings: [
+                { id: 'adentro', totalAmount: 100_000, status: 'CHECKED_IN' },
+                { id: 'diciembre', totalAmount: 900_000, status: 'CONFIRMED' },
+                { id: 'a-confirmar', totalAmount: 300_000, status: 'PENDING' },
+            ],
+            payments: [],
+        });
+
+        expect(totals.outstanding).toBe(100_000);
+        expect(totals.outstandingCount).toBe(1);
+        expect(totals.upcoming).toBe(1_200_000);
+    });
+
+    it('no espera cobrar lo cancelado ni el no-show', () => {
+        const totals = buildOutstandingTotals({
+            bookings: [
+                { id: 'cancelada', totalAmount: 100_000, status: 'CANCELLED' },
+                { id: 'no-vino', totalAmount: 80_000, status: 'NO_SHOW' },
+            ],
+            payments: [],
+        });
+
+        expect(totals.outstanding).toBe(0);
+        expect(totals.upcoming).toBe(0);
+    });
+
+    it('un pago sin cobrar no achica la deuda y no se cuenta dos veces', () => {
+        // Se cargó el pago pero quedó en PENDING: la plata todavía no entró, así
+        // que los $100.000 tienen que seguir figurando una sola vez.
+        const totals = buildOutstandingTotals({
+            bookings: [{ id: 'b1', totalAmount: 100_000, status: 'CHECKED_IN' }],
+            payments: [payment({ bookingId: 'b1', amount: 100_000, status: 'PENDING' })],
+        });
+
+        expect(totals.outstanding).toBe(100_000);
+    });
+
+    it('una reserva cobrada de más no tapa la deuda de otra', () => {
+        const totals = buildOutstandingTotals({
+            bookings: [
+                { id: 'de-mas', totalAmount: 100_000, status: 'CHECKED_OUT' },
+                { id: 'debe', totalAmount: 100_000, status: 'CHECKED_IN' },
+            ],
+            payments: [payment({ bookingId: 'de-mas', amount: 150_000 })],
+        });
+
+        expect(totals.outstanding).toBe(100_000);
+        expect(totals.outstandingCount).toBe(1);
     });
 });

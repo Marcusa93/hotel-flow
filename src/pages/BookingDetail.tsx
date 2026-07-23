@@ -18,7 +18,8 @@ import {
   Clock,
   ShieldCheck,
   Car,
-  Pencil
+  Pencil,
+  CalendarPlus
 } from 'lucide-react';
 import { PAYMENT_METHOD_LABELS } from '@/lib/constants';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
@@ -50,6 +51,7 @@ import {
 import { RegisterPaymentDialog } from '@/components/payments/RegisterPaymentDialog';
 import { CheckoutDialog } from '@/components/bookings/CheckoutDialog';
 import { EditBookingDialog } from '@/components/bookings/EditBookingDialog';
+import { ExtendStayDialog } from '@/components/bookings/ExtendStayDialog';
 import { BookingChargesSection } from '@/components/bookings/BookingChargesSection';
 import { BookingQRCode } from '@/components/bookings/BookingQRCode';
 import { useBookingCharges } from '@/hooks/useBookingCharges';
@@ -69,6 +71,7 @@ export default function BookingDetail() {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isExtendDialogOpen, setIsExtendDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const { data: bookingCharges = [] } = useBookingCharges(id);
   const { data: hotelSettings } = useHotelSettings();
@@ -206,9 +209,16 @@ export default function BookingDetail() {
             </AlertDialog>
           )}
           {booking.status === 'CHECKED_IN' && (
-            <Button onClick={() => setIsCheckoutDialogOpen(true)} className="bg-slate-800 hover:bg-slate-900 shadow-lg">
-              <LogOut className="w-4 h-4 mr-2" /> Check-out
-            </Button>
+            <>
+              <Button onClick={() => setIsCheckoutDialogOpen(true)} className="bg-slate-800 hover:bg-slate-900 shadow-lg">
+                <LogOut className="w-4 h-4 mr-2" /> Check-out
+              </Button>
+              {/* Editar está apagado una vez adentro; sin esto, el huésped que
+                  pide una noche más no tiene dónde cargarse. */}
+              <Button variant="outline" onClick={() => setIsExtendDialogOpen(true)} className="rounded-full">
+                <CalendarPlus className="w-4 h-4 mr-2" /> Extender estadía
+              </Button>
+            </>
           )}
 
           {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
@@ -669,6 +679,12 @@ export default function BookingDetail() {
       <EditBookingDialog
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
+        booking={booking}
+      />
+
+      <ExtendStayDialog
+        open={isExtendDialogOpen}
+        onOpenChange={setIsExtendDialogOpen}
         booking={booking}
       />
     </div>

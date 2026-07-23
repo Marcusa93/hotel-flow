@@ -19,8 +19,10 @@ export const useDeleteBookingCharge = () => {
 
             if (error) throw error;
         },
-        onSuccess: (_data, { chargeId, bookingId }) => {
-            queryClient.invalidateQueries({ queryKey: ['bookingCharges', bookingId] });
+        onSuccess: (_data, { chargeId }) => {
+            // Por prefijo: refresca el detalle y también las listas que arman el
+            // estado de pago con todos los cargos.
+            queryClient.invalidateQueries({ queryKey: ['bookingCharges'] });
             logAuditEvent({
                 entityType: 'booking_charge',
                 entityId: chargeId,

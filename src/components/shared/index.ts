@@ -1,4 +1,5 @@
 export { StatusBadge } from './StatusBadge';
+export { PaymentStateBadge } from './PaymentStateBadge';
 export { KPICard } from './KPICard';
 export { EmptyState } from './EmptyState';
 export { LoadingState, KPICardSkeleton, TableSkeleton, ListSkeleton, ChartSkeleton, PageSkeleton } from './LoadingState';

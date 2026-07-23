@@ -1,12 +1,13 @@
 
 import React from 'react';
 import { Draggable } from '@hello-pangea/dnd';
-import { Booking, Guest, Room, RoomType, Payment } from '@/types/hotel';
+import { Booking, Guest, Room, RoomType } from '@/types/hotel';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Calendar, BedDouble, Moon, CreditCard, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
+import { Calendar, BedDouble, Moon, CreditCard } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
+import type { BookingAccount } from '@/lib/bookingAccount';
+import { PaymentStateBadge } from '@/components/shared';
 import { motion } from 'framer-motion';
 
 interface ReservationCardProps {
@@ -14,32 +15,14 @@ interface ReservationCardProps {
     guest?: Guest;
     room?: Room;
     roomType?: RoomType;
-    totalPaid?: number;
+    /** Cuenta completa —alojamiento más consumos— armada una sola vez en el tablero */
+    account: BookingAccount;
     index: number;
     onClick: () => void;
 }
 
-export const ReservationCard = React.memo(function ReservationCard({ booking, guest, room, roomType, totalPaid = 0, index, onClick }: ReservationCardProps) {
+export const ReservationCard = React.memo(function ReservationCard({ booking, guest, room, roomType, account, index, onClick }: ReservationCardProps) {
     const nights = differenceInDays(new Date(booking.checkOutDate), new Date(booking.checkInDate));
-    const balance = booking.totalAmount - totalPaid;
-    const paymentRatio = booking.totalAmount > 0 ? totalPaid / booking.totalAmount : 0;
-
-    // Payment status
-    let paymentStatus: 'paid' | 'partial' | 'unpaid' = 'unpaid';
-    if (paymentRatio >= 1) paymentStatus = 'paid';
-    else if (paymentRatio > 0) paymentStatus = 'partial';
-
-    const PaymentIcon = paymentStatus === 'paid' ? CheckCircle : paymentStatus === 'partial' ? AlertCircle : XCircle;
-    const paymentColors = {
-        paid: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30',
-        partial: 'text-amber-600 bg-amber-50 dark:bg-amber-950/30',
-        unpaid: 'text-red-500 bg-red-50 dark:bg-red-950/30',
-    };
-    const paymentLabel = {
-        paid: 'Pagado',
-        partial: `Debe $${balance.toLocaleString()}`,
-        unpaid: 'Sin pagar',
-    };
 
     return (
         <Draggable draggableId={booking.id} index={index}>
@@ -103,14 +86,13 @@ export const ReservationCard = React.memo(function ReservationCard({ booking, gu
 
                         {/* Footer: Amount + Payment indicator */}
                         <div className="flex items-center justify-between">
+                            {/* El total de la cuenta, no el de la reserva: con consumos
+                                cargados, booking.totalAmount ya no es lo que hay que cobrar. */}
                             <div className="flex items-center gap-1.5 text-sm font-bold text-slate-800 dark:text-slate-200">
                                 <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
-                                ${booking.totalAmount.toLocaleString()}
+                                ${account.total.toLocaleString('es-AR')}
                             </div>
-                            <Badge variant="secondary" className={cn('text-[10px] font-semibold gap-1 h-5 px-2', paymentColors[paymentStatus])}>
-                                <PaymentIcon className="w-3 h-3" />
-                                {paymentLabel[paymentStatus]}
-                            </Badge>
+                            <PaymentStateBadge account={account} className="h-5" />
                         </div>
                     </motion.div>
                 </div>

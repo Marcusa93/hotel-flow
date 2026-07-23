@@ -103,5 +103,18 @@ export const CHARGE_CATEGORIES = [
   { value: 'SPA', label: 'Spa', icon: '💆' },
   { value: 'TELEFONO', label: 'Teléfono', icon: '📞' },
   { value: 'DANO', label: 'Daño / Rotura', icon: '⚠️' },
+  { value: 'ALOJAMIENTO', label: 'Alojamiento', icon: '🛏️' },
   { value: 'OTRO', label: 'Otro', icon: '📋' },
 ] as const;
+
+/**
+ * Las categorías que la recepción puede elegir a mano en "Nuevo cargo".
+ *
+ * ALOJAMIENTO queda afuera a propósito: lo emite "Extender estadía", que además
+ * corre la fecha de salida de la reserva. Cargado suelto cobraría las noches
+ * pero dejaría la habitación figurando libre desde la salida original, que es
+ * exactamente cómo se sobrevende una habitación ocupada.
+ */
+export const MANUAL_CHARGE_CATEGORIES = CHARGE_CATEGORIES.filter(
+  c => c.value !== 'ALOJAMIENTO'
+);

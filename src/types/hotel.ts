@@ -14,7 +14,9 @@ export type AuditEntityType = 'booking' | 'guest' | 'room' | 'payment' | 'invoic
 
 export type ChargeCategory =
   | 'MINIBAR' | 'LAVANDERIA' | 'ESTACIONAMIENTO' | 'ROOM_SERVICE'
-  | 'RESTAURANT' | 'SPA' | 'TELEFONO' | 'DANO' | 'OTRO';
+  | 'RESTAURANT' | 'SPA' | 'TELEFONO' | 'DANO' | 'OTRO'
+  /** Noches agregadas a una reserva ya iniciada. La emite "Extender estadía". */
+  | 'ALOJAMIENTO';
 
 export interface BookingCharge {
   id: string;

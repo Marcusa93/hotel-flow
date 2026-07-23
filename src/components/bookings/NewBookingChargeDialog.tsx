@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Receipt, DollarSign, Hash, FileText } from 'lucide-react';
 import { useCreateBookingCharge } from '@/hooks/useCreateBookingCharge';
-import { CHARGE_CATEGORIES } from '@/lib/constants';
+import { MANUAL_CHARGE_CATEGORIES } from '@/lib/constants';
 import type { ChargeCategory } from '@/types/hotel';
 import {
     Dialog,
@@ -143,7 +143,7 @@ export function NewBookingChargeDialog({ open, onOpenChange, bookingId }: NewBoo
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {CHARGE_CATEGORIES.map(cat => (
+                                                    {MANUAL_CHARGE_CATEGORIES.map(cat => (
                                                         <SelectItem key={cat.value} value={cat.value}>
                                                             {cat.icon} {cat.label}
                                                         </SelectItem>

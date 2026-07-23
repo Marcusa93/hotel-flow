@@ -13,7 +13,8 @@ import { isToday, isTomorrow, startOfDay, isAfter, isBefore, setHours, setMinute
 import { QuickCheckInDialog } from '@/components/bookings/QuickCheckInDialog';
 import { CheckoutDialog } from '@/components/bookings/CheckoutDialog';
 import type { BookingWithDetails } from '@/types/hotel';
-import { settledAmount } from '@/lib/bookingAccount';
+import { buildAccountsByBooking } from '@/lib/bookingAccount';
+import { useAllBookingCharges } from '@/hooks/useAllBookingCharges';
 
 const VISIBLE_ROWS = 3;
 
@@ -58,6 +59,7 @@ export function TodayMovementsPanel() {
     const { guests } = useGuestOperations();
     const { rooms, roomTypes } = useRoomOperations();
     const { payments } = usePaymentOperations();
+    const { data: charges = [] } = useAllBookingCharges();
     const { data: hotelSettings } = useHotelSettings();
     const navigate = useNavigate();
 
@@ -65,6 +67,11 @@ export function TodayMovementsPanel() {
     const [checkoutBooking, setCheckoutBooking] = useState<BookingWithDetails | null>(null);
 
     const checkOutTime = hotelSettings?.checkOutTime;
+
+    const accounts = useMemo(
+        () => buildAccountsByBooking({ bookings, payments, charges }),
+        [bookings, payments, charges]
+    );
 
     const movements = useMemo(() => {
         const today = startOfDay(new Date());
@@ -76,10 +83,11 @@ export function TodayMovementsPanel() {
             const room = rooms.find(r => r.id === booking.roomId);
             const checkInDate = new Date(booking.checkInDate);
             const checkOutDate = new Date(booking.checkOutDate);
-            // settledAmount filtra por estado PAID y suma el descuento. Antes
-            // sumaba cualquier pago —incluso pendientes o fallidos— e ignoraba
-            // los cupones.
-            const amountPaid = settledAmount(payments.filter(p => p.bookingId === booking.id));
+            // La cuenta filtra por estado PAID, suma el descuento y suma los
+            // consumos. Sin los consumos, el que se va hoy con minibar sin pagar
+            // aparecía al día en el panel que existe para avisar lo contrario.
+            const account = accounts.get(booking.id);
+            const amountPaid = (account?.paid || 0) + (account?.discount || 0);
 
             const base = {
                 bookingId: booking.id,
@@ -90,7 +98,7 @@ export function TodayMovementsPanel() {
                 licensePlate: booking.licensePlate,
                 checkInDate,
                 checkOutDate,
-                totalAmount: booking.totalAmount,
+                totalAmount: account?.total ?? booking.totalAmount,
                 amountPaid,
                 adults: booking.adults,
                 children: booking.children,
@@ -133,7 +141,7 @@ export function TodayMovementsPanel() {
             if (a.kind !== b.kind) return a.kind === 'OUT' ? -1 : 1;
             return a.roomNumber.localeCompare(b.roomNumber);
         });
-    }, [bookings, guests, rooms, payments, checkOutTime]);
+    }, [bookings, guests, rooms, accounts, checkOutTime]);
 
     const visible = movements.slice(0, VISIBLE_ROWS);
     const hidden = movements.length - visible.length;

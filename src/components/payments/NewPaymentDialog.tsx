@@ -45,7 +45,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn, formatPesosInput, parsePesosInput } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { PAYMENT_METHODS } from '@/lib/constants';
-import { settledAmount } from '@/lib/bookingAccount';
+import { buildAccountsByBooking } from '@/lib/bookingAccount';
+import { useAllBookingCharges } from '@/hooks/useAllBookingCharges';
 
 const MAX_PAYMENT_AMOUNT = 100_000_000; // $100M ARS sanity cap
 
@@ -75,6 +76,7 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
     const { bookings } = useBookingOperations();
     const { guests } = useGuestOperations();
     const { rooms } = useRoomOperations();
+    const { data: charges = [] } = useAllBookingCharges();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [showConfirm, setShowConfirm] = useState(false);
@@ -114,28 +116,33 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
             .sort((a, b) => new Date(b.checkInDate).getTime() - new Date(a.checkInDate).getTime());
     }, [bookings, guests, rooms, searchTerm]);
 
-    // Calculate pending amount for selected booking (includes extra charges)
+    // El estado de cuenta de cada reserva, con los consumos incluidos. Antes acá
+    // decía que los cargos "necesitarían otra consulta" y se usaba solo
+    // booking.totalAmount: el formulario proponía cobrar el alojamiento y dejaba
+    // afuera el minibar y las noches agregadas después.
+    const accounts = useMemo(
+        () => buildAccountsByBooking({ bookings, payments, charges }),
+        [bookings, payments, charges]
+    );
+
     const { pendingAmount, totalAccount, totalPaid } = useMemo(() => {
-        if (!selectedBookingId) return { pendingAmount: 0, totalAccount: 0, totalPaid: 0 };
-        const booking = bookings.find(b => b.id === selectedBookingId);
-        if (!booking) return { pendingAmount: 0, totalAccount: 0, totalPaid: 0 };
-        const paid = payments
-            .filter(p => p.bookingId === selectedBookingId && p.status === 'PAID')
-            .reduce((sum, p) => sum + p.amount, 0);
-        // Note: charges would need a separate query — for now use booking.totalAmount
-        const account = booking.totalAmount;
-        return { pendingAmount: Math.max(0, account - paid), totalAccount: account, totalPaid: paid };
-    }, [selectedBookingId, bookings, payments]);
+        const account = selectedBookingId ? accounts.get(selectedBookingId) : undefined;
+        if (!account) return { pendingAmount: 0, totalAccount: 0, totalPaid: 0 };
+        return {
+            pendingAmount: Math.max(0, account.balance),
+            totalAccount: account.total,
+            totalPaid: account.paid,
+        };
+    }, [selectedBookingId, accounts]);
 
     // Auto-fill amount when booking is selected
     const handleBookingSelect = (bookingId: string) => {
         form.setValue('bookingId', bookingId);
-        const booking = bookings.find(b => b.id === bookingId);
-        if (booking) {
-            // settledAmount incluye el descuento: sin eso el formulario propone
-            // cobrar de nuevo lo que ya se bonificó con un cupón.
-            const paidAmount = settledAmount(payments.filter(p => p.bookingId === bookingId));
-            const pending = Math.max(0, booking.totalAmount - paidAmount);
+        const account = accounts.get(bookingId);
+        if (account) {
+            // El saldo ya contempla el descuento —si no, propone cobrar de nuevo
+            // lo bonificado con un cupón— y también los consumos.
+            const pending = Math.max(0, account.balance);
             form.setValue('amount', pending);
             setAmountText(formatPesosInput(pending));
         }
@@ -288,8 +295,7 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                                                                 activeBookings.map((booking) => {
                                                                     const guest = guests.find(g => g.id === booking.guestId);
                                                                     const room = rooms.find(r => r.id === booking.roomId);
-                                                                    const paid = settledAmount(payments.filter(p => p.bookingId === booking.id));
-                                                                    const pending = booking.totalAmount - paid;
+                                                                    const pending = accounts.get(booking.id)?.balance ?? booking.totalAmount;
 
                                                                     return (
                                                                         <button

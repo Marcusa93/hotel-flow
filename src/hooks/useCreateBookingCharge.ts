@@ -37,7 +37,11 @@ export const useCreateBookingCharge = () => {
             } as BookingCharge;
         },
         onSuccess: (charge) => {
-            queryClient.invalidateQueries({ queryKey: ['bookingCharges', charge.bookingId] });
+            // El prefijo alcanza para las dos consultas: la del detalle
+            // (['bookingCharges', id]) y la de las listas (['bookingCharges',
+            // 'all']). Invalidando solo la del detalle, el badge del tablero
+            // seguía mostrando el estado anterior al cargo.
+            queryClient.invalidateQueries({ queryKey: ['bookingCharges'] });
             logAuditEvent({
                 entityType: 'booking_charge',
                 entityId: charge.id,

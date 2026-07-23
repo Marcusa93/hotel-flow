@@ -1,7 +1,8 @@
 
 import { useMemo } from 'react';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
-import { Booking, BookingStatus, Guest, Room, RoomType, Payment } from '@/types/hotel';
+import { Booking, BookingStatus, Guest, Room, RoomType } from '@/types/hotel';
+import { buildBookingAccount, type BookingAccount } from '@/lib/bookingAccount';
 import { ReservationColumn } from './ReservationColumn';
 import { ReservationCard } from './ReservationCard';
 
@@ -10,7 +11,8 @@ interface ReservationBoardProps {
     guests: Guest[];
     rooms: Room[];
     roomTypes: RoomType[];
-    payments?: Payment[];
+    /** Estado de cuenta por reserva, armado en la página con pagos y cargos */
+    accounts: Map<string, BookingAccount>;
     onStatusChange: (id: string, newStatus: BookingStatus) => void;
     onCardClick: (bookingId: string) => void;
 }
@@ -22,7 +24,7 @@ const COLUMNS: { id: BookingStatus; title: string; color: string }[] = [
     { id: 'CHECKED_OUT', title: 'Salidas', color: 'bg-slate-400 ring-slate-400' },
 ];
 
-export function ReservationBoard({ bookings, guests, rooms, roomTypes, payments = [], onStatusChange, onCardClick }: ReservationBoardProps) {
+export function ReservationBoard({ bookings, guests, rooms, roomTypes, accounts, onStatusChange, onCardClick }: ReservationBoardProps) {
 
     const columns = useMemo(() => {
         const cols: Record<string, Booking[]> = {
@@ -33,18 +35,6 @@ export function ReservationBoard({ bookings, guests, rooms, roomTypes, payments 
         });
         return cols;
     }, [bookings]);
-
-    // Cuánto quedó saldado por reserva: cobrado + descontado. Sin el descuento,
-    // una reserva pagada con cupón muestra el badge "Sin pagar" por esa diferencia.
-    const paidByBooking = useMemo(() => {
-        const map = new Map<string, number>();
-        for (const p of payments) {
-            if (p.status === 'PAID' && p.bookingId) {
-                map.set(p.bookingId, (map.get(p.bookingId) || 0) + p.amount + (p.discountAmount || 0));
-            }
-        }
-        return map;
-    }, [payments]);
 
     const onDragEnd = (result: DropResult) => {
         const { destination, source, draggableId } = result;
@@ -85,7 +75,7 @@ export function ReservationBoard({ bookings, guests, rooms, roomTypes, payments 
                                         guest={getGuest(booking.guestId)}
                                         room={room}
                                         roomType={getRoomType(room?.roomTypeId)}
-                                        totalPaid={paidByBooking.get(booking.id) || 0}
+                                        account={accounts.get(booking.id) || buildBookingAccount({ booking })}
                                         onClick={() => onCardClick(booking.id)}
                                     />
                                 );

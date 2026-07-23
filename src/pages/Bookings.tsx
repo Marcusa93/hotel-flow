@@ -5,6 +5,9 @@ import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
+import { useAllBookingCharges } from '@/hooks/useAllBookingCharges';
+import { buildAccountsByBooking, buildBookingAccount, type BookingAccount } from '@/lib/bookingAccount';
+import { PaymentStateBadge } from '@/components/shared';
 import { BookingStatus } from '@/types/hotel';
 import { isToday, differenceInDays, format } from 'date-fns';
 import {
@@ -19,8 +22,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatLastNameFirst, getInitials } from '@/lib/utils';
 import {
-  LayoutGrid, List, CheckCircle, AlertCircle, XCircle,
-  CreditCard, Calendar, BedDouble, CalendarRange, CalendarDays,
+  LayoutGrid, List,
+  Calendar, BedDouble, CalendarRange, CalendarDays,
 } from 'lucide-react';
 import { BookingTimeline } from '@/components/bookings/BookingTimeline';
 import { QRScannerDialog } from '@/components/bookings/QRScannerDialog';
@@ -32,6 +35,7 @@ export default function Bookings() {
   const { guests } = useGuestOperations();
   const { rooms, roomTypes } = useRoomOperations();
   const { payments } = usePaymentOperations();
+  const { data: charges = [] } = useAllBookingCharges();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -61,17 +65,13 @@ export default function Bookings() {
     }
   }, [searchParams, setSearchParams]);
 
-  // Cuánto quedó saldado por reserva: cobrado + descontado. Sin el descuento,
-  // una reserva pagada con cupón se muestra como que debe justo esa diferencia.
-  const paidByBooking = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const p of payments) {
-      if (p.status === 'PAID' && p.bookingId) {
-        map.set(p.bookingId, (map.get(p.bookingId) || 0) + p.amount + (p.discountAmount || 0));
-      }
-    }
-    return map;
-  }, [payments]);
+  // El estado de cuenta de cada reserva, una sola vez para las tres vistas.
+  // Incluye los cargos: sin ellos, una reserva con la habitación paga y
+  // consumos pendientes se muestra como "Pagado" en todas.
+  const accounts = useMemo(
+    () => buildAccountsByBooking({ bookings, payments, charges }),
+    [bookings, payments, charges]
+  );
 
   // Filter Logic
   const filteredBookings = useMemo(() => {
@@ -203,7 +203,7 @@ export default function Bookings() {
                 guests={guests}
                 rooms={rooms}
                 roomTypes={roomTypes}
-                payments={payments}
+                accounts={accounts}
                 onStatusChange={handleStatusChange}
                 onCardClick={setSelectedBookingId}
               />
@@ -223,7 +223,7 @@ export default function Bookings() {
                 guests={guests}
                 rooms={rooms}
                 roomTypes={roomTypes}
-                paidByBooking={paidByBooking}
+                accounts={accounts}
                 onRowClick={(id) => navigate(`/bookings/${id}`)}
               />
             )}
@@ -235,7 +235,7 @@ export default function Bookings() {
               guests={guests}
               rooms={rooms}
               roomTypes={roomTypes}
-              paidByBooking={paidByBooking}
+              accounts={accounts}
               onCardClick={(id) => navigate(`/bookings/${id}`)}
             />
           </div>
@@ -288,13 +288,13 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 function BookingListView({
-  bookings, guests, rooms, roomTypes, paidByBooking, onRowClick,
+  bookings, guests, rooms, roomTypes, accounts, onRowClick,
 }: {
   bookings: Booking[];
   guests: Guest[];
   rooms: Room[];
   roomTypes: RoomType[];
-  paidByBooking: Map<string, number>;
+  accounts: Map<string, BookingAccount>;
   onRowClick: (id: string) => void;
 }) {
   const getGuest = (id: string) => guests.find(g => g.id === id);
@@ -321,9 +321,7 @@ function BookingListView({
             const room = getRoom(b.roomId);
             const rType = getRoomType(room?.roomTypeId);
             const nights = differenceInDays(new Date(b.checkOutDate), new Date(b.checkInDate));
-            const paid = paidByBooking.get(b.id) || 0;
-            const ratio = b.totalAmount > 0 ? paid / b.totalAmount : 0;
-            const payStatus = ratio >= 1 ? 'paid' : ratio > 0 ? 'partial' : 'unpaid';
+            const account = accounts.get(b.id) || buildBookingAccount({ booking: b });
             const status = STATUS_LABELS[b.status] || STATUS_LABELS.PENDING;
 
             return (
@@ -354,16 +352,16 @@ function BookingListView({
                   <span className="text-xs font-semibold">{nights}N</span>
                 </td>
                 <td className="p-3 text-right">
-                  <span className="font-bold">${b.totalAmount.toLocaleString()}</span>
+                  {/* El total a cobrar, con los consumos adentro */}
+                  <span className="font-bold">${account.total.toLocaleString('es-AR')}</span>
+                  {account.extras > 0 && (
+                    <span className="block text-[10px] text-muted-foreground">
+                      incl. ${account.extras.toLocaleString('es-AR')} extras
+                    </span>
+                  )}
                 </td>
                 <td className="p-3 text-center">
-                  {payStatus === 'paid' ? (
-                    <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" />
-                  ) : payStatus === 'partial' ? (
-                    <AlertCircle className="w-4 h-4 text-amber-500 mx-auto" />
-                  ) : (
-                    <XCircle className="w-4 h-4 text-red-400 mx-auto" />
-                  )}
+                  <PaymentStateBadge account={account} />
                 </td>
                 <td className="p-3 text-center">
                   <Badge className={cn('text-[10px] font-semibold', status.color)}>
@@ -390,13 +388,13 @@ function BookingListView({
 
 /* ── Mobile Booking Cards ── */
 function MobileBookingCards({
-  bookings, guests, rooms, paidByBooking, onCardClick,
+  bookings, guests, rooms, accounts, onCardClick,
 }: {
   bookings: Booking[];
   guests: Guest[];
   rooms: Room[];
   roomTypes: RoomType[];
-  paidByBooking: Map<string, number>;
+  accounts: Map<string, BookingAccount>;
   onCardClick: (id: string) => void;
 }) {
   const getGuest = (id: string) => guests.find(g => g.id === id);
@@ -418,9 +416,7 @@ function MobileBookingCards({
         const guest = getGuest(b.guestId);
         const room = getRoom(b.roomId);
         const nights = differenceInDays(new Date(b.checkOutDate), new Date(b.checkInDate));
-        const paid = paidByBooking.get(b.id) || 0;
-        const ratio = b.totalAmount > 0 ? paid / b.totalAmount : 0;
-        const payStatus = ratio >= 1 ? 'paid' : ratio > 0 ? 'partial' : 'unpaid';
+        const account = accounts.get(b.id) || buildBookingAccount({ booking: b });
         const status = STATUS_LABELS[b.status] || STATUS_LABELS.PENDING;
         const isCheckInToday = isToday(new Date(b.checkInDate));
         const isCheckOutToday = isToday(new Date(b.checkOutDate));
@@ -476,19 +472,9 @@ function MobileBookingCards({
 
             <div className="flex items-center justify-between pl-10">
               <span className="font-extrabold text-base text-slate-900 dark:text-white">
-                ${b.totalAmount.toLocaleString()}
+                ${account.total.toLocaleString('es-AR')}
               </span>
-              <span className={cn(
-                'flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg',
-                payStatus === 'paid' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
-                payStatus === 'partial' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' :
-                'bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400'
-              )}>
-                {payStatus === 'paid' ? <CheckCircle className="w-3 h-3" /> :
-                 payStatus === 'partial' ? <AlertCircle className="w-3 h-3" /> :
-                 <XCircle className="w-3 h-3" />}
-                {payStatus === 'paid' ? 'Pagado' : payStatus === 'partial' ? `Debe $${(b.totalAmount - paid).toLocaleString()}` : 'Sin pagar'}
-              </span>
+              <PaymentStateBadge account={account} className="text-xs px-2.5 py-1" />
             </div>
           </button>
         );

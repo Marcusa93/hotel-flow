@@ -5,13 +5,29 @@ interface PaymentStatsProps {
     totalPaid: number;
     /** Sum of PAID payments dated in the current month */
     totalPaidMonth?: number;
-    totalPending: number;
+    /** Saldo de las reservas ya devengadas: huéspedes alojados o que ya salieron */
+    outstanding: number;
+    /** Cuántas reservas componen ese saldo */
+    outstandingCount?: number;
+    /** Cuánto de ese saldo es de huéspedes que ya se fueron */
+    departedDebt?: number;
+    /** Saldo de reservas que todavía no empezaron. No es deuda: va aparte. */
+    upcoming?: number;
     totalFailed?: number;
     /** PAID / (PAID + FAILED) percentage; null when there are no settled payments */
     successRate?: number | null;
 }
 
-export function PaymentStats({ totalPaid, totalPaidMonth, totalPending, totalFailed = 0, successRate = null }: PaymentStatsProps) {
+export function PaymentStats({
+    totalPaid,
+    totalPaidMonth,
+    outstanding,
+    outstandingCount = 0,
+    departedDebt = 0,
+    upcoming = 0,
+    totalFailed = 0,
+    successRate = null,
+}: PaymentStatsProps) {
     return (
         <div className="grid gap-4 md:grid-cols-3">
             <Card className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border-emerald-500/20 backdrop-blur-md overflow-hidden relative">
@@ -44,11 +60,25 @@ export function PaymentStats({ totalPaid, totalPaidMonth, totalPending, totalFai
                         <span>Pendiente de Cobro</span>
                     </div>
                     <p className="text-3xl font-extrabold tracking-tight text-amber-900 dark:text-amber-100">
-                        ${totalPending.toLocaleString('es-AR')}
+                        ${outstanding.toLocaleString('es-AR')}
                     </p>
                     <p className="text-sm text-amber-600/60 dark:text-amber-400/60 mt-1">
-                        Por cobrar
+                        {outstandingCount > 0
+                            ? `${outstandingCount} reserva${outstandingCount === 1 ? '' : 's'} con saldo`
+                            : 'Todo cobrado'}
                     </p>
+                    {/* La deuda del que ya se fue no se cobra sola: se persigue.
+                        Mezclada en el total se pierde de vista. */}
+                    {departedDebt > 0 && (
+                        <p className="text-xs text-rose-600 dark:text-rose-400 mt-1.5 font-medium">
+                            ${departedDebt.toLocaleString('es-AR')} de huéspedes que ya salieron
+                        </p>
+                    )}
+                    {upcoming > 0 && (
+                        <p className="text-xs text-amber-600/50 dark:text-amber-400/50 mt-1">
+                            + ${upcoming.toLocaleString('es-AR')} en reservas por llegar
+                        </p>
+                    )}
                 </CardContent>
             </Card>
 

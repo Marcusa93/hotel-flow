@@ -30,7 +30,8 @@ import { COUNTRIES, DOCUMENT_TYPES } from '@/lib/constants';
 import { toast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn, escapeHtml, formatLastNameFirst, getInitials } from '@/lib/utils';
-import { settledAmount } from '@/lib/bookingAccount';
+import { buildAccountsByBooking } from '@/lib/bookingAccount';
+import { useAllBookingCharges } from '@/hooks/useAllBookingCharges';
 
 const STATUS_LABELS: Record<string, string> = {
     PENDING: 'Pendiente',
@@ -66,6 +67,7 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
     const { bookings } = useBookingOperations();
     const { payments } = usePaymentOperations();
     const { rooms } = useRoomOperations();
+    const { data: charges = [] } = useAllBookingCharges();
     const { data: hotelSettings } = useHotelSettings();
     const hotelName = hotelSettings?.hotelName || 'Hotel';
 
@@ -88,10 +90,23 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
         .filter(p => p.status === 'PAID')
         .reduce((sum, p) => sum + p.amount, 0);
 
-    const totalBilled = guestBookings.reduce((sum, b) => sum + b.totalAmount, 0);
-    // settledAmount suma el descuento: sin eso, un cupón le deja al huésped una
-    // deuda histórica que no existe.
-    const pendingBalance = Math.max(0, totalBilled - settledAmount(guestPayments));
+    // La cuenta de cada estadía: suma el descuento —si no, un cupón le deja al
+    // huésped una deuda histórica que no existe— y los consumos, que antes
+    // quedaban afuera del total facturado y de lo que figura debiendo.
+    const guestAccounts = useMemo(
+        () => buildAccountsByBooking({ bookings: guestBookings, payments: guestPayments, charges }),
+        [guestBookings, guestPayments, charges]
+    );
+
+    const { totalBilled, pendingBalance } = useMemo(() => {
+        let billed = 0;
+        let pending = 0;
+        for (const account of guestAccounts.values()) {
+            billed += account.total;
+            pending += Math.max(0, account.balance);
+        }
+        return { totalBilled: billed, pendingBalance: pending };
+    }, [guestAccounts]);
 
     if (!guest) return null;
 

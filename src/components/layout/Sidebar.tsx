@@ -98,8 +98,12 @@ function SidebarContent({ collapsed = false, onCollapse, isMobile = false, onNav
         collapsed ? "justify-center" : "gap-3"
       )}>
         <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white shadow-sm overflow-hidden shrink-0">
-            <img src="/logo.png" alt="Logo HM" className="w-full h-full object-cover" />
+          {/* Acá iba el logo del Hotel Mediterraneo, que es la marca del cliente,
+              al lado de la palabra HomeApp, que es la del software. La chapa
+              blanca se queda: el navy del isotipo necesita fondo claro para
+              despegarse del sidebar, que también es navy. */}
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white shadow-sm overflow-hidden shrink-0 p-1">
+            <img src="/brand-symbol.png" alt="HomeApp" className="w-full h-full object-contain" />
           </div>
           {(!collapsed || isMobile) && (
             <div className="flex flex-col animate-fade-in">

@@ -118,15 +118,24 @@ export default function Login() {
             <div className="absolute bottom-[-25%] left-[-10%] w-[480px] h-[480px] bg-sky-500/10 rounded-full blur-[120px] pointer-events-none" />
 
             <div className="brass-top w-full max-w-md bg-white/[0.04] backdrop-blur-xl border border-white/10 p-8 sm:p-10 rounded-[1.75rem] shadow-2xl relative z-10 animate-fade-in overflow-hidden bg-[radial-gradient(ellipse_at_top,_rgba(212,160,23,0.08),_transparent_60%)]">
+                {/* El lockup ya trae el nombre y la bajada "Hotel Management
+                    System", así que el título "HoMe" y el volanta "Gestión
+                    Hotelera" que había acá decían lo mismo dos veces.
+
+                    Va la variante clara: el logo original es navy sobre blanco
+                    y este panel es navy oscuro, así que la mitad del isotipo
+                    desaparecería. El dorado se mantiene sin tocar porque es lo
+                    que ata la marca con los acentos de bronce de la app. */}
                 <div className="flex flex-col items-center mb-8">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/12 to-white/[0.03] border border-white/10 ring-1 ring-amber-300/20 flex items-center justify-center mb-5 shadow-lg">
-                        <img src="/logo.png" alt="HoMe" className="w-10 h-10 object-contain" />
-                    </div>
-                    <p className="text-amber-200/60 text-[10px] tracking-[0.35em] uppercase mb-1">Gestión Hotelera</p>
-                    <h1 className="font-display text-4xl font-semibold bg-clip-text text-transparent bg-gradient-to-br from-amber-100 via-amber-300 to-amber-500 leading-none">
-                        HoMe
-                    </h1>
-                    <div className="mt-3 h-px w-16 bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
+                    <img
+                        src="/brand-lockup-light.png"
+                        alt="HomeApp — Hotel Management System"
+                        className="w-52 h-auto"
+                    />
+                    {/* La página se queda sin encabezado si el nombre solo vive
+                        dentro de una imagen. */}
+                    <h1 className="sr-only">HomeApp — Iniciar sesión</h1>
+                    <div className="mt-4 h-px w-16 bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
                 </div>
 
                 {roleIssue && (

@@ -11,6 +11,15 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="HoMe" />
     <link rel="manifest" href="/manifest.json" />
+    <!-- Hasta acá no había ningún rel="icon" ni favicon.ico, así que la pestaña
+         mostraba el ícono genérico del navegador. El .ico va primero porque
+         Windows y los lectores viejos lo siguen prefiriendo; los PNG los toman
+         los navegadores modernos según densidad. -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <!-- Este es el ícono del hotel, no el de HomeApp: es el que queda en la
+         pantalla de inicio del celular de recepción cuando instalan la app. -->
     <link rel="apple-touch-icon" href="/icon-192.png" />
 
     <meta property="og:title" content="HoMe — Hotel Management" />

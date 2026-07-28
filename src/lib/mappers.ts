@@ -63,6 +63,7 @@ export const mapBooking = (row: DbRow): Booking => ({
   estimatedArrivalTime: row.estimated_arrival_time || undefined,
   adults: row.adults,
   children: row.children,
+  infants: row.infants ?? 0,
   status: row.status,
   totalAmount: row.total_amount,
   notes: row.notes,
@@ -222,6 +223,7 @@ export const bookingToRow = (booking: Partial<Booking>): DbRow => {
   if (booking.estimatedArrivalTime !== undefined) row.estimated_arrival_time = booking.estimatedArrivalTime || null;
   if (booking.adults !== undefined) row.adults = booking.adults;
   if (booking.children !== undefined) row.children = booking.children;
+  if (booking.infants !== undefined) row.infants = booking.infants;
   if (booking.status !== undefined) row.status = booking.status;
   if (booking.totalAmount !== undefined) row.total_amount = booking.totalAmount;
   if (booking.notes !== undefined) row.notes = booking.notes;

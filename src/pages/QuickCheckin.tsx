@@ -5,8 +5,10 @@ import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import { useBookingCharges } from '@/hooks/useBookingCharges';
 import { useHousekeepingTasks } from '@/hooks/domain/useHousekeepingOperations';
+import { useCheckInOccupancy } from '@/hooks/useCheckInOccupancy';
 import { getRoomCheckInWarning, checkInConfirmLabel } from '@/lib/roomReadiness';
 import { RoomStatusWarning } from '@/components/shared';
+import { CheckInOccupancy } from '@/components/bookings/CheckInOccupancy';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
@@ -45,6 +47,8 @@ export default function QuickCheckin() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const booking = bookings.find(b => b.id === id);
+  // Antes de los early return: los hooks no pueden quedar atrás de un return.
+  const occupancy = useCheckInOccupancy(booking);
 
   if (!booking) {
     if (isLoading) {
@@ -102,6 +106,8 @@ export default function QuickCheckin() {
     if (!canCheckin) return;
     setIsProcessing(true);
     try {
+      // La ocupación real primero: es la que define el total a cobrar.
+      await occupancy.persist();
       await updateBookingStatus(booking.id, 'CHECKED_IN');
       toast({
         title: 'Check-in realizado',
@@ -218,6 +224,20 @@ export default function QuickCheckin() {
 
       {/* Warnings */}
       {canCheckin && <RoomStatusWarning warning={roomWarning} />}
+
+      {/* Cuántos entran de verdad: define lo que se cobra */}
+      {canCheckin && (
+        <CheckInOccupancy
+          value={occupancy.value}
+          onChange={occupancy.setValue}
+          pricing={occupancy.pricing}
+          maxGuests={occupancy.maxGuests}
+          nights={occupancy.nights}
+          currentTotal={occupancy.currentTotal}
+          newTotal={occupancy.newTotal}
+          className="bg-background"
+        />
+      )}
 
       {/* Already checked in */}
       {isAlreadyCheckedIn && (

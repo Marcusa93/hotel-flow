@@ -14,6 +14,7 @@ interface UpdateBookingParams {
     roomId?: string;
     adults?: number;
     children?: number;
+    infants?: number;
     notes?: string;
     totalAmount?: number;
     hasVehicle?: boolean;
@@ -64,6 +65,7 @@ export const useUpdateBooking = () => {
             if (fields.roomId !== undefined) updateData.room_id = fields.roomId;
             if (fields.adults !== undefined) updateData.adults = fields.adults;
             if (fields.children !== undefined) updateData.children = fields.children;
+            if (fields.infants !== undefined) updateData.infants = fields.infants;
             if (fields.notes !== undefined) updateData.notes = fields.notes;
             if (fields.totalAmount !== undefined) updateData.total_amount = fields.totalAmount;
             if (fields.hasVehicle !== undefined) updateData.has_vehicle = fields.hasVehicle;

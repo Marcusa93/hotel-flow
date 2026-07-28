@@ -73,6 +73,11 @@ export interface Booking {
   estimatedArrivalTime?: string;
   adults: number;
   children: number;
+  /**
+   * Menores de 5 años. Ocupan lugar pero no se cobran: el tramo de precio sale
+   * de adults + children. Ausente en reservas anteriores a la separación.
+   */
+  infants?: number;
   status: BookingStatus;
   totalAmount: number;
   notes?: string;

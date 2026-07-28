@@ -28,6 +28,8 @@ import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import { StatusBadge, PageSkeleton, RoomStatusWarning } from '@/components/shared';
 import { useHousekeepingTasks } from '@/hooks/domain/useHousekeepingOperations';
+import { useCheckInOccupancy } from '@/hooks/useCheckInOccupancy';
+import { CheckInOccupancy } from '@/components/bookings/CheckInOccupancy';
 import { getRoomCheckInWarning, checkInConfirmLabel } from '@/lib/roomReadiness';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -83,6 +85,9 @@ export default function BookingDetail() {
 
   const booking = id ? getBookingWithDetails(id, guests, rooms, roomTypes, payments) : undefined;
 
+  // Antes de los early return: los hooks no pueden quedar atrás de un return.
+  const occupancy = useCheckInOccupancy(booking);
+
   // Show loading while data is being fetched
   if (isLoading) {
     return <PageSkeleton kpiCount={3} tableRows={4} />;
@@ -111,6 +116,12 @@ export default function BookingDetail() {
   };
 
   const roomWarning = getRoomCheckInWarning(booking.room, housekeepingTasks);
+
+  /** El check-in guarda primero cuántos entraron: de ahí sale el total a cobrar. */
+  const handleCheckIn = async () => {
+    await occupancy.persist();
+    await updateBookingStatus(booking.id, 'CHECKED_IN');
+  };
 
   const nights = Math.ceil(
     (new Date(booking.checkOutDate).getTime() - new Date(booking.checkInDate).getTime()) /
@@ -190,12 +201,21 @@ export default function BookingDetail() {
                         La habitación pasará a estado Ocupada.
                       </p>
                       <RoomStatusWarning warning={roomWarning} />
+                      <CheckInOccupancy
+                        value={occupancy.value}
+                        onChange={occupancy.setValue}
+                        pricing={occupancy.pricing}
+                        maxGuests={occupancy.maxGuests}
+                        nights={occupancy.nights}
+                        currentTotal={occupancy.currentTotal}
+                        newTotal={occupancy.newTotal}
+                      />
                     </div>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Volver</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => handleStatusChange('CHECKED_IN')} className="bg-emerald-600 hover:bg-emerald-700">
+                  <AlertDialogAction onClick={handleCheckIn} className="bg-emerald-600 hover:bg-emerald-700">
                     {checkInConfirmLabel(roomWarning)}
                   </AlertDialogAction>
                 </AlertDialogFooter>

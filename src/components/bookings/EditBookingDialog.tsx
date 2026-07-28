@@ -42,6 +42,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { cn, formatLastNameFirst } from '@/lib/utils';
+import { getOccupancyPricing } from '@/lib/occupancyPricing';
 import { toast } from '@/hooks/use-toast';
 
 const editBookingSchema = z.object({
@@ -50,6 +51,7 @@ const editBookingSchema = z.object({
   roomId: z.string().min(1, 'Selecciona una habitación'),
   adults: z.coerce.number().min(1, 'Mínimo 1 adulto'),
   children: z.coerce.number().min(0),
+  infants: z.coerce.number().min(0),
   estimatedArrivalTime: z.string().optional(),
   notes: z.string().optional(),
 }).refine((data) => data.checkOutDate > data.checkInDate, {
@@ -78,6 +80,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
       roomId: booking.roomId,
       adults: booking.adults,
       children: booking.children,
+      infants: booking.infants ?? 0,
       estimatedArrivalTime: booking.estimatedArrivalTime || '',
       notes: booking.notes || '',
     },
@@ -92,6 +95,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
         roomId: booking.roomId,
         adults: booking.adults,
         children: booking.children,
+        infants: booking.infants ?? 0,
         estimatedArrivalTime: booking.estimatedArrivalTime || '',
         notes: booking.notes || '',
       });
@@ -107,6 +111,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
   // on every render.
   const watchedAdults = Number(form.watch('adults')) || 0;
   const watchedChildren = Number(form.watch('children')) || 0;
+  const watchedInfants = Number(form.watch('infants')) || 0;
   const watchedNotes = form.watch('notes');
   const watchedArrival = form.watch('estimatedArrivalTime');
 
@@ -122,8 +127,15 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
     new Date(booking.checkInDate)
   );
 
+  // El precio sale del tramo que corresponde a la gente que entra, no del tipo
+  // de la habitación. Los menores de 5 no cuentan.
+  const occupancyPricing = getOccupancyPricing(roomTypes, selectedRoomType, {
+    adults: watchedAdults,
+    children: watchedChildren,
+  });
+
   // Calculate new total amount
-  const newTotalAmount = selectedRoomType ? nights * selectedRoomType.basePrice : 0;
+  const newTotalAmount = occupancyPricing ? nights * occupancyPricing.nightlyPrice : 0;
 
   // Check room availability (exclude current booking)
   const conflicts = watchedRoomId && watchedCheckIn && watchedCheckOut
@@ -177,9 +189,17 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
 
     if (watchedChildren !== booking.children) {
       diffs.push({
-        label: 'Niños',
+        label: 'Niños (5+)',
         from: String(booking.children),
         to: String(watchedChildren),
+      });
+    }
+
+    if (watchedInfants !== (booking.infants ?? 0)) {
+      diffs.push({
+        label: 'Menores de 5',
+        from: String(booking.infants ?? 0),
+        to: String(watchedInfants),
       });
     }
 
@@ -208,7 +228,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
     }
 
     return diffs;
-  }, [watchedRoomId, watchedCheckIn, watchedCheckOut, watchedAdults, watchedChildren, watchedNotes, watchedArrival, newTotalAmount, booking, rooms]);
+  }, [watchedRoomId, watchedCheckIn, watchedCheckOut, watchedAdults, watchedChildren, watchedInfants, watchedNotes, watchedArrival, newTotalAmount, booking, rooms]);
 
   const hasChanges = changes.length > 0;
 
@@ -230,6 +250,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
         roomId: data.roomId,
         adults: data.adults,
         children: data.children,
+        infants: data.infants,
         // '' (not undefined) so bookingToRow writes NULL and the hour can be cleared.
         estimatedArrivalTime: data.estimatedArrivalTime?.trim() || '',
         notes: data.notes,
@@ -390,8 +411,8 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
               </div>
             )}
 
-            {/* Guests count */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Guests count — los menores de 5 van aparte porque no se cobran */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <FormField
                 control={form.control}
                 name="adults"
@@ -411,7 +432,21 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
                 name="children"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Niños</FormLabel>
+                    <FormLabel>Niños (5+)</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={0} max={10} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="infants"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Menores de 5</FormLabel>
                     <FormControl>
                       <Input type="number" min={0} max={10} {...field} />
                     </FormControl>
@@ -437,7 +472,8 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
             />
 
             {/* Over capacity warning */}
-            {selectedRoomType && (watchedAdults + watchedChildren) > selectedRoomType.maxGuests && (
+            {/* Los menores de 5 no se cobran pero ocupan lugar: cuentan acá */}
+            {selectedRoomType && (watchedAdults + watchedChildren + watchedInfants) > selectedRoomType.maxGuests && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 <span>
@@ -471,12 +507,24 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
               <div className="p-4 rounded-xl bg-background/60 backdrop-blur border space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {selectedRoomType.name} x {nights} noche{nights !== 1 ? 's' : ''}
+                    Tarifa {occupancyPricing?.pricingType.maxGuests ?? selectedRoomType.maxGuests} personas x {nights} noche{nights !== 1 ? 's' : ''}
                   </span>
                   <span className="font-medium">
-                    ${selectedRoomType.basePrice.toLocaleString('es-AR')} x {nights}
+                    ${(occupancyPricing?.nightlyPrice ?? selectedRoomType.basePrice).toLocaleString('es-AR')} x {nights}
                   </span>
                 </div>
+
+                {occupancyPricing?.isDownTiered && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                    Entran {occupancyPricing.billable} en una habitación de {selectedRoomType.maxGuests}:
+                    se cobra la tarifa de {occupancyPricing.pricingType.maxGuests} personas.
+                  </p>
+                )}
+                {watchedInfants > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {watchedInfants} menor{watchedInfants > 1 ? 'es' : ''} de 5 años sin cargo.
+                  </p>
+                )}
                 <Separator />
                 <div className="flex justify-between font-semibold">
                   <span>Total</span>

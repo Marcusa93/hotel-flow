@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { BookingTimeline } from '@/components/bookings/BookingTimeline';
 import { QRScannerDialog } from '@/components/bookings/QRScannerDialog';
+import { FullHotelRentalDialog } from '@/components/bookings/FullHotelRentalDialog';
 import { useHousekeepingTasks } from '@/hooks/domain/useHousekeepingOperations';
 import { useCheckInOccupancy } from '@/hooks/useCheckInOccupancy';
 import { getRoomCheckInWarning, checkInConfirmLabel, type RoomCheckInWarning } from '@/lib/roomReadiness';
@@ -58,6 +59,7 @@ export default function Bookings() {
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
+  const [isFullHotelOpen, setIsFullHotelOpen] = useState(false);
   const [preselectedRoomId, setPreselectedRoomId] = useState<string | undefined>(undefined);
   /** Check-in arrastrado al tablero, esperando que se confirme */
   const [pendingCheckIn, setPendingCheckIn] = useState<{
@@ -202,7 +204,12 @@ export default function Bookings() {
     <div className="flex flex-col h-[calc(100vh-160px)] md:h-[calc(100vh-112px)] overflow-hidden">
       {/* Top Section */}
       <div className="flex-none pb-3">
-        <ReservationsHeader onNewBooking={() => setIsNewDialogOpen(true)} onScanQR={() => setIsQRScannerOpen(true)} stats={stats} />
+        <ReservationsHeader
+          onNewBooking={() => setIsNewDialogOpen(true)}
+          onScanQR={() => setIsQRScannerOpen(true)}
+          onRentFullHotel={() => setIsFullHotelOpen(true)}
+          stats={stats}
+        />
 
         <div className="mt-3">
           <ReservationsFilters
@@ -335,6 +342,8 @@ export default function Bookings() {
 
       <QRScannerDialog open={isQRScannerOpen} onOpenChange={setIsQRScannerOpen} />
 
+      <FullHotelRentalDialog open={isFullHotelOpen} onOpenChange={setIsFullHotelOpen} />
+
       <AlertDialog open={!!pendingCheckIn} onOpenChange={(open) => { if (!open) setPendingCheckIn(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -432,7 +441,7 @@ function BookingListView({
                 <td className="p-3">
                   <div className="flex items-center gap-1.5">
                     <BedDouble className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="font-mono font-bold">{room?.roomNumber || '?'}</span>
+                    <span className="font-mono font-bold">{b.isFullHotel ? 'Hotel completo' : (room?.roomNumber || '?')}</span>
                     {rType && <span className="text-xs text-muted-foreground hidden lg:inline">· {rType.name}</span>}
                   </div>
                 </td>
@@ -553,7 +562,7 @@ function MobileBookingCards({
             <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3 pl-10">
               <span className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/50 px-2 py-0.5 rounded-md">
                 <BedDouble className="w-3 h-3" />
-                <span className="font-bold text-slate-700 dark:text-slate-300">{room?.roomNumber || '?'}</span>
+                <span className="font-bold text-slate-700 dark:text-slate-300">{b.isFullHotel ? 'Hotel completo' : (room?.roomNumber || '?')}</span>
               </span>
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />

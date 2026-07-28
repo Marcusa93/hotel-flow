@@ -24,6 +24,25 @@ export interface CheckoutHousekeeping {
   guestName?: string;
 }
 
+/** El nombre que ve recepción donde iría el número de habitación. */
+export const FULL_HOTEL_LABEL = 'Hotel completo';
+
+const FULL_HOTEL_ROOM: Room = {
+  id: '',
+  roomNumber: FULL_HOTEL_LABEL,
+  roomTypeId: '',
+  floor: 0,
+  status: 'OCCUPIED',
+};
+
+const FULL_HOTEL_ROOM_TYPE: RoomType = {
+  id: '',
+  name: FULL_HOTEL_LABEL,
+  basePrice: 0,
+  maxGuests: 0,
+  description: 'Alquiler del hotel completo',
+};
+
 export function useBookingOperations() {
   const { data: bookings = [], isLoading } = useBookings();
   const createBookingMutation = useCreateBooking();
@@ -43,8 +62,25 @@ export function useBookingOperations() {
       if (!booking) return undefined;
 
       const guest = guests.find((g) => g.id === booking.guestId);
+      if (!guest) return undefined;
+
+      const bookingPaymentsForRental = payments.filter((p) => p.bookingId === bookingId);
+
+      // El alquiler del hotel completo no tiene habitación: se le arma una de
+      // fantasía para que las pantallas —que dan por hecho que hay uma— sigan
+      // funcionando y muestren "Hotel completo" donde iría el número.
+      if (booking.isFullHotel) {
+        return {
+          ...booking,
+          guest,
+          room: FULL_HOTEL_ROOM,
+          roomType: FULL_HOTEL_ROOM_TYPE,
+          payments: bookingPaymentsForRental,
+        };
+      }
+
       const room = rooms.find((r) => r.id === booking.roomId);
-      if (!guest || !room) return undefined;
+      if (!room) return undefined;
 
       const roomType = roomTypes.find((rt) => rt.id === room.roomTypeId);
       if (!roomType) return undefined;
@@ -79,7 +115,10 @@ export function useBookingOperations() {
       await updateBookingMutation.mutateAsync({ id, status });
 
       // Side effects
-      if (booking) {
+      // El alquiler del hotel completo no tiene habitación que ocupar, ensuciar
+      // ni mandar a limpiar: sin esto se escribiría sobre room_id vacío y se
+      // crearía una tarea de limpieza para una habitación que no existe.
+      if (booking && !booking.isFullHotel) {
         if (status === 'CHECKED_IN') {
           await updateRoomMutation.mutateAsync({
             id: booking.roomId,
@@ -123,7 +162,6 @@ export function useBookingOperations() {
       excludeBookingId?: string
     ): { available: boolean; conflicts: Booking[] } => {
       const conflicts = bookings.filter((b) => {
-        if (b.roomId !== roomId) return false;
         if (
           b.status === 'CANCELLED' ||
           b.status === 'NO_SHOW' ||
@@ -131,6 +169,15 @@ export function useBookingOperations() {
         )
           return false;
         if (excludeBookingId && b.id === excludeBookingId) return false;
+        // Un alquiler del hotel completo choca con cualquier habitación: la
+        // habitación puede estar libre y no importa, el hotel está cerrado.
+        // El trigger de la base lo rechaza igual; esto lo avisa antes de guardar.
+        if (b.isFullHotel) {
+          const bIn = new Date(b.checkInDate);
+          const bOut = new Date(b.checkOutDate);
+          return new Date(checkIn) < bOut && new Date(checkOut) > bIn;
+        }
+        if (b.roomId !== roomId) return false;
 
         const bCheckIn = new Date(b.checkInDate);
         const bCheckOut = new Date(b.checkOutDate);

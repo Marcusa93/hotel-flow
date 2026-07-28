@@ -119,6 +119,11 @@ export interface Booking {
    * reservas normales. Es fijo: no depende de cuánta gente entre.
    */
   specialRateAmount?: number;
+  /**
+   * Alquiler del hotel completo: sin habitación asignada, bloquea todo el
+   * período. El precio es el monto acordado, no sale de ninguna tarifa.
+   */
+  isFullHotel?: boolean;
   createdAt: Date;
   updatedAt?: Date;
 }
@@ -237,8 +242,8 @@ export interface RoomWithDetails extends Room {
 
 export interface BookingWithDetails extends Booking {
   guest: Guest;
-  room: Room;
-  roomType: RoomType;
+  room?: Room;
+  roomType?: RoomType;
   payments: Payment[];
 }
 

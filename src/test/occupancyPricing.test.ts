@@ -1,0 +1,200 @@
+import { describe, it, expect } from 'vitest';
+import {
+    getOccupancyPricing,
+    billableGuests,
+    totalOccupants,
+    bookingDiscountRatio,
+    resolveCheckInTotal,
+} from '@/lib/occupancyPricing';
+import type { Rate, RoomType } from '@/types/hotel';
+
+// Los tipos de este hotel son tramos de capacidad: "Hab. N personas" con su precio.
+const tramo = (maxGuests: number, basePrice: number): RoomType => ({
+    id: `rt-${maxGuests}`,
+    name: `Hab. ${maxGuests} personas`,
+    basePrice,
+    maxGuests,
+});
+
+const DOBLE = tramo(2, 50_000);
+const TRIPLE = tramo(3, 70_000);
+const CUADRUPLE = tramo(4, 90_000);
+const QUINTUPLE = tramo(5, 110_000);
+const TARIFAS = [DOBLE, TRIPLE, CUADRUPLE, QUINTUPLE];
+
+describe('billableGuests', () => {
+    it('no cobra a los menores de 5', () => {
+        // El reporte del hotel: adults + children definen el precio, infants no.
+        expect(billableGuests({ adults: 2, children: 2 })).toBe(4);
+        expect(totalOccupants({ adults: 2, children: 2, infants: 1 })).toBe(5);
+    });
+
+    it('suma los inputs numéricos como números y no como texto', () => {
+        // <Input type="number"> devuelve string: '2' + '2' daría '22'.
+        expect(billableGuests({ adults: '2', children: '2' })).toBe(4);
+    });
+});
+
+describe('getOccupancyPricing', () => {
+    it('cobra el tramo de cuatro cuando entran cuatro a una quíntuple', () => {
+        // El caso exacto que reportó el hotel.
+        const pricing = getOccupancyPricing(TARIFAS, QUINTUPLE, { adults: 4, children: 0 });
+
+        expect(pricing?.nightlyPrice).toBe(90_000);
+        expect(pricing?.pricingType.maxGuests).toBe(4);
+        expect(pricing?.isDownTiered).toBe(true);
+    });
+
+    it('cobra el tramo de dos cuando entran dos a una triple', () => {
+        const pricing = getOccupancyPricing(TARIFAS, TRIPLE, { adults: 2, children: 0 });
+
+        expect(pricing?.nightlyPrice).toBe(50_000);
+        expect(pricing?.isDownTiered).toBe(true);
+    });
+
+    it('la habitación llena se cobra a su propio precio', () => {
+        const pricing = getOccupancyPricing(TARIFAS, QUINTUPLE, { adults: 5, children: 0 });
+
+        expect(pricing?.nightlyPrice).toBe(110_000);
+        expect(pricing?.isDownTiered).toBe(false);
+    });
+
+    it('los menores de 5 no bajan el tramo por sí solos', () => {
+        // 2 grandes + 2 chicos de 5+ son 4 que se cobran, aunque haya un bebé más.
+        const pricing = getOccupancyPricing(TARIFAS, QUINTUPLE, { adults: 2, children: 2 });
+
+        expect(pricing?.billable).toBe(4);
+        expect(pricing?.nightlyPrice).toBe(90_000);
+    });
+
+    it('nunca cobra más caro que la habitación, ni con la capacidad excedida', () => {
+        // Recepción puede forzar seis en una quíntuple; eso no la hace séxtuple.
+        const pricing = getOccupancyPricing(TARIFAS, QUINTUPLE, { adults: 6, children: 0 });
+
+        expect(pricing?.nightlyPrice).toBe(110_000);
+        expect(pricing?.isDownTiered).toBe(false);
+    });
+
+    it('sin tramo exacto redondea al inmediato superior', () => {
+        // Sin cuádruple cargada, cuatro personas pagan la quíntuple: es lo más
+        // barato que los aloja, no se inventa un precio intermedio.
+        const pricing = getOccupancyPricing([DOBLE, TRIPLE, QUINTUPLE], QUINTUPLE, {
+            adults: 4,
+            children: 0,
+        });
+
+        expect(pricing?.nightlyPrice).toBe(110_000);
+    });
+
+    it('un tramo menor mal cargado —más caro— no se cobra', () => {
+        const cuadrupleCara = tramo(4, 200_000);
+        const pricing = getOccupancyPricing([DOBLE, cuadrupleCara, QUINTUPLE], QUINTUPLE, {
+            adults: 4,
+            children: 0,
+        });
+
+        expect(pricing?.nightlyPrice).toBe(110_000);
+    });
+
+    it('con la habitación sin elegir todavía no decide nada', () => {
+        expect(getOccupancyPricing(TARIFAS, null, { adults: 2, children: 0 })).toBeNull();
+    });
+
+    it('sin gente cargada vale el precio de la habitación', () => {
+        const pricing = getOccupancyPricing(TARIFAS, QUINTUPLE, { adults: 0, children: 0 });
+
+        expect(pricing?.nightlyPrice).toBe(110_000);
+    });
+});
+
+describe('resolveCheckInTotal', () => {
+    // Reserva sana: quíntuple, 3 noches, 5 personas → 3 × 110.000 = 330.000.
+    const sana = { agreedTotal: 330_000, nights: 3, bookedTierNightly: 110_000 };
+
+    it('descuenta la diferencia de tramo cuando llegan menos personas', () => {
+        // Reservaron 5, entran 4: pasa de quíntuple a cuádruple.
+        expect(resolveCheckInTotal({ ...sana, tierNightly: 90_000 })).toBe(270_000);
+    });
+
+    it('sin cambio de tramo no toca el total', () => {
+        expect(resolveCheckInTotal({ ...sana, tierNightly: 110_000 })).toBe(330_000);
+    });
+
+    it('respeta lo pactado cuando la tarifa subió después de reservar', () => {
+        // Se pactó 300.000 y hoy la lista da 330.000. Bajar de 5 a 4 tiene que
+        // descontar sobre lo pactado, no re-cotizar a la tarifa nueva.
+        expect(
+            resolveCheckInTotal({ ...sana, agreedTotal: 300_000, tierNightly: 90_000 })
+        ).toBe(240_000);
+    });
+
+    it('nunca cobra más que la lista de hoy por lo que se está ocupando', () => {
+        // Reserva vieja: 4 personas en una quíntuple cargada al precio de la
+        // habitación (330.000). Corregida a 5, el delta daba 390.000 — más caro
+        // que la quíntuple entera. El techo lo corta en la lista.
+        const vieja = { agreedTotal: 330_000, nights: 3, bookedTierNightly: 90_000 };
+
+        expect(resolveCheckInTotal({ ...vieja, tierNightly: 110_000 })).toBe(330_000);
+    });
+
+    it('reaplica la promoción de precio plano en vez de escalarla', () => {
+        // Promo de $80.000 la noche. Escalando por proporción se regalaban
+        // $43.636; el precio plano no es proporcional al precio base.
+        const promoPlana: Partial<Rate> = { price: 80_000 };
+
+        expect(
+            resolveCheckInTotal({
+                ...sana,
+                agreedTotal: 240_000,
+                tierNightly: 90_000,
+                promo: promoPlana as Rate,
+                discountRatio: 0.2727,
+            })
+        ).toBe(240_000);
+    });
+
+    it('reaplica la promoción de monto fijo sobre el tramo nuevo', () => {
+        // $10.000 off por noche sobre la cuádruple de 90.000 → 80.000 x 3.
+        const promoFija: Partial<Rate> = { price: 0, discountType: 'FIXED', discountAmount: 10_000 };
+
+        expect(
+            resolveCheckInTotal({
+                ...sana,
+                agreedTotal: 300_000,
+                tierNightly: 90_000,
+                promo: promoFija as Rate,
+            })
+        ).toBe(240_000);
+    });
+
+    it('con la promoción borrada cae en la proporción guardada', () => {
+        // 10% off: la cuádruple de 90.000 queda en 81.000 la noche.
+        expect(
+            resolveCheckInTotal({
+                ...sana,
+                agreedTotal: 297_000,
+                tierNightly: 90_000,
+                discountRatio: 0.1,
+            })
+        ).toBe(243_000);
+    });
+
+    it('sin noches no inventa un total', () => {
+        expect(
+            resolveCheckInTotal({ agreedTotal: 330_000, nights: 0, tierNightly: 90_000, bookedTierNightly: 110_000 })
+        ).toBe(330_000);
+    });
+});
+
+describe('bookingDiscountRatio', () => {
+    it('rescata la proporción descontada para no perderla al recalcular', () => {
+        expect(bookingDiscountRatio({ baseAmount: 100_000, discountAmount: 20_000 })).toBe(0.2);
+    });
+
+    it('sin promoción no descuenta nada', () => {
+        expect(bookingDiscountRatio({})).toBe(0);
+        expect(bookingDiscountRatio({ baseAmount: 100_000, discountAmount: 0 })).toBe(0);
+        // Reservas anteriores al seguimiento de promos: no tienen baseAmount.
+        expect(bookingDiscountRatio({ discountAmount: 20_000 })).toBe(0);
+    });
+});

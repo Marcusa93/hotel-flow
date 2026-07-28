@@ -3,8 +3,10 @@ import { differenceInDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { AlertTriangle, ArrowRight, BedDouble, CalendarPlus, Loader2, Minus, Plus } from 'lucide-react';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useCreateBookingCharge } from '@/hooks/useCreateBookingCharge';
 import { buildStayExtension, describeStayExtension } from '@/lib/stayExtension';
+import { getOccupancyPricing, billableGuests } from '@/lib/occupancyPricing';
 import { formatLastNameFirst, formatPesosInput, parsePesosInput } from '@/lib/utils';
 import type { BookingWithDetails } from '@/types/hotel';
 import {
@@ -40,25 +42,34 @@ const MAX_NIGHTS = 30;
  */
 export function ExtendStayDialog({ open, onOpenChange, booking }: ExtendStayDialogProps) {
     const { bookings, updateBooking, checkRoomAvailability } = useBookingOperations();
+    const { roomTypes } = useRoomOperations();
     const createCharge = useCreateBookingCharge();
 
+    // Las noches agregadas se cobran al tramo de la gente que está adentro, igual
+    // que la reserva. Arrancaba en el precio del tipo de la habitación, así que
+    // cuatro personas en una quíntuple pagaban quíntuple cada noche nueva —el
+    // mismo error que el resto del sistema ya no comete.
+    const nightlyTier =
+        getOccupancyPricing(roomTypes, booking.roomType, booking)?.nightlyPrice ??
+        booking.roomType.basePrice;
+
     const [nights, setNights] = useState(1);
-    const [pricePerNight, setPricePerNight] = useState(booking.roomType.basePrice);
-    const [priceText, setPriceText] = useState(formatPesosInput(booking.roomType.basePrice));
+    const [pricePerNight, setPricePerNight] = useState(nightlyTier);
+    const [priceText, setPriceText] = useState(formatPesosInput(nightlyTier));
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const currentCheckOut = useMemo(() => new Date(booking.checkOutDate), [booking.checkOutDate]);
 
-    // El precio de la habitación puede haber cambiado desde que se reservó, y la
-    // recepción a veces pacta otro por las noches sueltas. Se propone la tarifa
-    // vigente y se deja editar.
+    // El precio puede haber cambiado desde que se reservó, y la recepción a veces
+    // pacta otro por las noches sueltas. Se propone la tarifa vigente del tramo y
+    // se deja editar.
     useEffect(() => {
         if (open) {
             setNights(1);
-            setPricePerNight(booking.roomType.basePrice);
-            setPriceText(formatPesosInput(booking.roomType.basePrice));
+            setPricePerNight(nightlyTier);
+            setPriceText(formatPesosInput(nightlyTier));
         }
-    }, [open, booking.roomType.basePrice]);
+    }, [open, nightlyTier]);
 
     const extension = buildStayExtension({ currentCheckOut, nights, pricePerNight });
 
@@ -256,7 +267,7 @@ export function ExtendStayDialog({ open, onOpenChange, booking }: ExtendStayDial
                             />
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            Tarifa de {booking.roomType.name}: ${booking.roomType.basePrice.toLocaleString('es-AR')}/noche
+                            Tarifa {billableGuests(booking)} personas: ${nightlyTier.toLocaleString('es-AR')}/noche
                         </p>
                     </div>
 

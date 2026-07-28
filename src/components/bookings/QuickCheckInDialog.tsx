@@ -24,8 +24,10 @@ import { es } from 'date-fns/locale';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useHousekeepingTasks } from '@/hooks/domain/useHousekeepingOperations';
+import { useCheckInOccupancy } from '@/hooks/useCheckInOccupancy';
 import { getRoomCheckInWarning, checkInConfirmLabel } from '@/lib/roomReadiness';
 import { RoomStatusWarning } from '@/components/shared';
+import { CheckInOccupancy } from '@/components/bookings/CheckInOccupancy';
 import { toast } from '@/hooks/use-toast';
 
 interface QuickCheckInDialogProps {
@@ -57,13 +59,20 @@ export function QuickCheckInDialog({
     adults,
     children,
 }: QuickCheckInDialogProps) {
-    const { updateBookingStatus } = useBookingOperations();
+    const { updateBookingStatus, bookings } = useBookingOperations();
     const { updateRoomStatus, rooms } = useRoomOperations();
     const { data: housekeepingTasks = [] } = useHousekeepingTasks();
     const [isProcessing, setIsProcessing] = useState(false);
 
+    const booking = bookings.find(b => b.id === bookingId);
+    const occupancy = useCheckInOccupancy(booking);
+
     const nights = differenceInDays(checkOutDate, checkInDate);
-    const pendingAmount = totalAmount - amountPaid;
+    // totalAmount viene con los consumos adentro; lo que cambia por la ocupación
+    // es solo la parte de alojamiento, así que se corrige por la diferencia en
+    // vez de reemplazarlo —si no, un check-in se comía los extras del saldo.
+    const adjustedTotal = totalAmount + (occupancy.newTotal - occupancy.currentTotal);
+    const pendingAmount = adjustedTotal - amountPaid;
     const hasPendingPayment = pendingAmount > 0;
 
     // El estado de la habitación no bloquea el check-in, pero se avisa antes de confirmar.
@@ -73,6 +82,9 @@ export function QuickCheckInDialog({
     const handleCheckIn = async () => {
         setIsProcessing(true);
         try {
+            // 0. La ocupación real primero: define el total que se va a cobrar
+            await occupancy.persist();
+
             // 1. Update booking status to CHECKED_IN
             await updateBookingStatus(bookingId, 'CHECKED_IN');
 
@@ -120,8 +132,11 @@ export function QuickCheckInDialog({
                         </div>
                         <div>
                             <p className="font-semibold">{guestName}</p>
+                            {/* La composición del grupo la maneja el bloque de ocupación de abajo,
+                                que además es el que define el precio. Repetirla acá daba dos
+                                números para lo mismo y uno de los dos quedaba viejo. */}
                             <p className="text-sm text-muted-foreground">
-                                {adults} adulto{adults > 1 ? 's' : ''}{children > 0 ? `, ${children} niño${children > 1 ? 's' : ''}` : ''}
+                                Reservó {adults} adulto{adults > 1 ? 's' : ''}{children > 0 ? `, ${children} niño${children > 1 ? 's' : ''}` : ''}
                             </p>
                         </div>
                     </div>
@@ -148,6 +163,17 @@ export function QuickCheckInDialog({
                     <div className="text-sm text-center text-muted-foreground">
                         {format(checkInDate, "d MMM", { locale: es })} → {format(checkOutDate, "d MMM yyyy", { locale: es })}
                     </div>
+
+                    {/* Cuántos entran de verdad: acá se define lo que se cobra */}
+                    <CheckInOccupancy
+                        value={occupancy.value}
+                        onChange={occupancy.setValue}
+                        pricing={occupancy.pricing}
+                        maxGuests={occupancy.maxGuests}
+                        nights={occupancy.nights}
+                        currentTotal={occupancy.currentTotal}
+                        newTotal={occupancy.newTotal}
+                    />
 
                     <Separator />
 

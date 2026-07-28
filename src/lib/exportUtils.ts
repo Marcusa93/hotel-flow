@@ -67,6 +67,8 @@ export function exportToExcel({
     Estado: b.status,
     Adultos: b.adults,
     Niños: b.children,
+    // Antes venían adentro de Niños. Sin columna propia desaparecían del export.
+    'Menores de 5': b.infants ?? 0,
     Monto: b.totalAmount,
   }));
   const wsReservas = utils.json_to_sheet(bookingRows.length > 0 ? bookingRows : [{ Info: 'Sin reservas en el período' }]);

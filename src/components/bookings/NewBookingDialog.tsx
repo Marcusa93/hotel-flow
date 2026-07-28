@@ -12,6 +12,7 @@ import { useRates } from '@/hooks/useRates';
 import { useCheckAvailability } from '@/hooks/useCheckAvailability';
 import { COUNTRIES, DOCUMENT_TYPES } from '@/lib/constants';
 import { getBestPromo, getPromoNightlyPrice } from '@/lib/promoPricing';
+import { getOccupancyPricing } from '@/lib/occupancyPricing';
 import type { DocumentType } from '@/types/hotel';
 import {
   Dialog,
@@ -60,6 +61,7 @@ const bookingSchema = z.object({
   checkOutDate: z.date({ required_error: 'Fecha de check-out requerida' }),
   adults: z.coerce.number().min(1, 'Mínimo 1 adulto'),
   children: z.coerce.number().min(0),
+  infants: z.coerce.number().min(0),
   estimatedArrivalTime: z.string().optional(),
   notes: z.string().optional(),
   receptionist: z.string().optional(),
@@ -134,6 +136,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
       roomId: '',
       adults: 1,
       children: 0,
+      infants: 0,
       estimatedArrivalTime: '',
       notes: '',
       receptionist: '',
@@ -157,6 +160,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
   // "2" + "0" concatenates into "20" and fakes an over-capacity warning.
   const watchedAdults = Number(form.watch('adults')) || 0;
   const watchedChildren = Number(form.watch('children')) || 0;
+  const watchedInfants = Number(form.watch('infants')) || 0;
   const watchedCheckIn = form.watch('checkInDate');
   const watchedCheckOut = form.watch('checkOutDate');
   const watchedHasVehicle = form.watch('hasVehicle');
@@ -177,7 +181,16 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
   const selectedRoom = rooms.find(r => r.id === watchedRoomId);
   const selectedRoomType = selectedRoom ? roomTypes.find(rt => rt.id === selectedRoom.roomTypeId) : null;
 
-  const totalGuests = watchedAdults + watchedChildren;
+  // El precio sale de la gente, no de la habitación: cuatro en una quíntuple
+  // pagan el tramo de cuatro. Los menores de 5 ocupan lugar pero no se cobran,
+  // así que la capacidad y el precio cuentan distinto.
+  const occupancyPricing = getOccupancyPricing(roomTypes, selectedRoomType, {
+    adults: watchedAdults,
+    children: watchedChildren,
+  });
+  const pricingTypeId = occupancyPricing?.pricingType.id || selectedRoom?.roomTypeId;
+
+  const totalGuests = watchedAdults + watchedChildren + watchedInfants;
   const isOverCapacity = selectedRoomType && totalGuests > selectedRoomType.maxGuests;
 
   // Check for conflicts
@@ -196,8 +209,10 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
     return rates.filter(rate => {
       if (!rate.isActive) return false;
 
-      // Check if rate applies to this room type (null means all types)
-      if (rate.roomTypeId && rate.roomTypeId !== selectedRoom.roomTypeId) return false;
+      // Las promos se cargan por tramo. Se comparan contra el tramo que se está
+      // cobrando —no contra el de la habitación—, que es el precio que la promo
+      // va a descontar. (null significa todos los tramos.)
+      if (rate.roomTypeId && rate.roomTypeId !== pricingTypeId) return false;
 
       // Check date overlap
       const rateStart = startOfDay(new Date(rate.startDate));
@@ -212,10 +227,10 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
 
       return true;
     });
-  }, [rates, selectedRoom, watchedCheckIn, watchedCheckOut, nights]);
+  }, [rates, selectedRoom, pricingTypeId, watchedCheckIn, watchedCheckOut, nights]);
 
   // Calculate pricing
-  const basePrice = selectedRoomType?.basePrice || 0;
+  const basePrice = occupancyPricing?.nightlyPrice || 0;
   const baseTotalAmount = nights * basePrice;
 
   // Best automatic promotion (cheapest for the guest, no code required)
@@ -392,6 +407,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
         estimatedArrivalTime: data.estimatedArrivalTime?.trim() || undefined,
         adults: data.adults,
         children: data.children,
+        infants: data.infants,
         status: 'CONFIRMED',
         totalAmount,
         notes: appliedPromo
@@ -977,8 +993,8 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
               )}
             </div>
 
-            {/* Guests */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            {/* Guests — los menores de 5 van aparte porque no entran en el precio */}
+            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3">
               <FormField
                 control={form.control}
                 name="adults"
@@ -998,10 +1014,25 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
                 name="children"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Niños</FormLabel>
+                    <FormLabel>Niños (5+)</FormLabel>
                     <FormControl>
                       <Input type="number" min={0} max={10} {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="infants"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Menores de 5</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={0} max={10} {...field} />
+                    </FormControl>
+                    <FormDescription className="text-xs">No se cobran</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -1189,6 +1220,20 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
                     ${baseTotalAmount.toLocaleString('es-AR')}
                   </span>
                 </div>
+
+                {/* Por qué el precio no es el de la habitación */}
+                {occupancyPricing?.isDownTiered && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <Users className="w-3 h-3 shrink-0" />
+                    Entran {occupancyPricing.billable} en una habitación de {selectedRoomType?.maxGuests}:
+                    se cobra la tarifa de {occupancyPricing.pricingType.maxGuests} personas.
+                  </p>
+                )}
+                {watchedInfants > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {watchedInfants} menor{watchedInfants > 1 ? 'es' : ''} de 5 años sin cargo.
+                  </p>
+                )}
 
                 {appliedPromo && (
                   <div className="flex justify-between text-sm">

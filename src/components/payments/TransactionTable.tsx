@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { Payment, PaymentMethod, PaymentStatus, Guest, Room } from '@/types/hotel';
 import { PAYMENT_METHOD_LABELS } from '@/lib/constants';
+import { PaymentReceiptBadge } from './PaymentReceiptBadge';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -167,7 +168,13 @@ export function TransactionTable({ payments, getBookingInfo, onStatusChange, onV
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-muted-foreground font-mono text-xs">
-                                        {payment.reference || '-'}
+                                        <div className="flex items-center gap-1">
+                                            <span className="truncate">{payment.reference || '-'}</span>
+                                            <PaymentReceiptBadge
+                                                paymentId={payment.id}
+                                                paymentLabel={`${PAYMENT_METHOD_LABELS[payment.method] || payment.method} · $${payment.amount.toLocaleString('es-AR')}`}
+                                            />
+                                        </div>
                                     </TableCell>
                                     <TableCell className="text-right font-bold text-slate-800 dark:text-slate-200">
                                         ${payment.amount.toLocaleString('es-AR')}
@@ -265,11 +272,17 @@ export function TransactionTable({ payments, getBookingInfo, onStatusChange, onV
                                     </div>
                                     <span>{PAYMENT_METHOD_LABELS[payment.method] || payment.method}</span>
                                 </div>
-                                {payment.reference && (
-                                    <span className="font-mono text-muted-foreground bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
-                                        {payment.reference}
-                                    </span>
-                                )}
+                                <div className="flex items-center gap-1">
+                                    {payment.reference && (
+                                        <span className="font-mono text-muted-foreground bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+                                            {payment.reference}
+                                        </span>
+                                    )}
+                                    <PaymentReceiptBadge
+                                        paymentId={payment.id}
+                                        paymentLabel={`${PAYMENT_METHOD_LABELS[payment.method] || payment.method} · $${payment.amount.toLocaleString('es-AR')}`}
+                                    />
+                                </div>
                             </div>
                         </div>
                     );

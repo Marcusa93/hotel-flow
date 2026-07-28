@@ -51,6 +51,12 @@ export interface Room {
 
 export type DocumentType = 'DNI' | 'PASAPORTE' | 'CEDULA' | 'CUIT' | 'OTRO';
 
+/**
+ * Cómo se portó el huésped, para la interna del hotel. NULL/undefined es "sin
+ * calificar": un huésped nuevo no es bueno ni malo, es desconocido.
+ */
+export type GuestRating = 'BUENO' | 'ATENCION' | 'NO_DESEADO';
+
 export interface Guest {
   id: string;
   fullName: string;
@@ -65,6 +71,12 @@ export interface Guest {
   licensePlate?: string;
   /** Habilitado a cargar sus estadías a cuenta corriente en vez de pagarlas en el momento. */
   hasCurrentAccount?: boolean;
+  /** Calificación interna. Nunca sale impresa ni exportada: es para adentro. */
+  rating?: GuestRating;
+  /** Qué pasó. Sin esto la calificación es una etiqueta que nadie puede discutir. */
+  ratingNotes?: string;
+  ratingBy?: string;
+  ratingAt?: Date;
   createdAt: Date;
 }
 
@@ -114,6 +126,16 @@ export interface Booking {
   /** Lo que habría costado sin promoción. Ausente en reservas previas al seguimiento. */
   baseAmount?: number;
   discountAmount?: number;
+  /**
+   * Precio por noche con el que se tomó bajo tarifa especial. Ausente en las
+   * reservas normales. Es fijo: no depende de cuánta gente entre.
+   */
+  specialRateAmount?: number;
+  /**
+   * Alquiler del hotel completo: sin habitación asignada, bloquea todo el
+   * período. El precio es el monto acordado, no sale de ninguna tarifa.
+   */
+  isFullHotel?: boolean;
   createdAt: Date;
   updatedAt?: Date;
 }
@@ -142,6 +164,23 @@ export interface Payment {
   promoCode?: string;
   promoLabel?: string;
   discountAmount?: number;
+}
+
+/**
+ * El comprobante colgado de un pago: la captura de la transferencia, el PDF del
+ * banco, la foto del ticket. El archivo vive en el bucket privado; acá va la
+ * ruta y quién lo subió.
+ */
+export interface PaymentAttachment {
+  id: string;
+  paymentId: string;
+  storagePath: string;
+  fileName: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  uploadedBy?: string;
+  uploadedByName?: string;
+  createdAt: Date;
 }
 
 export interface HousekeepingTask {
@@ -232,8 +271,8 @@ export interface RoomWithDetails extends Room {
 
 export interface BookingWithDetails extends Booking {
   guest: Guest;
-  room: Room;
-  roomType: RoomType;
+  room?: Room;
+  roomType?: RoomType;
   payments: Payment[];
 }
 
@@ -294,6 +333,8 @@ export interface HotelSettings {
   checkInTime?: string;   // e.g. "14:00"
   checkOutTime?: string;  // e.g. "11:00"
   dailyCashFloat?: number; // "Fijo del día" — cash float kept in the register
+  /** Precio por noche de la tarifa especial. 0 = no se ofrece al reservar. */
+  specialRateAmount?: number;
   parkingSpots?: number;   // Cocheras del hotel; 0 = sin control de cocheras
   notificationEmailEnabled: boolean;
   notificationWhatsappEnabled: boolean;

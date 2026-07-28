@@ -59,8 +59,13 @@ export function useCheckInOccupancy(booking: Booking | undefined | null) {
   // escalarla por proporción (hay promos de precio plano que no son proporcionales).
   const promo = booking?.rateId ? rates.find(r => r.id === booking.rateId) ?? null : null;
 
-  const newTotal =
-    pricing && bookedPricing
+  // La tarifa especial es un precio por noche pactado con el cliente: son $X
+  // entren dos o entren cinco. Corregir la ocupación no le mueve el total.
+  const isSpecialRate = booking?.specialRateAmount != null;
+
+  const newTotal = isSpecialRate
+    ? currentTotal
+    : pricing && bookedPricing
       ? resolveCheckInTotal({
           agreedTotal: currentTotal,
           nights,
@@ -101,7 +106,9 @@ export function useCheckInOccupancy(booking: Booking | undefined | null) {
     value,
     setValue,
     reset,
-    pricing,
+    // Sin tramo cuando el precio es la tarifa especial: mostrar "Tarifa 4
+    // personas" al lado de un total que no sale de ahí es mentirle a recepción.
+    pricing: isSpecialRate ? null : pricing,
     nights,
     currentTotal,
     newTotal,

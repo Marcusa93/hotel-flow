@@ -1,10 +1,11 @@
-import { Plus, CalendarCheck, Clock, LogIn, XCircle, ScanLine } from 'lucide-react';
+import { Plus, CalendarCheck, Clock, LogIn, XCircle, ScanLine, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface ReservationsHeaderProps {
     onNewBooking: () => void;
     onScanQR?: () => void;
+    onRentFullHotel?: () => void;
     stats?: {
         total: number;
         pending: number;
@@ -13,7 +14,7 @@ interface ReservationsHeaderProps {
     };
 }
 
-export function ReservationsHeader({ onNewBooking, onScanQR, stats }: ReservationsHeaderProps) {
+export function ReservationsHeader({ onNewBooking, onScanQR, onRentFullHotel, stats }: ReservationsHeaderProps) {
     return (
         <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
@@ -26,6 +27,17 @@ export function ReservationsHeader({ onNewBooking, onScanQR, stats }: Reservatio
                     </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                    {onRentFullHotel && (
+                        <Button
+                            variant="outline"
+                            onClick={onRentFullHotel}
+                            className="rounded-xl"
+                            title="Alquilar el hotel completo a un contingente"
+                        >
+                            <Building2 className="w-4 h-4 mr-1.5" />
+                            <span className="hidden lg:inline">Hotel completo</span>
+                        </Button>
+                    )}
                     {onScanQR && (
                         <Button
                             variant="outline"

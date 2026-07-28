@@ -25,6 +25,10 @@ export const useCreateBooking = () => {
                     adults: bookingData.adults,
                     children: bookingData.children,
                     infants: bookingData.infants ?? 0,
+                    // Solo cuando se aplicó: NULL es "reserva normal", que es la
+                    // enorme mayoría, y así el precio no queda atado a un número.
+                    special_rate_amount: bookingData.specialRateAmount ?? null,
+                    is_full_hotel: bookingData.isFullHotel ?? false,
                     status: bookingData.status,
                     total_amount: bookingData.totalAmount,
                     notes: bookingData.notes,
@@ -62,6 +66,8 @@ export const useCreateBooking = () => {
                 adults: data.adults,
                 children: data.children,
                 infants: data.infants ?? 0,
+                specialRateAmount: data.special_rate_amount == null ? undefined : Number(data.special_rate_amount),
+                isFullHotel: data.is_full_hotel ?? false,
                 status: data.status,
                 totalAmount: data.total_amount,
                 notes: data.notes,

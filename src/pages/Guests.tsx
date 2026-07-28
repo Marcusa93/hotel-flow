@@ -12,7 +12,7 @@ import {
 } from '@/components/guests';
 import { NewGuestDialog } from '@/components/guests/NewGuestDialog';
 import { EmptyState, ListSkeleton } from '@/components/shared';
-import { Search, Users, BedDouble, Repeat, UserPlus } from 'lucide-react';
+import { Search, Users, BedDouble, Repeat, UserPlus, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function Guests() {
@@ -23,7 +23,7 @@ export default function Guests() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('recent');
-  const [quickFilter, setQuickFilter] = useState<'all' | 'hosted' | 'frequent' | 'new'>('all');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'hosted' | 'frequent' | 'new' | 'flagged'>('all');
   const [selectedGuest, setSelectedGuest] = useState<Guest | undefined>(undefined);
   const [isNewGuestDialogOpen, setIsNewGuestDialogOpen] = useState(false);
 
@@ -98,6 +98,11 @@ export default function Guests() {
   const getGuestStats = (guestId: string) =>
     guestStatsMap[guestId] || { bookingsCount: 0, totalSpend: 0 };
 
+  const flaggedCount = useMemo(
+    () => guests.filter(g => g.rating === 'NO_DESEADO' || g.rating === 'ATENCION').length,
+    [guests]
+  );
+
   const filteredGuests = useMemo(() => {
     let result = guests.filter(guest => {
       const searchLower = search.toLowerCase();
@@ -111,6 +116,9 @@ export default function Guests() {
       if (quickFilter === 'hosted' && !hostedGuestIds.has(guest.id)) return false;
       if (quickFilter === 'frequent' && !frequentGuestIds.has(guest.id)) return false;
       if (quickFilter === 'new' && !newGuestIds.has(guest.id)) return false;
+      // Los dos que hay que mirar antes de alojarlos. "Buen huésped" no entra:
+      // este filtro sirve para revisar problemas, no para lucir la lista buena.
+      if (quickFilter === 'flagged' && guest.rating !== 'NO_DESEADO' && guest.rating !== 'ATENCION') return false;
 
       return matchesSearch;
     });
@@ -172,6 +180,16 @@ export default function Guests() {
             icon={UserPlus}
             label={`Nuevos (${newGuestIds.size})`}
           />
+          {/* El chip aparece recién cuando hay alguno: un "Con reparos (0)"
+              permanente sugiere un problema que no existe. */}
+          {flaggedCount > 0 && (
+            <FilterChip
+              active={quickFilter === 'flagged'}
+              onClick={() => setQuickFilter('flagged')}
+              icon={AlertTriangle}
+              label={`Con reparos (${flaggedCount})`}
+            />
+          )}
           <span className="text-xs text-muted-foreground ml-auto">
             {filteredGuests.length} resultado{filteredGuests.length !== 1 ? 's' : ''}
           </span>

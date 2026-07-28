@@ -58,7 +58,7 @@ export const ReservationCard = React.memo(function ReservationCard({ booking, gu
                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                                     <BedDouble className="w-3 h-3" />
                                     <span className="font-semibold text-slate-600 dark:text-slate-400">
-                                        {room?.roomNumber || '?'}
+                                        {booking.isFullHotel ? 'Hotel completo' : (room?.roomNumber || '?')}
                                     </span>
                                     {roomType && (
                                         <>

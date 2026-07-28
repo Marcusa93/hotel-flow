@@ -77,6 +77,7 @@ export default function Settings() {
     checkInTime: '14:00',
     checkOutTime: '11:00',
     parkingSpots: 0,
+    specialRateAmount: 0,
   });
 
   // Sync forms when settings load or actually change (keyed by updatedAt so
@@ -93,6 +94,7 @@ export default function Settings() {
         checkInTime: settings.checkInTime || '14:00',
         checkOutTime: settings.checkOutTime || '11:00',
         parkingSpots: settings.parkingSpots ?? 0,
+        specialRateAmount: settings.specialRateAmount ?? 0,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -275,6 +277,27 @@ export default function Settings() {
                       />
                       <p className="text-xs text-muted-foreground">
                         Espacios de estacionamiento del hotel. En 0 no se controlan.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="specialRateAmount">Tarifa especial (por noche)</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                        <Input
+                          id="specialRateAmount"
+                          type="number"
+                          min={0}
+                          className="pl-7"
+                          value={hotelForm.specialRateAmount}
+                          onChange={(e) => setHotelForm(prev => ({
+                            ...prev,
+                            specialRateAmount: Math.max(0, Number(e.target.value) || 0),
+                          }))}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Precio por noche para clientes especiales, cualquiera sea la habitación.
+                        Aparece como opción al tomar la reserva. En 0 no se ofrece.
                       </p>
                     </div>
                   </div>

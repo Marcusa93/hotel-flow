@@ -54,6 +54,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { RegisterPaymentDialog } from '@/components/payments/RegisterPaymentDialog';
+import { PaymentAttachments } from '@/components/payments/PaymentAttachments';
 import { CheckoutDialog } from '@/components/bookings/CheckoutDialog';
 import { EditBookingDialog } from '@/components/bookings/EditBookingDialog';
 import { ExtendStayDialog } from '@/components/bookings/ExtendStayDialog';
@@ -714,7 +715,8 @@ export default function BookingDetail() {
                     };
                     const style = statusStyles[payment.status] || statusStyles.PENDING;
                     return (
-                      <div key={payment.id} className="flex items-center justify-between p-4 rounded-xl bg-background/40 hover:bg-background/60 transition-colors border border-transparent hover:border-border/50">
+                      <div key={payment.id} className="p-4 rounded-xl bg-background/40 hover:bg-background/60 transition-colors border border-transparent hover:border-border/50">
+                        <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                           <div className={cn("w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs ring-4 ring-background", style.circle)}>
                             ${i + 1}
@@ -731,6 +733,11 @@ export default function BookingDetail() {
                           <p className={cn("font-bold", style.amount)}>{style.sign}${payment.amount.toLocaleString('es-AR')}</p>
                           <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{style.label}</span>
                         </div>
+                        </div>
+
+                        {/* El comprobante, que es lo que el del otro turno viene a
+                            buscar cuando duda de que la plata haya entrado. */}
+                        <PaymentAttachments paymentId={payment.id} className="mt-3 pl-14" />
                       </div>
                     );
                   })}

@@ -3,7 +3,10 @@
 export type RoomStatus = 'AVAILABLE' | 'OCCUPIED' | 'DIRTY' | 'MAINTENANCE' | 'OUT_OF_ORDER';
 export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED' | 'NO_SHOW';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
-export type PaymentMethod = 'CASH' | 'CREDIT' | 'DEBIT' | 'TRANSFER' | 'QR' | 'OTHER';
+export type PaymentMethod = 'CASH' | 'CREDIT' | 'DEBIT' | 'TRANSFER' | 'QR' | 'OTHER' | 'CUENTA_CORRIENTE';
+
+/** Los métodos con los que entra plata de verdad. Excluye la cuenta corriente. */
+export type SettlementMethod = Exclude<PaymentMethod, 'CUENTA_CORRIENTE'>;
 export type HousekeepingStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
 export type TaskPriority = 'LOW' | 'NORMAL' | 'URGENT' | 'CHECKOUT';
 export type UserRole = 'admin' | 'reception' | 'housekeeping' | 'auditor';
@@ -60,6 +63,20 @@ export interface Guest {
   hasVehicle?: boolean;
   vehicleDescription?: string;
   licensePlate?: string;
+  /** Habilitado a cargar sus estadías a cuenta corriente en vez de pagarlas en el momento. */
+  hasCurrentAccount?: boolean;
+  createdAt: Date;
+}
+
+/** Un pago del huésped para bajar su cuenta corriente. Los cargos no son esto. */
+export interface CurrentAccountPayment {
+  id: string;
+  guestId: string;
+  date: Date;
+  amount: number;
+  method: SettlementMethod;
+  notes?: string;
+  createdBy?: string;
   createdAt: Date;
 }
 

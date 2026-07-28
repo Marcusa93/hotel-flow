@@ -6,6 +6,8 @@ import { format, startOfDay, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarIcon, Tag, Percent, Sparkles, X } from 'lucide-react';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
+import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
+import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRates } from '@/hooks/useRates';
 import {
   Dialog,
@@ -18,6 +20,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -42,12 +45,12 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { cn, formatPesosInput, parsePesosInput } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
-import { PAYMENT_METHODS } from '@/lib/constants';
+import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, CURRENT_ACCOUNT_METHOD } from '@/lib/constants';
 import { Rate } from '@/types/hotel';
 
 const paymentSchema = z.object({
   date: z.date({ required_error: 'Fecha requerida' }),
-  method: z.enum(['CASH', 'CREDIT', 'DEBIT', 'TRANSFER', 'QR', 'OTHER'] as const),
+  method: z.enum(['CASH', 'CREDIT', 'DEBIT', 'TRANSFER', 'QR', 'OTHER', 'CUENTA_CORRIENTE'] as const),
   amount: z.coerce.number().positive('Monto debe ser mayor a 0'),
   reference: z.string().optional(),
   comment: z.string().optional(),
@@ -71,6 +74,15 @@ export function RegisterPaymentDialog({
 }: RegisterPaymentDialogProps) {
   const { addPayment, payments } = usePaymentOperations();
   const { data: rates = [] } = useRates();
+  const { bookings } = useBookingOperations();
+  const { guests } = useGuestOperations();
+  // La cuenta corriente es del huésped, no de la reserva: hay que llegar hasta él.
+  const guest = (() => {
+    const booking = bookings.find(b => b.id === bookingId);
+    return booking ? guests.find(g => g.id === booking.guestId) : undefined;
+  })();
+  const hasCurrentAccount = guest?.hasCurrentAccount === true;
+  const guestName = guest?.fullName;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
@@ -128,6 +140,7 @@ export function RegisterPaymentDialog({
   };
 
   const originalAmount = form.watch('amount') || 0;
+  const isToCurrentAccount = form.watch('method') === CURRENT_ACCOUNT_METHOD;
   const discount = appliedPromo ? calculateDiscount(appliedPromo, originalAmount) : 0;
   const finalAmount = Math.max(0, originalAmount - discount);
 
@@ -406,8 +419,19 @@ export function RegisterPaymentDialog({
                       {PAYMENT_METHODS.map(m => (
                         <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
                       ))}
+                      {/* Solo para el huésped habilitado: no es una forma de
+                          cobrar sino de no cobrar todavía. */}
+                      {hasCurrentAccount && (
+                        <SelectItem value={CURRENT_ACCOUNT_METHOD}>Cuenta corriente</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
+                  {isToCurrentAccount && (
+                    <FormDescription className="text-xs text-amber-600 dark:text-amber-400">
+                      No entra plata ahora: la reserva queda saldada y el monto se suma a la
+                      cuenta corriente de {guestName || 'el huésped'}.
+                    </FormDescription>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -471,7 +495,12 @@ export function RegisterPaymentDialog({
             {showConfirm && (
               <div className="p-3 rounded-xl border-2 border-amber-300 bg-amber-50 dark:bg-amber-950/30 mb-3">
                 <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                  {confirmWarning ? `⚠️ ${confirmWarning}` : `Confirmar pago de $${finalAmount.toLocaleString('es-AR')} por ${form.getValues('method')}`}
+                  {confirmWarning
+                    ? `⚠️ ${confirmWarning}`
+                    : isToCurrentAccount
+                      // Decir "pago" acá sería mentir: no entra plata.
+                      ? `Cargar $${finalAmount.toLocaleString('es-AR')} a la cuenta corriente`
+                      : `Confirmar pago de $${finalAmount.toLocaleString('es-AR')} por ${PAYMENT_METHOD_LABELS[form.getValues('method')] || form.getValues('method')}`}
                 </p>
               </div>
             )}

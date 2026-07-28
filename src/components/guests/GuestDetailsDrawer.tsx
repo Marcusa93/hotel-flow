@@ -33,6 +33,7 @@ import { cn, escapeHtml, formatLastNameFirst, getInitials } from '@/lib/utils';
 import { buildAccountsByBooking } from '@/lib/bookingAccount';
 import { useAllBookingCharges } from '@/hooks/useAllBookingCharges';
 import { PRINT_FONT_LINK, PRINT_FONT_CSS } from '@/lib/printStyles';
+import { GuestCurrentAccount } from '@/components/guests/GuestCurrentAccount';
 
 const STATUS_LABELS: Record<string, string> = {
     PENDING: 'Pendiente',
@@ -532,6 +533,10 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                                 </div>
                             )}
                         </section>
+
+                        <Separator />
+
+                        <GuestCurrentAccount guest={guest} />
 
                         <Separator />
 

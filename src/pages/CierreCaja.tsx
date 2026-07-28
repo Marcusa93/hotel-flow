@@ -8,6 +8,8 @@ import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useOtherIncome, useCreateOtherIncome, useDeleteOtherIncome } from '@/hooks/useOtherIncome';
+import { useCurrentAccountPayments } from '@/hooks/useCurrentAccount';
+import { isCurrentAccountPayment } from '@/lib/currentAccount';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { useUpdateHotelSettings } from '@/hooks/useUpdateHotelSettings';
 import { PageHeader } from '@/components/shared';
@@ -35,6 +37,7 @@ export default function CierreCaja() {
   const { data: hotelSettings } = useHotelSettings();
   const updateSettings = useUpdateHotelSettings();
   const { data: allOtherIncome = [] } = useOtherIncome();
+  const { data: allAccountPayments = [] } = useCurrentAccountPayments();
   const createOtherIncome = useCreateOtherIncome();
   const deleteOtherIncome = useDeleteOtherIncome();
 
@@ -49,13 +52,26 @@ export default function CierreCaja() {
     [allOtherIncome, day]
   );
 
+  const accountPaymentsDay = useMemo(
+    () => allAccountPayments.filter((p) => formatLocalDate(new Date(p.date)) === day),
+    [allAccountPayments, day]
+  );
+
   // PAID payments + external income dated on the selected day, grouped by method
-  const { byMethod, totalIngresos, cashTotal } = useMemo(() => {
+  const { byMethod, totalIngresos, cashTotal, aCuentaCorriente } = useMemo(() => {
     const byMethod: Record<string, number> = {};
     for (const m of PAYMENT_METHODS) byMethod[m.value] = 0;
     let total = 0;
+    // Lo que se cargó a cuentas corrientes hoy. Va aparte y no suma: la reserva
+    // queda saldada pero a la caja no entró un peso.
+    let aCuentaCorriente = 0;
+
     for (const p of payments) {
       if (p.status !== 'PAID' || formatLocalDate(new Date(p.date)) !== day) continue;
+      if (isCurrentAccountPayment(p)) {
+        aCuentaCorriente += p.amount;
+        continue;
+      }
       byMethod[p.method] = (byMethod[p.method] || 0) + p.amount;
       total += p.amount;
     }
@@ -63,8 +79,15 @@ export default function CierreCaja() {
       byMethod[o.method] = (byMethod[o.method] || 0) + o.amount;
       total += o.amount;
     }
-    return { byMethod, totalIngresos: total, cashTotal: byMethod['CASH'] || 0 };
-  }, [payments, otherIncomeDay, day]);
+    // Lo que los huéspedes pagaron hoy de sus cuentas: esto sí es plata que entró,
+    // y entra por el método con el que la trajeron.
+    for (const p of accountPaymentsDay) {
+      byMethod[p.method] = (byMethod[p.method] || 0) + p.amount;
+      total += p.amount;
+    }
+
+    return { byMethod, totalIngresos: total, cashTotal: byMethod['CASH'] || 0, aCuentaCorriente };
+  }, [payments, otherIncomeDay, accountPaymentsDay, day]);
 
   const addOtherIncome = async () => {
     const amount = Number(newIncome.amount);
@@ -166,7 +189,10 @@ export default function CierreCaja() {
     <h1>Cierre de Caja — ${h(hotelSettings?.hotelName || 'Hotel')}</h1>
     <div class="sub">${h(dayLabel)}</div>
     <h2>Ingresos por método</h2><table>${methodRows}
-      <tr class="tot"><td>Total ingresos</td><td class="num">${money(totalIngresos)}</td></tr></table>
+      <tr class="tot"><td>Total ingresos</td><td class="num">${money(totalIngresos)}</td></tr>
+      ${aCuentaCorriente > 0
+        ? `<tr><td>A cuenta corriente (no ingresó)</td><td class="num">${money(aCuentaCorriente)}</td></tr>`
+        : ''}</table>
     <h2>Caja (efectivo)</h2><table>
       <tr><td>Efectivo del día</td><td class="num">${money(cashTotal)}</td></tr>
       <tr><td>Menos fijo del día</td><td class="num">-${money(cashFloat)}</td></tr>
@@ -182,7 +208,7 @@ export default function CierreCaja() {
     w.document.close();
     w.focus();
     setTimeout(() => w.print(), 250);
-  }, [byMethod, expenses, deuda, otherIncomeDay, day, dayLabel, cashFloat, cashTotal, cashToDeposit, totalIngresos, totalDelDia, hotelSettings]);
+  }, [byMethod, expenses, deuda, otherIncomeDay, aCuentaCorriente, day, dayLabel, cashFloat, cashTotal, cashToDeposit, totalIngresos, totalDelDia, hotelSettings]);
 
   return (
     <div className="space-y-6">
@@ -234,6 +260,15 @@ export default function CierreCaja() {
               <span>Total ingresos</span>
               <span className="text-emerald-600 tabular-nums">{money(totalIngresos)}</span>
             </div>
+            {/* Abajo de la raya del total: es lo que NO entró */}
+            {aCuentaCorriente > 0 && (
+              <div className="flex justify-between text-sm pt-1">
+                <span className="text-muted-foreground">A cuenta corriente (no ingresó)</span>
+                <span className="text-amber-600 dark:text-amber-400 tabular-nums">
+                  {money(aCuentaCorriente)}
+                </span>
+              </div>
+            )}
           </CardContent>
         </Card>
 

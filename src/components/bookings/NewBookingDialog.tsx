@@ -489,12 +489,10 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
     }
   }, [open, preselectedRoomId, form]);
 
-  // El que carga la reserva es, salvo excepción, el recepcionista a cargo. Se
-  // completa solo al abrir y queda editable para cuando uno la carga por otro.
-  // Solo si está vacío: el formulario se limpia al cerrar, así que reabrirlo
-  // vuelve a proponer el usuario, pero sin pisar lo que se haya escrito a mano.
+  // La reserva queda a nombre de quien la está cargando, sin posibilidad de
+  // escribir otro: el campo es de solo lectura y este efecto es su único autor.
   useEffect(() => {
-    if (open && currentUserName && !form.getValues('receptionist')) {
+    if (open && currentUserName) {
       form.setValue('receptionist', currentUserName);
     }
   }, [open, currentUserName, form]);
@@ -1143,10 +1141,17 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
                 <FormItem>
                   <FormLabel>Recepcionista a cargo</FormLabel>
                   <FormControl>
-                    <Input placeholder="Nombre del recepcionista" {...field} />
+                    {/* readOnly y no disabled: disabled deja el valor afuera del
+                        envío y la reserva quedaría sin recepcionista. */}
+                    <Input
+                      readOnly
+                      tabIndex={-1}
+                      className="bg-muted text-muted-foreground cursor-not-allowed focus-visible:ring-0"
+                      {...field}
+                    />
                   </FormControl>
                   <FormDescription className="text-xs">
-                    Se completa con quien está usando la app. Cambialo si la reserva la carga uno por otro.
+                    La reserva queda registrada a nombre de quien está usando la app.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

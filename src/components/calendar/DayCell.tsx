@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { cn, formatCompactMoney } from '@/lib/utils';
 import { format, isSameDay, isSameMonth } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Link } from 'react-router-dom';
@@ -61,7 +61,7 @@ export const DayCell = React.memo(function DayCell({
                 {/* Heatmap Indicators */}
                 {heatmapMode === 'revenue' && dailyRevenue > 0 && (
                     <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-900/50 px-1.5 py-0.5 rounded-full shadow-sm backdrop-blur">
-                        ${dailyRevenue > 1000 ? (dailyRevenue / 1000).toFixed(1) + 'k' : dailyRevenue.toFixed(0)}
+                        {formatCompactMoney(dailyRevenue)}
                     </span>
                 )}
                 {heatmapMode === 'occupancy' && bookings.length > 0 && (

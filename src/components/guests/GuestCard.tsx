@@ -2,7 +2,7 @@ import { Guest } from '@/types/hotel';
 import { Calendar, Phone, Globe, BedDouble } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
-import { cn, formatLastNameFirst, getInitials } from '@/lib/utils';
+import { cn, formatLastNameFirst, getInitials, formatCompactMoney } from '@/lib/utils';
 
 interface GuestCardProps {
     guest: Guest;
@@ -69,7 +69,7 @@ export function GuestCard({ guest, bookingsCount, totalSpend, isCurrentlyHosted,
                         <span className="text-muted-foreground">{bookingsCount === 1 ? 'visita' : 'visitas'}</span>
                     </div>
                     <div className="flex items-center gap-1 text-xs bg-emerald-50 dark:bg-emerald-950/30 px-2 py-1 rounded-lg text-emerald-700 dark:text-emerald-400">
-                        <span className="font-bold">${totalSpend > 1000 ? `${(totalSpend / 1000).toFixed(0)}k` : totalSpend.toLocaleString()}</span>
+                        <span className="font-bold">{formatCompactMoney(totalSpend)}</span>
                     </div>
                     {bookingsCount >= 3 && (
                         <div className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 px-1.5 py-0.5 rounded-md">

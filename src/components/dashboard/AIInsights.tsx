@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Brain, TrendingUp, TrendingDown, AlertTriangle, Lightbulb, ChevronDown, ChevronUp, Zap } from 'lucide-react';
 import { Booking, Room, Payment, Guest } from '@/types/hotel';
 import { isToday, isTomorrow, subDays, isAfter, isBefore, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-import { cn, formatLastNameFirst } from '@/lib/utils';
+import { cn, formatLastNameFirst, formatCompactMoney } from '@/lib/utils';
 
 interface AIInsightsProps {
     bookings: Booking[];
@@ -86,8 +86,8 @@ export function AIInsights({ bookings, rooms, payments, guests, monthlyRevenue, 
                 icon: isUp ? TrendingUp : TrendingDown,
                 title: `Revenue ${isUp ? 'subió' : 'bajó'} ${Math.abs(Number(pct))}% vs mes anterior`,
                 detail: isUp
-                    ? `Este mes: $${(monthlyRevenue / 1000).toFixed(0)}k vs $${(lastMonthRevenue / 1000).toFixed(0)}k el anterior.`
-                    : `Este mes: $${(monthlyRevenue / 1000).toFixed(0)}k vs $${(lastMonthRevenue / 1000).toFixed(0)}k. Considerá activar una promoción de fin de semana.`,
+                    ? `Este mes: ${formatCompactMoney(monthlyRevenue)} vs ${formatCompactMoney(lastMonthRevenue)} el anterior.`
+                    : `Este mes: ${formatCompactMoney(monthlyRevenue)} vs ${formatCompactMoney(lastMonthRevenue)}. Considerá activar una promoción de fin de semana.`,
                 color: isUp ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30' : 'text-red-500 bg-red-50 dark:bg-red-950/30',
                 type: 'opportunity',
             });

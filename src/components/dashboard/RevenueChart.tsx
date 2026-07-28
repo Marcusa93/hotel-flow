@@ -7,7 +7,7 @@ import { chartColors, chartGrid, chartAxis, chartTooltip } from '@/lib/chartThem
 import { useRevenueStats } from '@/hooks/useRevenueStats';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
+import { cn, formatCompactMoney } from '@/lib/utils';
 
 export function RevenueChart() {
     const [days, setDays] = useState<7 | 30>(7);
@@ -80,7 +80,7 @@ export function RevenueChart() {
                             fontSize={chartAxis.tick.fontSize}
                             tickLine={false}
                             axisLine={false}
-                            tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                            tickFormatter={(value) => formatCompactMoney(value)}
                             dx={-10}
                             width={45}
                         />

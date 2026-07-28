@@ -10,7 +10,7 @@ import { Guest } from '@/types/hotel';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from '@/hooks/use-toast';
-import { escapeHtml, cn } from '@/lib/utils';
+import { escapeHtml, cn, formatCompactMoney } from '@/lib/utils';
 import { PRINT_FONT_LINK, PRINT_FONT_CSS } from '@/lib/printStyles';
 
 interface GuestsHeaderProps {
@@ -148,7 +148,7 @@ export function GuestsHeader({ guestCount, guests, hotelName, onNewGuest, hosted
                 <StatPill icon={Users} value={guestCount} label="Total" color="slate" />
                 <StatPill icon={BedDouble} value={hostedCount} label="Hospedados" color="emerald" />
                 <StatPill icon={Repeat} value={frequentCount} label="Frecuentes" color="amber" />
-                <StatPill icon={DollarSign} value={`$${totalSpend > 1000 ? `${(totalSpend / 1000).toFixed(0)}k` : totalSpend}`} label="Facturado" color="violet" />
+                <StatPill icon={DollarSign} value={formatCompactMoney(totalSpend)} label="Facturado" color="violet" />
             </div>
         </div>
     );

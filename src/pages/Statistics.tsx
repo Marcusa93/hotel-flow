@@ -25,6 +25,7 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { chartColors, chartGrid, chartAxis, chartTooltip } from '@/lib/chartTheme';
+import { formatCompactMoney } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { DollarSign, BedDouble, Users, Calendar, Activity, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { format, subDays, startOfMonth, eachDayOfInterval, isWithinInterval, startOfDay, endOfDay, differenceInCalendarDays } from 'date-fns';
@@ -199,7 +200,7 @@ export default function Statistics() {
                     <YAxis
                       tickLine={false}
                       axisLine={false}
-                      tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                      tickFormatter={(value) => formatCompactMoney(value)}
                       tick={chartAxis.tick}
                     />
                     <Tooltip

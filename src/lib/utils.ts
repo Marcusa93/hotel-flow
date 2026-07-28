@@ -51,6 +51,32 @@ export function escapeHtml(str: string | null | undefined): string {
     .replace(/'/g, '&#39;');
 }
 
+// ─── Compact amounts ─────────────────────────────────────────────────
+// Stat cards and chart axes are too narrow for a full "$1.603.000", so the
+// amount gets abbreviated. Stopping at "k" only works below a million: past
+// that it printed "$1603k", which is exactly the digit-counting the card is
+// supposed to save you.
+
+/** 1.603.000 → "$1,6M" · 84.000 → "$84k" · 850 → "$850" */
+export function formatCompactMoney(amount: number | null | undefined): string {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return '$0';
+
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  // Round to thousands before choosing the unit, otherwise 999.500 prints as
+  // "$1000k" instead of stepping up to "$1M".
+  const thousands = abs >= 1000 ? Math.round(abs / 1000) : 0;
+
+  if (thousands >= 1000) {
+    // One decimal, dropped when it's exact: "$1,6M" but "$2M", not "$2,0M".
+    const millions = (abs / 1_000_000).toLocaleString('es-AR', { maximumFractionDigits: 1 });
+    return `${sign}$${millions}M`;
+  }
+  if (thousands > 0) return `${sign}$${thousands}k`;
+  return `${sign}$${Math.round(abs).toLocaleString('es-AR')}`;
+}
+
 // ─── Peso amount inputs ──────────────────────────────────────────────
 // A bare <input type="number"> shows "160000", which is hard to read at a
 // glance. These keep an es-AR formatted string in the field while the form

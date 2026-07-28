@@ -183,7 +183,10 @@ export default function QuickCheckin() {
               <User className="w-4 h-4 text-muted-foreground shrink-0" />
               <div>
                 <p className="text-xs text-muted-foreground">Ocupantes</p>
-                <p className="font-semibold">{booking.adults}A{booking.children > 0 ? ` + ${booking.children}N` : ''}</p>
+                <p className="font-semibold">
+                  {booking.adults}A{booking.children > 0 ? ` + ${booking.children}N` : ''}
+                  {booking.infants ? ` + ${booking.infants}M` : ''}
+                </p>
               </div>
             </div>
 

@@ -1,4 +1,5 @@
-import type { RoomType } from '@/types/hotel';
+import type { Rate, RoomType } from '@/types/hotel';
+import { getPromoNightlyPrice } from '@/lib/promoPricing';
 
 /**
  * El precio lo define cuánta gente entra, no la capacidad de la habitación.
@@ -93,3 +94,56 @@ export const bookingDiscountRatio = (booking: {
   if (!baseAmount || !discountAmount || baseAmount <= 0 || discountAmount <= 0) return 0;
   return Math.min(1, discountAmount / baseAmount);
 };
+
+export interface CheckInTotalInput {
+  /** El total con el que está cargada la reserva: lo que se pactó */
+  agreedTotal: number;
+  nights: number;
+  /** Precio del tramo que corresponde a la ocupación que se confirma ahora */
+  tierNightly: number;
+  /** Precio del tramo que correspondía a la ocupación con la que se tomó la reserva */
+  bookedTierNightly: number;
+  /** La promoción de la reserva, si todavía se puede resolver por rateId */
+  promo?: Rate | null;
+  /** Proporción descontada. Solo se usa cuando la promoción ya no se resuelve. */
+  discountRatio?: number;
+}
+
+/**
+ * El total que queda al confirmar la ocupación real en el check-in.
+ *
+ * Dos reglas, y la segunda existe porque la primera sola se rompe:
+ *
+ * 1. Se respeta lo pactado y se lo corre por la diferencia entre tramos. Si se
+ *    rearmara desde la tarifa de hoy, una reserva tomada hace dos meses cambiaría
+ *    de precio sola porque la tarifa subió en el medio.
+ *
+ * 2. Techo en lo que la lista cobra hoy por el tramo que se confirma. Sin esto,
+ *    una reserva vieja —cargada al precio de la habitación y no al del tramo—
+ *    arrastra su sobreprecio: corregida hacia arriba terminaba cobrando MÁS que
+ *    la habitación entera, justo el techo que getOccupancyPricing promete.
+ *
+ * Con promoción resoluble se la reaplica sobre el tramo nuevo en vez de escalar
+ * por proporción: hay promos de precio plano y de monto fijo que no son
+ * proporcionales al precio base, y escalarlas regalaba o cobraba de más.
+ */
+export function resolveCheckInTotal({
+  agreedTotal,
+  nights,
+  tierNightly,
+  bookedTierNightly,
+  promo,
+  discountRatio = 0,
+}: CheckInTotalInput): number {
+  if (nights <= 0) return agreedTotal;
+
+  // La promoción sabe qué cobra sobre cualquier precio base; es más fiel que
+  // arrastrar la proporción de un total que está cambiando.
+  if (promo) return Math.round(getPromoNightlyPrice(promo, tierNightly) * nights);
+
+  const agreedNightly = agreedTotal / nights;
+  const movedNightly = agreedNightly + (tierNightly - bookedTierNightly) * (1 - discountRatio);
+  const listNightly = tierNightly * (1 - discountRatio);
+
+  return Math.round(Math.min(movedNightly, listNightly) * nights);
+}

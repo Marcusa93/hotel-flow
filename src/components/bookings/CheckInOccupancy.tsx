@@ -108,11 +108,18 @@ export function CheckInOccupancy({
 
       {pricing && nights > 0 && (
         <div className="pt-2 border-t space-y-1">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">
-              Tarifa {pricing.pricingType.maxGuests} personas · {nights} noche{nights !== 1 ? 's' : ''}
+          {/* La tarifa y el total van en renglones separados a propósito: con una
+              promoción el total no es tarifa × noches, y ponerlos en la misma
+              línea hacía leer una multiplicación que no cierra. */}
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Tarifa {pricing.pricingType.maxGuests} personas</span>
+            <span className="tabular-nums">
+              ${pricing.nightlyPrice.toLocaleString('es-AR')}/noche · {nights} noche{nights !== 1 ? 's' : ''}
             </span>
-            <span className={cn('font-semibold', difference !== 0 && 'text-primary')}>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium">Total</span>
+            <span className={cn('font-semibold tabular-nums', difference !== 0 && 'text-primary')}>
               ${newTotal.toLocaleString('es-AR')}
             </span>
           </div>

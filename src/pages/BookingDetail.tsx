@@ -31,6 +31,7 @@ import { useHousekeepingTasks } from '@/hooks/domain/useHousekeepingOperations';
 import { useCheckInOccupancy } from '@/hooks/useCheckInOccupancy';
 import { CheckInOccupancy } from '@/components/bookings/CheckInOccupancy';
 import { getRoomCheckInWarning, checkInConfirmLabel } from '@/lib/roomReadiness';
+import { totalOccupants } from '@/lib/occupancyPricing';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -117,10 +118,36 @@ export default function BookingDetail() {
 
   const roomWarning = getRoomCheckInWarning(booking.room, housekeepingTasks);
 
-  /** El check-in guarda primero cuántos entraron: de ahí sale el total a cobrar. */
+  /** Corregir la ocupación de una reserva ya alojada, sin tocar su estado. */
+  const handleFixOccupancy = async () => {
+    try {
+      await occupancy.persist();
+      toast({ title: 'Ocupación corregida', description: 'El total quedó actualizado.' });
+    } catch {
+      toast({
+        title: 'No se pudo corregir la ocupación',
+        description: 'La reserva quedó como estaba. Probá de nuevo.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  /**
+   * El check-in guarda primero cuántos entraron: de ahí sale el total a cobrar.
+   * Con el try/catch, porque Radix cierra el diálogo sin esperar la promesa: sin
+   * esto un error dejaba la reserva sin entrar y la pantalla sin decir nada.
+   */
   const handleCheckIn = async () => {
-    await occupancy.persist();
-    await updateBookingStatus(booking.id, 'CHECKED_IN');
+    try {
+      await occupancy.persist();
+      await updateBookingStatus(booking.id, 'CHECKED_IN');
+    } catch {
+      toast({
+        title: 'No se pudo hacer el check-in',
+        description: 'La reserva quedó como estaba. Probá de nuevo.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const nights = Math.ceil(
@@ -155,7 +182,8 @@ export default function BookingDetail() {
               <span className="hidden md:inline">•</span>
               <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {nights} noches</span>
               <span className="hidden md:inline">•</span>
-              <span className="flex items-center gap-1"><User className="w-3 h-3" /> {booking.adults + booking.children} huéspedes</span>
+              {/* Cuenta a los menores de 5: dice "huéspedes", no "los que se cobran" */}
+              <span className="flex items-center gap-1"><User className="w-3 h-3" /> {totalOccupants(booking)} huéspedes</span>
             </div>
           </div>
         </div>
@@ -185,7 +213,7 @@ export default function BookingDetail() {
             </AlertDialog>
           )}
           {booking.status === 'CONFIRMED' && (
-            <AlertDialog>
+            <AlertDialog onOpenChange={open => { if (!open) occupancy.reset(); }}>
               <AlertDialogTrigger asChild>
                 <Button className="bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20">
                   <LogIn className="w-4 h-4 mr-2" /> Check-in
@@ -227,6 +255,44 @@ export default function BookingDetail() {
               <Button onClick={() => setIsCheckoutDialogOpen(true)} className="bg-slate-800 hover:bg-slate-900 shadow-lg">
                 <LogOut className="w-4 h-4 mr-2" /> Check-out
               </Button>
+              {/* Editar está apagado con el huésped adentro, y eso también dejaba
+                  afuera la cantidad de personas —que acá define el precio—. Esto
+                  corrige solo eso: ni fechas ni habitación. */}
+              <AlertDialog onOpenChange={open => { if (!open) occupancy.reset(); }}>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="rounded-full">
+                    <User className="w-4 h-4 mr-2" /> Corregir ocupación
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Corregir ocupación</AlertDialogTitle>
+                    <AlertDialogDescription asChild>
+                      <div className="space-y-3">
+                        <p>
+                          Cuántas personas hay realmente en la habitación <strong>{booking.room.roomNumber}</strong>.
+                          El total de la reserva se ajusta al tramo que corresponda.
+                        </p>
+                        <CheckInOccupancy
+                          value={occupancy.value}
+                          onChange={occupancy.setValue}
+                          pricing={occupancy.pricing}
+                          maxGuests={occupancy.maxGuests}
+                          nights={occupancy.nights}
+                          currentTotal={occupancy.currentTotal}
+                          newTotal={occupancy.newTotal}
+                        />
+                      </div>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Volver</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleFixOccupancy} disabled={!occupancy.hasChanged}>
+                      Guardar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               {/* Editar está apagado una vez adentro; sin esto, el huésped que
                   pide una noche más no tiene dónde cargarse. */}
               <Button variant="outline" onClick={() => setIsExtendDialogOpen(true)} className="rounded-full">

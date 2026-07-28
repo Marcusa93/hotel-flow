@@ -32,6 +32,7 @@ import { useCheckInOccupancy } from '@/hooks/useCheckInOccupancy';
 import { getRoomCheckInWarning, checkInConfirmLabel, type RoomCheckInWarning } from '@/lib/roomReadiness';
 import { RoomStatusWarning } from '@/components/shared';
 import { CheckInOccupancy } from '@/components/bookings/CheckInOccupancy';
+import { toast } from '@/hooks/use-toast';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -151,8 +152,14 @@ export default function Bookings() {
    * cuántas personas entran —que es lo que define el precio— se confirman antes.
    */
   const handleStatusChange = (bookingId: string, newStatus: BookingStatus) => {
+    const dragged = bookings.find(b => b.id === bookingId);
+    // Reordenar una tarjeta dentro de su propia columna también llega acá: el
+    // tablero solo corta cuando coinciden columna e índice. Sin esto, mover una
+    // reserva ya alojada dentro de "Hospedadas" abría el diálogo de check-in.
+    if (dragged?.status === newStatus) return;
+
     if (newStatus === 'CHECKED_IN') {
-      const booking = bookings.find(b => b.id === bookingId);
+      const booking = dragged;
       const room = rooms.find(r => r.id === booking?.roomId);
       const guest = guests.find(g => g.id === booking?.guestId);
       setPendingCheckIn({
@@ -168,9 +175,19 @@ export default function Bookings() {
 
   const confirmPendingCheckIn = async () => {
     if (!pendingCheckIn) return;
-    // La ocupación primero: de ella sale el total que se va a cobrar.
-    await checkInOccupancy.persist();
-    await updateBookingStatus(pendingCheckIn.bookingId, 'CHECKED_IN');
+    try {
+      // La ocupación primero: de ella sale el total que se va a cobrar.
+      await checkInOccupancy.persist();
+      await updateBookingStatus(pendingCheckIn.bookingId, 'CHECKED_IN');
+    } catch {
+      // El diálogo ya se cerró —Radix no espera la promesa— y la tarjeta vuelve
+      // sola a su columna. Sin el aviso se lee como "el arrastre no se registró".
+      toast({
+        title: 'No se pudo hacer el check-in',
+        description: 'La reserva quedó como estaba. Probá de nuevo.',
+        variant: 'destructive',
+      });
+    }
     setPendingCheckIn(null);
   };
 

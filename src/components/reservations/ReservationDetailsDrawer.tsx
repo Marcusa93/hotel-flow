@@ -171,6 +171,7 @@ export function ReservationDetailsDrawer({
                                         </Badge>
                                         <p className="text-xs text-slate-400">
                                             {booking.adults} Adultos, {booking.children} Niños
+                                            {booking.infants ? `, ${booking.infants} menores de 5` : ''}
                                         </p>
                                     </div>
                                 </div>

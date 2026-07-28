@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { differenceInDays } from 'date-fns';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useUpdateBooking } from '@/hooks/useUpdateBooking';
-import { getOccupancyPricing, bookingDiscountRatio } from '@/lib/occupancyPricing';
+import { useRates } from '@/hooks/useRates';
+import {
+  getOccupancyPricing,
+  bookingDiscountRatio,
+  resolveCheckInTotal,
+} from '@/lib/occupancyPricing';
 import type { Booking } from '@/types/hotel';
 import type { CheckInOccupancyValue } from '@/components/bookings/CheckInOccupancy';
 
@@ -15,6 +20,7 @@ import type { CheckInOccupancyValue } from '@/components/bookings/CheckInOccupan
  */
 export function useCheckInOccupancy(booking: Booking | undefined | null) {
   const { rooms, roomTypes } = useRoomOperations();
+  const { data: rates = [] } = useRates();
   const updateBookingMutation = useUpdateBooking();
 
   const initial = useMemo<CheckInOccupancyValue>(
@@ -49,16 +55,21 @@ export function useCheckInOccupancy(booking: Booking | undefined | null) {
 
   const currentTotal = booking?.totalAmount ?? 0;
 
-  // El total se mueve por la diferencia entre tramos, no se rearma desde la
-  // tarifa de hoy. Si se recalculara de cero, una reserva tomada hace dos meses
-  // cambiaría de precio sola al hacer el check-in porque la tarifa subió en el
-  // medio: lo que se pactó se respeta, y solo se corrige lo que causó recepción.
-  // El descuento que traía se aplica también a la diferencia.
-  const nightlyDelta =
-    pricing && bookedPricing ? pricing.nightlyPrice - bookedPricing.nightlyPrice : 0;
+  // La promoción de la reserva, para reaplicarla sobre el tramo nuevo en vez de
+  // escalarla por proporción (hay promos de precio plano que no son proporcionales).
+  const promo = booking?.rateId ? rates.find(r => r.id === booking.rateId) ?? null : null;
+
   const newTotal =
-    currentTotal +
-    Math.round(nights * nightlyDelta * (1 - bookingDiscountRatio(booking ?? {})));
+    pricing && bookedPricing
+      ? resolveCheckInTotal({
+          agreedTotal: currentTotal,
+          nights,
+          tierNightly: pricing.nightlyPrice,
+          bookedTierNightly: bookedPricing.nightlyPrice,
+          promo,
+          discountRatio: bookingDiscountRatio(booking ?? {}),
+        })
+      : currentTotal;
 
   const hasChanged =
     !!booking &&
@@ -79,9 +90,17 @@ export function useCheckInOccupancy(booking: Booking | undefined | null) {
     });
   }, [booking, hasChanged, updateBookingMutation, value, newTotal]);
 
+  /**
+   * Vuelve a lo que dice la reserva. El diálogo de BookingDetail no se desmonta
+   * al cerrarse, así que sin esto lo que se tanteó con los +/- y se descartó con
+   * "Volver" seguía ahí la próxima vez que se abría, listo para cobrarse.
+   */
+  const reset = useCallback(() => setValue(initial), [initial]);
+
   return {
     value,
     setValue,
+    reset,
     pricing,
     nights,
     currentTotal,

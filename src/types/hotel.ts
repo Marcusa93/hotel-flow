@@ -154,6 +154,23 @@ export interface Payment {
   discountAmount?: number;
 }
 
+/**
+ * El comprobante colgado de un pago: la captura de la transferencia, el PDF del
+ * banco, la foto del ticket. El archivo vive en el bucket privado; acá va la
+ * ruta y quién lo subió.
+ */
+export interface PaymentAttachment {
+  id: string;
+  paymentId: string;
+  storagePath: string;
+  fileName: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  uploadedBy?: string;
+  uploadedByName?: string;
+  createdAt: Date;
+}
+
 export interface HousekeepingTask {
   id: string;
   roomId: string;

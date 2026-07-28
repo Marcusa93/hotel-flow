@@ -15,6 +15,7 @@ import type {
   BookingCharge,
   OtherIncome,
   CurrentAccountPayment,
+  PaymentAttachment,
 } from '@/types/hotel';
 
 // --- Row to Model mappers (snake_case DB → camelCase frontend) ---
@@ -133,6 +134,18 @@ export const mapPayment = (row: DbRow): Payment => ({
   promoCode: row.promo_code || undefined,
   promoLabel: row.promo_label || undefined,
   discountAmount: row.discount_amount == null ? undefined : Number(row.discount_amount),
+});
+
+export const mapPaymentAttachment = (row: DbRow): PaymentAttachment => ({
+  id: row.id,
+  paymentId: row.payment_id,
+  storagePath: row.storage_path,
+  fileName: row.file_name,
+  mimeType: row.mime_type || undefined,
+  sizeBytes: row.size_bytes == null ? undefined : Number(row.size_bytes),
+  uploadedBy: row.uploaded_by || undefined,
+  uploadedByName: row.uploaded_by_name || undefined,
+  createdAt: new Date(row.created_at),
 });
 
 /** Parse a date-only string (YYYY-MM-DD) as local midnight instead of UTC */

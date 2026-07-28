@@ -17,6 +17,8 @@ import { getParkingAvailability } from '@/lib/parking';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { useAppRole } from '@/context/AppRoleContext';
 import { useAuth } from '@/context/AuthContext';
+import { GuestRatingBadge } from '@/components/guests/GuestRatingBadge';
+import { GuestRatingAlert } from '@/components/guests/GuestRatingAlert';
 import type { DocumentType } from '@/types/hotel';
 import {
   Dialog,
@@ -647,7 +649,10 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
                                         }}
                                       >
                                         <div className="flex flex-col flex-1 min-w-0">
-                                          <span className="truncate">{guest.fullName}</span>
+                                          <span className="flex items-center gap-1.5 min-w-0">
+                                            <span className="truncate">{guest.fullName}</span>
+                                            <GuestRatingBadge rating={guest.rating} iconOnly className="shrink-0" />
+                                          </span>
                                           <span className="text-xs text-muted-foreground truncate">
                                             {guest.email || guest.phone || 'Sin contacto'}
                                           </span>
@@ -663,6 +668,9 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
                             </Command>
                           </PopoverContent>
                         </Popover>
+                        {/* Lo que el hotel sabe de este huésped, en el momento en
+                            que se decide alojarlo. */}
+                        <GuestRatingAlert guest={selectedGuest} className="mt-2" />
                         <FormMessage />
                       </FormItem>
                     );

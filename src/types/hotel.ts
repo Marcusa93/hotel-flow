@@ -51,6 +51,12 @@ export interface Room {
 
 export type DocumentType = 'DNI' | 'PASAPORTE' | 'CEDULA' | 'CUIT' | 'OTRO';
 
+/**
+ * Cómo se portó el huésped, para la interna del hotel. NULL/undefined es "sin
+ * calificar": un huésped nuevo no es bueno ni malo, es desconocido.
+ */
+export type GuestRating = 'BUENO' | 'ATENCION' | 'NO_DESEADO';
+
 export interface Guest {
   id: string;
   fullName: string;
@@ -65,6 +71,12 @@ export interface Guest {
   licensePlate?: string;
   /** Habilitado a cargar sus estadías a cuenta corriente en vez de pagarlas en el momento. */
   hasCurrentAccount?: boolean;
+  /** Calificación interna. Nunca sale impresa ni exportada: es para adentro. */
+  rating?: GuestRating;
+  /** Qué pasó. Sin esto la calificación es una etiqueta que nadie puede discutir. */
+  ratingNotes?: string;
+  ratingBy?: string;
+  ratingAt?: Date;
   createdAt: Date;
 }
 

@@ -54,6 +54,10 @@ export const mapGuest = (row: DbRow): Guest => ({
   vehicleDescription: row.vehicle_description,
   licensePlate: row.license_plate,
   hasCurrentAccount: row.has_current_account ?? false,
+  rating: row.rating || undefined,
+  ratingNotes: row.rating_notes || undefined,
+  ratingBy: row.rating_by || undefined,
+  ratingAt: row.rating_at ? new Date(row.rating_at) : undefined,
   createdAt: new Date(row.created_at || new Date()),
 });
 

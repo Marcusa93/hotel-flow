@@ -3,6 +3,7 @@ import { Calendar, Phone, Globe, BedDouble } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { cn, formatLastNameFirst, getInitials, formatCompactMoney } from '@/lib/utils';
+import { GuestRatingBadge } from './GuestRatingBadge';
 
 interface GuestCardProps {
     guest: Guest;
@@ -41,9 +42,14 @@ export function GuestCard({ guest, bookingsCount, totalSpend, isCurrentlyHosted,
                         <span className="text-sm font-bold text-white">{initials}</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 truncate">
-                            {displayName}
-                        </h3>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 truncate">
+                                {displayName}
+                            </h3>
+                            {/* Solo el ícono: en la tarjeta no entra el texto y el
+                                color ya distingue las tres. */}
+                            <GuestRatingBadge rating={guest.rating} iconOnly className="shrink-0" />
+                        </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                             {guest.phone && (
                                 <span className="flex items-center gap-0.5 truncate">

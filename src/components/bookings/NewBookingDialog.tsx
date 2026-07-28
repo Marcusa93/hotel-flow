@@ -13,6 +13,8 @@ import { useCheckAvailability } from '@/hooks/useCheckAvailability';
 import { COUNTRIES, DOCUMENT_TYPES } from '@/lib/constants';
 import { getBestPromo, getPromoNightlyPrice } from '@/lib/promoPricing';
 import { getOccupancyPricing } from '@/lib/occupancyPricing';
+import { getParkingAvailability } from '@/lib/parking';
+import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { useAppRole } from '@/context/AppRoleContext';
 import { useAuth } from '@/context/AuthContext';
 import type { DocumentType } from '@/types/hotel';
@@ -126,6 +128,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
   const checkAvailability = useCheckAvailability();
   // Con quién se llena "Recepcionista a cargo". El email es la misma reserva que
   // usa Usuarios cuando alguien no tiene el nombre cargado.
+  const { data: hotelSettings } = useHotelSettings();
   const { profileName } = useAppRole();
   const { user } = useAuth();
   const currentUserName = profileName || user?.email || '';
@@ -208,6 +211,18 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
   const nights = watchedCheckIn && watchedCheckOut
     ? differenceInDays(watchedCheckOut, watchedCheckIn)
     : 0;
+
+  // Si queda cochera todas las noches de la estadía. Null cuando el hotel no
+  // lleva cocheras (cupo en cero) o todavía no hay fechas.
+  const parking = useMemo(
+    () => getParkingAvailability({
+      bookings,
+      spots: hotelSettings?.parkingSpots ?? 0,
+      from: watchedCheckIn,
+      to: watchedCheckOut,
+    }),
+    [bookings, hotelSettings?.parkingSpots, watchedCheckIn, watchedCheckOut]
+  );
 
   // Find applicable promotions
   const applicablePromotions = useMemo(() => {
@@ -1196,6 +1211,28 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
                   </FormItem>
                 )}
               />
+
+              {/* La cochera llena no bloquea la reserva —el huésped puede estacionar
+                  afuera— pero hay que decirlo antes de prometerle lugar. */}
+              {watchedHasVehicle && parking?.isFull && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-semibold">
+                      {parking.fullNights === 1
+                        ? 'No hay cochera esa noche'
+                        : `No hay cochera ${parking.fullNights} de las ${nights} noches`}
+                    </p>
+                    <p className="text-[13px] leading-snug opacity-90">
+                      Las {parking.spots} cochera{parking.spots > 1 ? 's' : ''} ya están comprometidas
+                      {parking.fullNights < nights
+                        ? ` para la noche del ${format(parking.peakNight, "d 'de' MMMM", { locale: es })}`
+                        : ''}
+                      . Podés reservar igual, pero avisale al huésped que va a tener que estacionar afuera.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {watchedHasVehicle && (
                 <div className="grid gap-3 sm:grid-cols-2 p-4 rounded-xl border bg-muted/30">

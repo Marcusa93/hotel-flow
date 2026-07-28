@@ -13,6 +13,8 @@ import { useCheckAvailability } from '@/hooks/useCheckAvailability';
 import { COUNTRIES, DOCUMENT_TYPES } from '@/lib/constants';
 import { getBestPromo, getPromoNightlyPrice } from '@/lib/promoPricing';
 import { getOccupancyPricing } from '@/lib/occupancyPricing';
+import { useAppRole } from '@/context/AppRoleContext';
+import { useAuth } from '@/context/AuthContext';
 import type { DocumentType } from '@/types/hotel';
 import {
   Dialog,
@@ -122,6 +124,11 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
   const { rooms, roomTypes } = useRoomOperations();
   const { data: rates = [] } = useRates();
   const checkAvailability = useCheckAvailability();
+  // Con quién se llena "Recepcionista a cargo". El email es la misma reserva que
+  // usa Usuarios cuando alguien no tiene el nombre cargado.
+  const { profileName } = useAppRole();
+  const { user } = useAuth();
+  const currentUserName = profileName || user?.email || '';
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isNewGuest, setIsNewGuest] = useState(false);
   const [isSavingGuest, setIsSavingGuest] = useState(false);
@@ -481,6 +488,16 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
       form.setValue('roomId', preselectedRoomId);
     }
   }, [open, preselectedRoomId, form]);
+
+  // El que carga la reserva es, salvo excepción, el recepcionista a cargo. Se
+  // completa solo al abrir y queda editable para cuando uno la carga por otro.
+  // Solo si está vacío: el formulario se limpia al cerrar, así que reabrirlo
+  // vuelve a proponer el usuario, pero sin pisar lo que se haya escrito a mano.
+  useEffect(() => {
+    if (open && currentUserName && !form.getValues('receptionist')) {
+      form.setValue('receptionist', currentUserName);
+    }
+  }, [open, currentUserName, form]);
 
   // Reset all dialog state on close so reopening starts fresh
   const handleOpenChange = (nextOpen: boolean) => {
@@ -1124,10 +1141,13 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
               name="receptionist"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Recepcionista a cargo (opcional)</FormLabel>
+                  <FormLabel>Recepcionista a cargo</FormLabel>
                   <FormControl>
                     <Input placeholder="Nombre del recepcionista" {...field} />
                   </FormControl>
+                  <FormDescription className="text-xs">
+                    Se completa con quien está usando la app. Cambialo si la reserva la carga uno por otro.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

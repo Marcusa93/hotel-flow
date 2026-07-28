@@ -27,7 +27,7 @@ import {
   CalendarPlus, UserPlus, CreditCard, Sparkles, Receipt,
   BedDouble, TrendingUp, Users, DollarSign, LogIn, LogOut, ArrowUp, ArrowDown, Minus,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatCompactMoney } from '@/lib/utils';
 
 type DialogKey = 'booking' | 'guest' | 'payment' | 'expense' | null;
 
@@ -247,7 +247,7 @@ export default function Dashboard() {
             />
             <MiniStat
               icon={DollarSign} label="Ingresos mes"
-              value={`$${(stats.monthlyRevenue / 1000).toFixed(0)}k`}
+              value={formatCompactMoney(stats.monthlyRevenue)}
               sub={`ADR $${adr.toLocaleString()}`}
               color="violet"
               trend={computeTrend(stats.monthlyRevenue, prevMonthRevenue, 'vs mes ant.', { percent: true })}

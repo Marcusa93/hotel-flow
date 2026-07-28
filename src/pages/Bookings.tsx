@@ -27,6 +27,13 @@ import {
 } from 'lucide-react';
 import { BookingTimeline } from '@/components/bookings/BookingTimeline';
 import { QRScannerDialog } from '@/components/bookings/QRScannerDialog';
+import { useHousekeepingTasks } from '@/hooks/domain/useHousekeepingOperations';
+import { getRoomCheckInWarning, checkInConfirmLabel, type RoomCheckInWarning } from '@/lib/roomReadiness';
+import { RoomStatusWarning } from '@/components/shared';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type ViewMode = 'kanban' | 'list' | 'timeline';
 
@@ -36,6 +43,7 @@ export default function Bookings() {
   const { rooms, roomTypes } = useRoomOperations();
   const { payments } = usePaymentOperations();
   const { data: charges = [] } = useAllBookingCharges();
+  const { data: housekeepingTasks = [] } = useHousekeepingTasks();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -48,6 +56,13 @@ export default function Bookings() {
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
   const [preselectedRoomId, setPreselectedRoomId] = useState<string | undefined>(undefined);
+  /** Check-in arrastrado al tablero que espera confirmación por el estado de la habitación */
+  const [pendingCheckIn, setPendingCheckIn] = useState<{
+    bookingId: string;
+    guestName: string;
+    roomNumber: string;
+    warning: RoomCheckInWarning;
+  } | null>(null);
 
   // Handle query params from Dashboard
   useEffect(() => {
@@ -125,8 +140,34 @@ export default function Bookings() {
     selectedRoom ? roomTypes.find(rt => rt.id === selectedRoom.roomTypeId) : undefined
     , [selectedRoom, roomTypes]);
 
+  /**
+   * Arrastrar la tarjeta a "Hospedadas" hacía el check-in de una, sin decir nada
+   * del estado de la habitación. Ahora, si la habitación no está lista, pide
+   * confirmar; el check-in sigue siendo posible, pero avisado.
+   */
   const handleStatusChange = (bookingId: string, newStatus: BookingStatus) => {
+    if (newStatus === 'CHECKED_IN') {
+      const booking = bookings.find(b => b.id === bookingId);
+      const room = rooms.find(r => r.id === booking?.roomId);
+      const warning = getRoomCheckInWarning(room, housekeepingTasks);
+      if (warning) {
+        const guest = guests.find(g => g.id === booking?.guestId);
+        setPendingCheckIn({
+          bookingId,
+          guestName: guest ? formatLastNameFirst(guest.fullName) : 'el huésped',
+          roomNumber: room?.roomNumber || '—',
+          warning,
+        });
+        return;
+      }
+    }
     updateBookingStatus(bookingId, newStatus);
+  };
+
+  const confirmPendingCheckIn = () => {
+    if (!pendingCheckIn) return;
+    updateBookingStatus(pendingCheckIn.bookingId, 'CHECKED_IN');
+    setPendingCheckIn(null);
   };
 
   return (
@@ -272,6 +313,29 @@ export default function Bookings() {
       />
 
       <QRScannerDialog open={isQRScannerOpen} onOpenChange={setIsQRScannerOpen} />
+
+      <AlertDialog open={!!pendingCheckIn} onOpenChange={(open) => { if (!open) setPendingCheckIn(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Check-in</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  ¿Registrar el ingreso de <strong>{pendingCheckIn?.guestName}</strong> a la habitación{' '}
+                  <strong>{pendingCheckIn?.roomNumber}</strong>? La habitación pasará a estado Ocupada.
+                </p>
+                <RoomStatusWarning warning={pendingCheckIn?.warning} />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Volver</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPendingCheckIn} className="bg-emerald-600 hover:bg-emerald-700">
+              {checkInConfirmLabel(pendingCheckIn?.warning)}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

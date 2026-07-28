@@ -7,7 +7,8 @@ import { useUpdateHousekeepingTask } from '@/hooks/useUpdateHousekeepingTask';
 import { useUpdateRoom } from '@/hooks/useUpdateRoom';
 import type { HousekeepingTask, HousekeepingStatus, Room } from '@/types/hotel';
 
-function useHousekeepingTasks() {
+/** Exportado para las pantallas que solo miran las tareas (el aviso de check-in). */
+export function useHousekeepingTasks() {
   return useQuery({
     queryKey: ['housekeepingTasks'],
     queryFn: async () => {

@@ -26,7 +26,9 @@ import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
-import { StatusBadge, PageSkeleton } from '@/components/shared';
+import { StatusBadge, PageSkeleton, RoomStatusWarning } from '@/components/shared';
+import { useHousekeepingTasks } from '@/hooks/domain/useHousekeepingOperations';
+import { getRoomCheckInWarning, checkInConfirmLabel } from '@/lib/roomReadiness';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -74,6 +76,7 @@ export default function BookingDetail() {
   const [isExtendDialogOpen, setIsExtendDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const { data: bookingCharges = [] } = useBookingCharges(id);
+  const { data: housekeepingTasks = [] } = useHousekeepingTasks();
   const { data: hotelSettings } = useHotelSettings();
   const checkInTime = hotelSettings?.checkInTime || '14:00';
   const checkOutTime = hotelSettings?.checkOutTime || '11:00';
@@ -106,6 +109,8 @@ export default function BookingDetail() {
   const handleStatusChange = (newStatus: BookingStatus) => {
     updateBookingStatus(booking.id, newStatus);
   };
+
+  const roomWarning = getRoomCheckInWarning(booking.room, housekeepingTasks);
 
   const nights = Math.ceil(
     (new Date(booking.checkOutDate).getTime() - new Date(booking.checkInDate).getTime()) /
@@ -184,25 +189,14 @@ export default function BookingDetail() {
                         ¿Registrar el ingreso de <strong>{formatLastNameFirst(booking.guest.fullName)}</strong> a la habitación <strong>{booking.room.roomNumber}</strong>?
                         La habitación pasará a estado Ocupada.
                       </p>
-                      {booking.room.status === 'DIRTY' && (
-                        <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-sm flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 shrink-0" />
-                          <span>⚠ La habitación está marcada como <strong>sucia</strong>. Se recomienda limpiarla antes del ingreso.</span>
-                        </div>
-                      )}
-                      {booking.room.status === 'MAINTENANCE' && (
-                        <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 text-sm flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 shrink-0" />
-                          <span>⚠ La habitación está en <strong>mantenimiento</strong>. Verifique que esté habilitada antes del ingreso.</span>
-                        </div>
-                      )}
+                      <RoomStatusWarning warning={roomWarning} />
                     </div>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Volver</AlertDialogCancel>
                   <AlertDialogAction onClick={() => handleStatusChange('CHECKED_IN')} className="bg-emerald-600 hover:bg-emerald-700">
-                    {booking.room.status === 'DIRTY' || booking.room.status === 'MAINTENANCE' ? 'Check-in de todas formas' : 'Confirmar Check-in'}
+                    {checkInConfirmLabel(roomWarning)}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

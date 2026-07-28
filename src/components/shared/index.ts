@@ -1,4 +1,5 @@
 export { StatusBadge } from './StatusBadge';
+export { RoomStatusWarning } from './RoomStatusWarning';
 export { PaymentStateBadge } from './PaymentStateBadge';
 export { KPICard } from './KPICard';
 export { EmptyState } from './EmptyState';

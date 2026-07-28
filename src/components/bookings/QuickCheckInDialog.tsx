@@ -23,6 +23,9 @@ import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
+import { useHousekeepingTasks } from '@/hooks/domain/useHousekeepingOperations';
+import { getRoomCheckInWarning, checkInConfirmLabel } from '@/lib/roomReadiness';
+import { RoomStatusWarning } from '@/components/shared';
 import { toast } from '@/hooks/use-toast';
 
 interface QuickCheckInDialogProps {
@@ -55,12 +58,17 @@ export function QuickCheckInDialog({
     children,
 }: QuickCheckInDialogProps) {
     const { updateBookingStatus } = useBookingOperations();
-    const { updateRoomStatus } = useRoomOperations();
+    const { updateRoomStatus, rooms } = useRoomOperations();
+    const { data: housekeepingTasks = [] } = useHousekeepingTasks();
     const [isProcessing, setIsProcessing] = useState(false);
 
     const nights = differenceInDays(checkOutDate, checkInDate);
     const pendingAmount = totalAmount - amountPaid;
     const hasPendingPayment = pendingAmount > 0;
+
+    // El estado de la habitación no bloquea el check-in, pero se avisa antes de confirmar.
+    const room = rooms.find(r => r.id === roomId);
+    const roomWarning = getRoomCheckInWarning(room, housekeepingTasks);
 
     const handleCheckIn = async () => {
         setIsProcessing(true);
@@ -102,6 +110,9 @@ export function QuickCheckInDialog({
                 </DialogHeader>
 
                 <div className="space-y-4 py-4">
+                    {/* Estado de la habitación: primero, antes de que la mano vaya al botón */}
+                    <RoomStatusWarning warning={roomWarning} />
+
                     {/* Guest Info */}
                     <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
                         <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
@@ -185,7 +196,7 @@ export function QuickCheckInDialog({
                         className="bg-emerald-600 hover:bg-emerald-700"
                     >
                         <LogIn className="w-4 h-4 mr-2" />
-                        {isProcessing ? 'Procesando...' : 'Confirmar Check-in'}
+                        {isProcessing ? 'Procesando...' : checkInConfirmLabel(roomWarning)}
                     </Button>
                 </DialogFooter>
             </DialogContent>

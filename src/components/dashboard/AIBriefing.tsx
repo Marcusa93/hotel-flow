@@ -8,7 +8,7 @@ import { Booking, Room, Guest, Payment } from '@/types/hotel';
 import { isToday, isTomorrow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
-import { cn, formatLastNameFirst } from '@/lib/utils';
+import { cn, formatLastNameFirst, formatCompactMoney } from '@/lib/utils';
 import { TodayMovementsPanel } from './TodayMovementsPanel';
 
 interface AIBriefingProps {
@@ -149,7 +149,7 @@ export function AIBriefing({ bookings, rooms, guests, payments }: AIBriefingProp
             result.push({
                 icon: Star,
                 title: `Frecuente: ${formatLastNameFirst(f.guest.fullName)}`,
-                detail: `llega ${f.when} · ${f.visits} visitas · $${(f.totalSpend / 1000).toFixed(0)}k`,
+                detail: `llega ${f.when} · ${f.visits} visitas · ${formatCompactMoney(f.totalSpend)}`,
                 color: 'text-indigo-500',
                 priority: 4,
             });

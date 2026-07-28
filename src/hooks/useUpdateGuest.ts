@@ -26,6 +26,7 @@ export const useUpdateGuest = () => {
             if (data.hasVehicle !== undefined) updates.has_vehicle = data.hasVehicle;
             if (data.vehicleDescription !== undefined) updates.vehicle_description = data.vehicleDescription;
             if (data.licensePlate !== undefined) updates.license_plate = data.licensePlate;
+            if (data.hasCurrentAccount !== undefined) updates.has_current_account = data.hasCurrentAccount;
 
             const { error } = await supabase
                 .from('guests')

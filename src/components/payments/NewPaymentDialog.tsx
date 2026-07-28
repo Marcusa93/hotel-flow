@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -44,7 +44,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn, formatPesosInput, parsePesosInput } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
-import { PAYMENT_METHODS } from '@/lib/constants';
+import { PAYMENT_METHODS, CURRENT_ACCOUNT_METHOD } from '@/lib/constants';
 import { buildAccountsByBooking } from '@/lib/bookingAccount';
 import { useAllBookingCharges } from '@/hooks/useAllBookingCharges';
 
@@ -54,7 +54,7 @@ const paymentSchema = z.object({
     bookingId: z.string().min(1, 'Selecciona una reserva'),
     date: z.date({ required_error: 'Fecha requerida' })
         .refine(d => d.getTime() <= Date.now() + 60_000, 'La fecha no puede ser futura'),
-    method: z.enum(['CASH', 'CREDIT', 'DEBIT', 'TRANSFER', 'QR', 'OTHER'] as const),
+    method: z.enum(['CASH', 'CREDIT', 'DEBIT', 'TRANSFER', 'QR', 'OTHER', 'CUENTA_CORRIENTE'] as const),
     amount: z.coerce.number()
         .positive('Monto debe ser mayor a 0')
         .max(MAX_PAYMENT_AMOUNT, 'Monto excede el límite permitido')
@@ -98,6 +98,21 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
     });
 
     const selectedBookingId = form.watch('bookingId');
+
+    // La cuenta corriente es del huésped, no de la reserva: hay que llegar hasta él.
+    const selectedGuestHasAccount = useMemo(() => {
+        const booking = bookings.find(b => b.id === selectedBookingId);
+        if (!booking) return false;
+        return guests.find(g => g.id === booking.guestId)?.hasCurrentAccount === true;
+    }, [bookings, guests, selectedBookingId]);
+
+    // Cambiar de reserva a una de otro huésped dejaba el método en "Cuenta
+    // corriente" aunque ese huésped no la tenga: se cargaría a una cuenta que no existe.
+    useEffect(() => {
+        if (!selectedGuestHasAccount && form.getValues('method') === CURRENT_ACCOUNT_METHOD) {
+            form.setValue('method', 'CASH');
+        }
+    }, [selectedGuestHasAccount, form]);
 
     // Get active bookings (not cancelled)
     const activeBookings = useMemo(() => {
@@ -426,6 +441,10 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                                                         {PAYMENT_METHODS.map(m => (
                                                             <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
                                                         ))}
+                                                        {/* Solo si el huésped de la reserva elegida la tiene habilitada */}
+                                                        {selectedGuestHasAccount && (
+                                                            <SelectItem value={CURRENT_ACCOUNT_METHOD}>Cuenta corriente</SelectItem>
+                                                        )}
                                                     </SelectContent>
                                                 </Select>
                                                 <FormMessage />

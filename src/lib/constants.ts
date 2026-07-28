@@ -68,11 +68,20 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   TRANSFER: 'Transferencia',
   QR: 'QR',
   OTHER: 'Otro',
+  CUENTA_CORRIENTE: 'Cuenta corriente',
   // Legacy value kept so old rows/labels don't render blank
   CARD: 'Tarjeta',
 };
 
-// Order for selects and reports (excludes legacy CARD)
+/**
+ * Los métodos con los que entra plata. Es la lista de los selects y de los
+ * reportes de caja.
+ *
+ * CUENTA_CORRIENTE queda afuera a propósito: no es una forma de cobrar sino de
+ * no cobrar todavía. Se ofrece aparte, y solo al huésped que la tiene
+ * habilitada. Metida acá se podría elegir para un ingreso suelto o un gasto,
+ * donde no significa nada, y el cierre de caja la sumaría al total del día.
+ */
 export const PAYMENT_METHODS: { value: string; label: string }[] = [
   { value: 'CASH', label: 'Efectivo' },
   { value: 'CREDIT', label: 'T. Crédito' },
@@ -81,6 +90,9 @@ export const PAYMENT_METHODS: { value: string; label: string }[] = [
   { value: 'QR', label: 'QR' },
   { value: 'OTHER', label: 'Otro' },
 ];
+
+/** El método que no cobra: carga la estadía a la cuenta del huésped. */
+export const CURRENT_ACCOUNT_METHOD = 'CUENTA_CORRIENTE';
 
 export const EXPENSE_TYPE_LABELS: Record<string, string> = {
   PANADERIA: 'Panadería',

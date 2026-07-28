@@ -14,6 +14,7 @@ import type {
   AuditLog,
   BookingCharge,
   OtherIncome,
+  CurrentAccountPayment,
 } from '@/types/hotel';
 
 // --- Row to Model mappers (snake_case DB → camelCase frontend) ---
@@ -51,6 +52,19 @@ export const mapGuest = (row: DbRow): Guest => ({
   hasVehicle: row.has_vehicle ?? false,
   vehicleDescription: row.vehicle_description,
   licensePlate: row.license_plate,
+  hasCurrentAccount: row.has_current_account ?? false,
+  createdAt: new Date(row.created_at || new Date()),
+});
+
+export const mapCurrentAccountPayment = (row: DbRow): CurrentAccountPayment => ({
+  id: row.id,
+  guestId: row.guest_id,
+  date: parseLocalDate(row.date),
+  // DECIMAL vuelve como string desde PostgREST; sumarlo concatenaría.
+  amount: Number(row.amount),
+  method: row.method,
+  notes: row.notes || undefined,
+  createdBy: row.created_by || undefined,
   createdAt: new Date(row.created_at || new Date()),
 });
 
@@ -209,6 +223,7 @@ export const guestToRow = (guest: Partial<Guest>): DbRow => {
   if (guest.hasVehicle !== undefined) row.has_vehicle = guest.hasVehicle;
   if (guest.vehicleDescription !== undefined) row.vehicle_description = guest.vehicleDescription;
   if (guest.licensePlate !== undefined) row.license_plate = guest.licensePlate;
+  if (guest.hasCurrentAccount !== undefined) row.has_current_account = guest.hasCurrentAccount;
   return row;
 };
 

@@ -92,6 +92,7 @@ export const mapBooking = (row: DbRow): Booking => ({
   // Number() explícito: DECIMAL vuelve como string desde PostgREST y sumarlo
   // concatenaría en vez de sumar. null se mantiene undefined — "no se registró"
   // no es lo mismo que "descuento de 0".
+  specialRateAmount: row.special_rate_amount == null ? undefined : Number(row.special_rate_amount),
   baseAmount: row.base_amount == null ? undefined : Number(row.base_amount),
   discountAmount: row.discount_amount == null ? undefined : Number(row.discount_amount),
   createdAt: new Date(row.created_at || new Date()),
@@ -239,6 +240,7 @@ export const bookingToRow = (booking: Partial<Booking>): DbRow => {
   if (booking.adults !== undefined) row.adults = booking.adults;
   if (booking.children !== undefined) row.children = booking.children;
   if (booking.infants !== undefined) row.infants = booking.infants;
+  if (booking.specialRateAmount !== undefined) row.special_rate_amount = booking.specialRateAmount;
   if (booking.status !== undefined) row.status = booking.status;
   if (booking.totalAmount !== undefined) row.total_amount = booking.totalAmount;
   if (booking.notes !== undefined) row.notes = booking.notes;
@@ -267,6 +269,7 @@ export const mapHotelSettings = (row: DbRow): HotelSettings => ({
   checkInTime: row.check_in_time || '14:00',
   checkOutTime: row.check_out_time || '11:00',
   dailyCashFloat: Number(row.daily_cash_float ?? 0),
+  specialRateAmount: Number(row.special_rate_amount ?? 0),
   parkingSpots: Number(row.parking_spots ?? 0),
   createdAt: new Date(row.created_at),
   updatedAt: new Date(row.updated_at),
@@ -290,6 +293,7 @@ export const hotelSettingsToRow = (settings: Partial<HotelSettings>): DbRow => {
   if (settings.checkInTime !== undefined) row.check_in_time = settings.checkInTime;
   if (settings.checkOutTime !== undefined) row.check_out_time = settings.checkOutTime;
   if (settings.dailyCashFloat !== undefined) row.daily_cash_float = settings.dailyCashFloat;
+  if (settings.specialRateAmount !== undefined) row.special_rate_amount = settings.specialRateAmount;
   if (settings.parkingSpots !== undefined) row.parking_spots = settings.parkingSpots;
   row.updated_at = new Date().toISOString();
   return row;

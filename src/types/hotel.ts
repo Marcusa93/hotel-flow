@@ -114,6 +114,11 @@ export interface Booking {
   /** Lo que habría costado sin promoción. Ausente en reservas previas al seguimiento. */
   baseAmount?: number;
   discountAmount?: number;
+  /**
+   * Precio por noche con el que se tomó bajo tarifa especial. Ausente en las
+   * reservas normales. Es fijo: no depende de cuánta gente entre.
+   */
+  specialRateAmount?: number;
   createdAt: Date;
   updatedAt?: Date;
 }
@@ -294,6 +299,8 @@ export interface HotelSettings {
   checkInTime?: string;   // e.g. "14:00"
   checkOutTime?: string;  // e.g. "11:00"
   dailyCashFloat?: number; // "Fijo del día" — cash float kept in the register
+  /** Precio por noche de la tarifa especial. 0 = no se ofrece al reservar. */
+  specialRateAmount?: number;
   parkingSpots?: number;   // Cocheras del hotel; 0 = sin control de cocheras
   notificationEmailEnabled: boolean;
   notificationWhatsappEnabled: boolean;

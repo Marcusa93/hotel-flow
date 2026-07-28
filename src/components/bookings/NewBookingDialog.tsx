@@ -69,6 +69,7 @@ const bookingSchema = z.object({
   estimatedArrivalTime: z.string().optional(),
   notes: z.string().optional(),
   receptionist: z.string().optional(),
+  useSpecialRate: z.boolean().default(false),
   promoCode: z.string().optional(),
   confirmOverCapacity: z.boolean().optional(),
   hasVehicle: z.boolean().optional(),
@@ -126,9 +127,9 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
   const { rooms, roomTypes } = useRoomOperations();
   const { data: rates = [] } = useRates();
   const checkAvailability = useCheckAvailability();
+  const { data: hotelSettings } = useHotelSettings();
   // Con quién se llena "Recepcionista a cargo". El email es la misma reserva que
   // usa Usuarios cuando alguien no tiene el nombre cargado.
-  const { data: hotelSettings } = useHotelSettings();
   const { profileName } = useAppRole();
   const { user } = useAuth();
   const currentUserName = profileName || user?.email || '';
@@ -150,6 +151,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
       estimatedArrivalTime: '',
       notes: '',
       receptionist: '',
+      useSpecialRate: false,
       promoCode: '',
       confirmOverCapacity: false,
       hasVehicle: false,
@@ -171,6 +173,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
   const watchedAdults = Number(form.watch('adults')) || 0;
   const watchedChildren = Number(form.watch('children')) || 0;
   const watchedInfants = Number(form.watch('infants')) || 0;
+  const watchedSpecialRate = form.watch('useSpecialRate');
   const watchedCheckIn = form.watch('checkInDate');
   const watchedCheckOut = form.watch('checkOutDate');
   const watchedHasVehicle = form.watch('hasVehicle');
@@ -251,8 +254,15 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
     });
   }, [rates, selectedRoom, pricingTypeId, watchedCheckIn, watchedCheckOut, nights]);
 
+  // La tarifa especial: un precio por noche fijo para el cliente que el hotel
+  // elija, cualquiera sea la habitación y entre la gente que entre. Pisa el
+  // tramo por ocupación, que es justamente lo que no se quiere acá.
+  const specialRate = hotelSettings?.specialRateAmount ?? 0;
+  const specialRateAvailable = specialRate > 0;
+  const usesSpecialRate = specialRateAvailable && watchedSpecialRate === true;
+
   // Calculate pricing
-  const basePrice = occupancyPricing?.nightlyPrice || 0;
+  const basePrice = usesSpecialRate ? specialRate : (occupancyPricing?.nightlyPrice || 0);
   const baseTotalAmount = nights * basePrice;
 
   // Best automatic promotion (cheapest for the guest, no code required)
@@ -263,6 +273,12 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
 
   // Determine effective price (considering promotions)
   const { effectivePrice, appliedPromo, savings } = useMemo(() => {
+    // La tarifa especial ya es el precio acordado con ese cliente. Encimarle una
+    // promoción sería descontar dos veces sobre un número que ya está rebajado.
+    if (usesSpecialRate) {
+      return { effectivePrice: specialRate, appliedPromo: null, savings: 0 };
+    }
+
     // Only honor the applied promo code if it's still valid for the current
     // room/dates selection; otherwise fall back to the best automatic promo.
     const validAppliedCode = appliedPromoCode && applicablePromotions.some(p => p.id === appliedPromoCode.id)
@@ -277,7 +293,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
     const finalPrice = getPromoNightlyPrice(promo, basePrice);
 
     return { effectivePrice: finalPrice, appliedPromo: promo, savings: basePrice - finalPrice };
-  }, [basePrice, appliedPromoCode, bestAutoPromo, applicablePromotions]);
+  }, [basePrice, appliedPromoCode, bestAutoPromo, applicablePromotions, usesSpecialRate, specialRate]);
 
   const totalAmount = nights * effectivePrice;
   const totalSavings = nights * savings;
@@ -442,6 +458,9 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
         promoLabel: appliedPromo?.label,
         baseAmount: appliedPromo ? baseTotalAmount : undefined,
         discountAmount: appliedPromo ? totalSavings : undefined,
+        // El monto aplicado, no una marca: el configurado va a cambiar y la
+        // reserva tiene que seguir diciendo a qué precio se tomó.
+        specialRateAmount: usesSpecialRate ? specialRate : undefined,
         needsReview: isOverCapacity,
         receptionist: data.receptionist?.trim() || undefined,
         hasVehicle: data.hasVehicle ?? false,
@@ -1271,6 +1290,31 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
               )}
             </div>
 
+            {/* Tarifa especial — solo si el hotel la tiene configurada */}
+            {specialRateAvailable && (
+              <FormField
+                control={form.control}
+                name="useSpecialRate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start gap-3 space-y-0 p-4 rounded-xl border border-violet-200 dark:border-violet-900/50 bg-violet-50/50 dark:bg-violet-950/20">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <div className="space-y-0.5">
+                      <FormLabel className="flex items-center gap-2 cursor-pointer">
+                        <Sparkles className="w-4 h-4 text-violet-500" />
+                        Tarifa especial — ${specialRate.toLocaleString('es-AR')}/noche
+                      </FormLabel>
+                      <FormDescription className="text-xs">
+                        Precio fijo por noche, cualquiera sea la habitación y la cantidad de
+                        personas. Reemplaza la tarifa por ocupación y no acumula promociones.
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            )}
+
             {/* Summary */}
             {nights > 0 && selectedRoomType && (
               <div className="p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border space-y-3">
@@ -1283,8 +1327,16 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
                   </span>
                 </div>
 
+                {usesSpecialRate && (
+                  <p className="text-xs text-violet-600 dark:text-violet-400 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 shrink-0" />
+                    Tarifa especial: ${specialRate.toLocaleString('es-AR')} por noche, sin importar
+                    la habitación ni cuánta gente entre.
+                  </p>
+                )}
+
                 {/* Por qué el precio no es el de la habitación */}
-                {occupancyPricing?.isDownTiered && (
+                {!usesSpecialRate && occupancyPricing?.isDownTiered && (
                   <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                     <Users className="w-3 h-3 shrink-0" />
                     Entran {occupancyPricing.billable} en una habitación de {selectedRoomType?.maxGuests}:

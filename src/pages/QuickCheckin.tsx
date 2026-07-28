@@ -4,6 +4,9 @@ import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import { useBookingCharges } from '@/hooks/useBookingCharges';
+import { useHousekeepingTasks } from '@/hooks/domain/useHousekeepingOperations';
+import { getRoomCheckInWarning, checkInConfirmLabel } from '@/lib/roomReadiness';
+import { RoomStatusWarning } from '@/components/shared';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
@@ -38,6 +41,7 @@ export default function QuickCheckin() {
   const { rooms, roomTypes } = useRoomOperations();
   const { payments } = usePaymentOperations();
   const { data: bookingCharges = [] } = useBookingCharges(id);
+  const { data: housekeepingTasks = [] } = useHousekeepingTasks();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const booking = bookings.find(b => b.id === id);
@@ -92,8 +96,7 @@ export default function QuickCheckin() {
 
   const canCheckin = booking.status === 'CONFIRMED' || booking.status === 'PENDING';
   const isAlreadyCheckedIn = booking.status === 'CHECKED_IN';
-  const roomIsDirty = room?.status === 'DIRTY';
-  const roomInMaintenance = room?.status === 'MAINTENANCE';
+  const roomWarning = getRoomCheckInWarning(room, housekeepingTasks);
 
   const handleCheckin = async () => {
     if (!canCheckin) return;
@@ -214,15 +217,7 @@ export default function QuickCheckin() {
       </Card>
 
       {/* Warnings */}
-      {canCheckin && (roomIsDirty || roomInMaintenance) && (
-        <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex items-start gap-2">
-          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-sm text-amber-800 dark:text-amber-200">
-            La habitación está marcada como <strong>{roomIsDirty ? 'sucia' : 'en mantenimiento'}</strong>.
-            Verificá que esté lista antes de hacer el check-in.
-          </p>
-        </div>
-      )}
+      {canCheckin && <RoomStatusWarning warning={roomWarning} />}
 
       {/* Already checked in */}
       {isAlreadyCheckedIn && (
@@ -251,22 +246,28 @@ export default function QuickCheckin() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar Check-in</AlertDialogTitle>
-              <AlertDialogDescription>
-                <strong>{guest?.fullName}</strong> → Hab. <strong>{room?.roomNumber}</strong>
-                <br />
-                {format(new Date(booking.checkInDate), 'dd/MM', { locale: es })} al {format(new Date(booking.checkOutDate), 'dd/MM', { locale: es })} ({nights} noches)
-                {balance > 0 && (
-                  <>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p>
+                    <strong>{guest?.fullName}</strong> → Hab. <strong>{room?.roomNumber}</strong>
                     <br />
-                    <span className="text-amber-600 font-medium">Saldo pendiente: ${balance.toLocaleString('es-AR')}</span>
-                  </>
-                )}
+                    {format(new Date(booking.checkInDate), 'dd/MM', { locale: es })} al {format(new Date(booking.checkOutDate), 'dd/MM', { locale: es })} ({nights} noches)
+                    {balance > 0 && (
+                      <>
+                        <br />
+                        <span className="text-amber-600 font-medium">Saldo pendiente: ${balance.toLocaleString('es-AR')}</span>
+                      </>
+                    )}
+                  </p>
+                  {/* El aviso se repite acá: en el teléfono el cartel de arriba queda fuera de pantalla */}
+                  <RoomStatusWarning warning={roomWarning} />
+                </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction onClick={handleCheckin} className="bg-emerald-600 hover:bg-emerald-700">
-                Confirmar Check-in
+                {checkInConfirmLabel(roomWarning)}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -1,6 +1,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { mapRoom } from '@/lib/mappers';
 import { Room } from '@/types/hotel';
 
 export const useRooms = () => {
@@ -24,20 +25,14 @@ export const useRooms = () => {
                 throw error;
             }
 
-            // Map database columns to existing frontend type if needed
-            // The table structure matches pretty well, but we need to handle room_type_id vs embedded room_types
-            // For now, returning raw data and letting component handle or mapping here.
-            // Let's assume we map it to the Room interface manually if keys differ.
-            // Based on schema: room_number (db) vs roomNumber (frontend)
-
+            // Las columnas propias de la habitación las mapea mapRoom, que es el
+            // único lugar donde se traduce una fila de rooms. Acá había una copia
+            // a mano y se quedó atrás: las columnas de la habilitación de
+            // limpieza existían en la base y nunca llegaban a la pantalla.
+            // Lo que se agrega arriba es lo que no está en la fila: el tipo de
+            // habitación viene embebido en esta consulta y en ninguna otra.
             return data.map((item: Record<string, unknown> & { room_types?: Record<string, unknown> }) => ({
-                id: item.id,
-                roomNumber: item.room_number, // camelCase mapping
-                roomTypeId: item.room_type_id,
-                floor: item.floor,
-                status: item.status,
-                notes: item.notes,
-                // We'll optionally attach the expanded type info if the UI needs it
+                ...mapRoom(item),
                 roomTypeName: item.room_types?.max_guests ? `${item.room_types.max_guests}p` : undefined,
                 price: item.room_types?.base_price,
             })) as Room[];

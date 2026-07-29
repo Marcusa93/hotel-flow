@@ -19,6 +19,7 @@ import {
   ExternalLink,
   ArrowRight,
   ShoppingCart,
+  NotebookPen,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,7 @@ const entityIcons: Record<AuditEntityType, any> = {
   expense: DollarSign,
   hotel_settings: Settings,
   booking_charge: ShoppingCart,
+  logbook_entry: NotebookPen,
 };
 
 const entityLabels: Record<AuditEntityType, string> = {
@@ -58,6 +60,7 @@ const entityLabels: Record<AuditEntityType, string> = {
   expense: 'Gasto',
   hotel_settings: 'Config.',
   booking_charge: 'Cargo de Reserva',
+  logbook_entry: 'Novedad',
 };
 
 const entityRoutes: Partial<Record<AuditEntityType, string>> = {

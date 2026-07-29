@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import type { UserRole } from '@/types/hotel';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Receipt, Percent, Shield, Bell } from 'lucide-react';
+import { Receipt, Percent, Shield, Bell, NotebookPen } from 'lucide-react';
 
 interface TabItem {
     label: string;
@@ -19,6 +19,7 @@ const tabs: TabItem[] = [
     { label: 'Reservas', href: '/bookings', icon: CalendarDays, roles: ['admin', 'reception'] },
     { label: 'Habitaciones', href: '/rooms', icon: BedDouble, roles: ['admin', 'reception', 'housekeeping'] },
     { label: 'Limpieza', href: '/housekeeping', icon: Sparkles, roles: ['admin', 'housekeeping'] },
+    { label: 'Novedades', href: '/novedades', icon: NotebookPen, roles: ['admin', 'reception', 'housekeeping'] },
     { label: 'Finanzas', href: '/payments', icon: CreditCard, roles: ['admin', 'reception', 'auditor'] },
 ];
 

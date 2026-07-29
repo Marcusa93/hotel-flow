@@ -77,6 +77,61 @@ describe('getRoomCheckInWarning', () => {
     });
 });
 
+describe('habilitación de limpieza', () => {
+    const conHold = (over: Partial<Room> = {}): Room => ({
+        ...habitacion('AVAILABLE'),
+        housekeepingHold: true,
+        ...over,
+    });
+
+    it('la habitación no habilitada es un aviso crítico', () => {
+        const warning = getRoomCheckInWarning(conHold());
+        expect(warning?.severity).toBe('critical');
+        expect(warning?.title).toBe('Habitación no habilitada por limpieza');
+    });
+
+    it('el motivo que dejó limpieza se lee en el aviso', () => {
+        const warning = getRoomCheckInWarning(
+            conHold({ housekeepingNote: 'la ducha pierde agua', housekeepingNoteBy: 'Ana' })
+        );
+        expect(warning?.message).toContain('la ducha pierde agua');
+        expect(warning?.message).toContain('Ana');
+    });
+
+    it('el bloqueo gana sobre el estado: no importa que además esté sucia', () => {
+        // La decisión de la que estuvo adentro es más específica y más reciente
+        // que "todavía no la limpiaron".
+        const warning = getRoomCheckInWarning(conHold({ status: 'DIRTY' }));
+        expect(warning?.title).toBe('Habitación no habilitada por limpieza');
+    });
+
+    it('una nota sin bloqueo avisa igual, con la habitación lista', () => {
+        const warning = getRoomCheckInWarning({
+            ...habitacion('AVAILABLE'),
+            housekeepingNote: 'falta una almohada',
+        });
+        expect(warning?.severity).toBe('warning');
+        expect(warning?.message).toContain('falta una almohada');
+    });
+
+    it('la nota se suma al aviso del estado en vez de taparlo', () => {
+        // "Está sucia" y "falta una almohada" son dos cosas distintas y las dos
+        // importan antes de alojar a alguien.
+        const warning = getRoomCheckInWarning({
+            ...habitacion('DIRTY'),
+            housekeepingNote: 'falta una almohada',
+        });
+        expect(warning?.message).toContain('sucia');
+        expect(warning?.message).toContain('falta una almohada');
+    });
+
+    it('sin bloqueo ni nota se comporta igual que antes', () => {
+        expect(
+            getRoomCheckInWarning({ ...habitacion('AVAILABLE'), housekeepingHold: false })
+        ).toBeNull();
+    });
+});
+
 describe('checkInConfirmLabel', () => {
     it('avisa en el botón que el check-in sigue igual', () => {
         expect(checkInConfirmLabel(getRoomCheckInWarning(habitacion('DIRTY')))).toBe(

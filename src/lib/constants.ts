@@ -126,6 +126,26 @@ export const GUEST_RATING_LABELS: Record<string, string> = {
   NO_DESEADO: 'No deseado',
 };
 
+/** Las categorías de la planilla de novedades, en el orden del select. */
+export const LOGBOOK_CATEGORIES: { value: string; label: string }[] = [
+  { value: 'ROPA_BLANCA', label: 'Ropa blanca' },
+  { value: 'MINIBAR', label: 'Minibar / Bebidas' },
+  { value: 'MANTENIMIENTO', label: 'Mantenimiento' },
+  { value: 'OBJETOS_OLVIDADOS', label: 'Objetos olvidados' },
+  { value: 'HUESPED', label: 'Huésped' },
+  { value: 'OTRO', label: 'Otro' },
+];
+
+export const LOGBOOK_CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
+  LOGBOOK_CATEGORIES.map(c => [c.value, c.label])
+);
+
+export const LOGBOOK_STATUS_LABELS: Record<string, string> = {
+  INFO: 'Anotación',
+  PENDING: 'Pendiente',
+  RESOLVED: 'Resuelta',
+};
+
 export const EXPENSE_TYPE_LABELS: Record<string, string> = {
   PANADERIA: 'Panadería',
   SUPERMERCADO: 'Supermercado',

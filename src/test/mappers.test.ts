@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mapBooking, mapExpense, mapRate, mapInvoice, bookingToRow } from '@/lib/mappers';
+import { mapBooking, mapExpense, mapRate, mapInvoice, mapRoom, bookingToRow } from '@/lib/mappers';
 import { formatLocalDate } from '@/lib/utils';
 
 // DATE columns arrive from PostgREST as plain "YYYY-MM-DD" strings.
@@ -102,5 +102,49 @@ describe('formatLocalDate', () => {
     it('formats using local calendar fields with zero padding', () => {
         expect(formatLocalDate(new Date(2026, 0, 5))).toBe('2026-01-05');
         expect(formatLocalDate(new Date(2026, 11, 31, 23, 59))).toBe('2026-12-31');
+    });
+});
+
+// La habilitación de limpieza vive en columnas nuevas de rooms. Se prueba acá
+// porque useRooms tenía su propia copia del mapeo y se quedó atrás: las
+// columnas existían en la base y no llegaban nunca a la pantalla.
+describe('mapRoom — habilitación de limpieza', () => {
+    const fila = (over: Record<string, unknown> = {}) => ({
+        id: 'r-501',
+        room_number: '501',
+        room_type_id: 'rt-1',
+        floor: 5,
+        status: 'AVAILABLE',
+        ...over,
+    });
+
+    it('trae el bloqueo, la nota y la firma', () => {
+        const room = mapRoom(fila({
+            housekeeping_hold: true,
+            housekeeping_note: 'la ducha pierde',
+            housekeeping_note_by: 'Ana',
+            housekeeping_note_at: '2026-07-28T14:00:00Z',
+        }));
+
+        expect(room.housekeepingHold).toBe(true);
+        expect(room.housekeepingNote).toBe('la ducha pierde');
+        expect(room.housekeepingNoteBy).toBe('Ana');
+        expect(room.housekeepingNoteAt).toBeInstanceOf(Date);
+    });
+
+    it('una habitación sin nada cargado no queda bloqueada', () => {
+        // Las filas anteriores a la migración llegan sin estas columnas: si
+        // esto devolviera undefined en vez de false, el aviso de "no habilitada"
+        // dependería de que un valor ausente se lea como falso en cada pantalla.
+        const room = mapRoom(fila());
+
+        expect(room.housekeepingHold).toBe(false);
+        expect(room.housekeepingNote).toBeUndefined();
+        expect(room.housekeepingNoteAt).toBeUndefined();
+    });
+
+    it('la nota vacía se lee como sin nota', () => {
+        const room = mapRoom(fila({ housekeeping_note: '' }));
+        expect(room.housekeepingNote).toBeUndefined();
     });
 });

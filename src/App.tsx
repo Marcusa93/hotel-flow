@@ -26,6 +26,7 @@ const Payments = lazy(() => import("./pages/Payments"));
 const Rates = lazy(() => import("./pages/Rates"));
 // Statistics and Billing removed — merged into Payments and Rates respectively
 const Housekeeping = lazy(() => import("./pages/Housekeeping"));
+const Logbook = lazy(() => import("./pages/Logbook"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Expenses = lazy(() => import("./pages/Expenses"));
@@ -69,6 +70,9 @@ const AnimatedRoutes = () => {
 
         {/* Housekeeping — admin, housekeeping */}
         <Route path="/housekeeping" element={<RoleGuard allowedRoles={['admin', 'housekeeping']}><PageWrapper><Housekeeping /></PageWrapper></RoleGuard>} />
+
+        {/* Novedades — la planilla la comparten los tres turnos */}
+        <Route path="/novedades" element={<RoleGuard allowedRoles={['admin', 'reception', 'housekeeping']}><PageWrapper><Logbook /></PageWrapper></RoleGuard>} />
 
         {/* Finanzas — admin, reception, auditor */}
         <Route path="/payments" element={<RoleGuard allowedRoles={['admin', 'reception', 'auditor']}><PageWrapper><Payments /></PageWrapper></RoleGuard>} />

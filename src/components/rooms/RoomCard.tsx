@@ -1,6 +1,6 @@
 import { Room, RoomStatus, Guest } from '@/types/hotel';
 import { Button } from '@/components/ui/button';
-import { Sparkles, LogIn, Brush, Loader2 } from 'lucide-react';
+import { Sparkles, LogIn, Brush, Loader2, Ban, StickyNote } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { useAppRole } from '@/context/AppRoleContext';
@@ -114,6 +114,24 @@ export function RoomCard({ room, guest, roomTypeName, onClick, onQuickAction, ne
                                 {statusLabels[room.status]}
                             </span>
                         </div>
+
+                        {/* Lo que dejó dicho limpieza. Va abajo del estado y no
+                            en lugar de él: son dos cosas distintas y la
+                            habitación puede estar disponible y no habilitada. */}
+                        {room.housekeepingHold ? (
+                            <div className="flex items-start gap-1.5 rounded-lg bg-rose-100/80 dark:bg-rose-950/40 px-2 py-1.5 text-[11px] text-rose-800 dark:text-rose-200">
+                                <Ban className="w-3.5 h-3.5 shrink-0 mt-px" />
+                                <span className="leading-snug">
+                                    <strong>No habilitada</strong>
+                                    {room.housekeepingNote ? ` — ${room.housekeepingNote}` : ''}
+                                </span>
+                            </div>
+                        ) : room.housekeepingNote ? (
+                            <div className="flex items-start gap-1.5 rounded-lg bg-amber-100/70 dark:bg-amber-950/30 px-2 py-1.5 text-[11px] text-amber-800 dark:text-amber-200">
+                                <StickyNote className="w-3.5 h-3.5 shrink-0 mt-px" />
+                                <span className="leading-snug">{room.housekeepingNote}</span>
+                            </div>
+                        ) : null}
 
                         {/* Always-visible quick action buttons */}
                         {hasQuickAction && (

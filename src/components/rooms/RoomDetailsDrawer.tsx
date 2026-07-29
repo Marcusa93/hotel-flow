@@ -14,6 +14,7 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import { Room, RoomStatus, Guest } from '@/types/hotel';
+import { RoomHousekeepingPanel } from './RoomHousekeepingPanel';
 import { useAppRole } from '@/context/AppRoleContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -145,6 +146,9 @@ export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, 
                                         </>
                                     )}
                                 </section>
+
+                                {/* Lo que dejó dicho limpieza sobre esta habitación */}
+                                <RoomHousekeepingPanel room={room} />
 
                                 {/* Quick Actions based on status */}
                                 {room.status === 'AVAILABLE' && canSetAdvancedStatuses && (

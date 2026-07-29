@@ -13,6 +13,7 @@ import {
   Settings,
   Percent,
   ClipboardList,
+  NotebookPen,
   Wallet,
   Scale,
   ChevronLeft,
@@ -61,6 +62,7 @@ const navItems: NavItem[] = [
   { title: 'Habitaciones', href: '/rooms', icon: BedDouble, roles: ['admin', 'reception', 'housekeeping'], section: 'operaciones' },
   { title: 'Huéspedes', href: '/guests', icon: Users, roles: ['admin', 'reception'], section: 'operaciones' },
   { title: 'Limpieza', href: '/housekeeping', icon: ClipboardList, roles: ['admin', 'housekeeping'], section: 'operaciones' },
+  { title: 'Novedades', href: '/novedades', icon: NotebookPen, roles: ['admin', 'reception', 'housekeeping'], section: 'operaciones' },
 
   // Finanzas
   { title: 'Finanzas', href: '/payments', icon: CreditCard, roles: ['admin', 'reception', 'auditor'], section: 'finanzas', readOnly: true },

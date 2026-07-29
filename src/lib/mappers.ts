@@ -16,6 +16,7 @@ import type {
   OtherIncome,
   CurrentAccountPayment,
   PaymentAttachment,
+  LogbookEntry,
 } from '@/types/hotel';
 
 // --- Row to Model mappers (snake_case DB → camelCase frontend) ---
@@ -150,6 +151,23 @@ export const mapPaymentAttachment = (row: DbRow): PaymentAttachment => ({
   uploadedBy: row.uploaded_by || undefined,
   uploadedByName: row.uploaded_by_name || undefined,
   createdAt: new Date(row.created_at),
+});
+
+export const mapLogbookEntry = (row: DbRow): LogbookEntry => ({
+  id: row.id,
+  date: new Date(row.date),
+  category: row.category,
+  note: row.note,
+  roomFromId: row.room_from_id || undefined,
+  roomToId: row.room_to_id || undefined,
+  status: row.status,
+  resolvedAt: row.resolved_at ? new Date(row.resolved_at) : undefined,
+  resolvedBy: row.resolved_by || undefined,
+  resolvedByName: row.resolved_by_name || undefined,
+  createdBy: row.created_by || undefined,
+  createdByName: row.created_by_name || undefined,
+  createdAt: new Date(row.created_at),
+  updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
 });
 
 /** Parse a date-only string (YYYY-MM-DD) as local midnight instead of UTC */

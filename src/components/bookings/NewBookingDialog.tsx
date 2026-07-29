@@ -12,7 +12,12 @@ import { useRates } from '@/hooks/useRates';
 import { useCheckAvailability } from '@/hooks/useCheckAvailability';
 import { COUNTRIES, DOCUMENT_TYPES } from '@/lib/constants';
 import { getBestPromo, getPromoNightlyPrice } from '@/lib/promoPricing';
-import { getOccupancyPricing } from '@/lib/occupancyPricing';
+import {
+  getOccupancyPricing,
+  getBookingPricing,
+  selectableTiers,
+  describeDownTier,
+} from '@/lib/occupancyPricing';
 import { getParkingAvailability } from '@/lib/parking';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { useAppRole } from '@/context/AppRoleContext';
@@ -56,9 +61,15 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { cn } from '@/lib/utils';
+import { cn, guestsLabel } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Rate } from '@/types/hotel';
+
+/**
+ * "La que corresponda por la gente que entra". Es un centinela y no '' porque
+ * Radix no acepta un SelectItem con valor vacío; al guardar vuelve a NULL.
+ */
+const TARIFA_AUTOMATICA = 'auto';
 
 const bookingSchema = z.object({
   guestId: z.string(),
@@ -72,6 +83,7 @@ const bookingSchema = z.object({
   notes: z.string().optional(),
   receptionist: z.string().optional(),
   useSpecialRate: z.boolean().default(false),
+  pricingRoomTypeId: z.string().optional(),
   promoCode: z.string().optional(),
   confirmOverCapacity: z.boolean().optional(),
   hasVehicle: z.boolean().optional(),
@@ -154,6 +166,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
       notes: '',
       receptionist: '',
       useSpecialRate: false,
+      pricingRoomTypeId: TARIFA_AUTOMATICA,
       promoCode: '',
       confirmOverCapacity: false,
       hasVehicle: false,
@@ -175,6 +188,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
   const watchedAdults = Number(form.watch('adults')) || 0;
   const watchedChildren = Number(form.watch('children')) || 0;
   const watchedInfants = Number(form.watch('infants')) || 0;
+  const watchedPricingTypeId = form.watch('pricingRoomTypeId');
   const watchedSpecialRate = form.watch('useSpecialRate');
   const watchedCheckIn = form.watch('checkInDate');
   const watchedCheckOut = form.watch('checkOutDate');
@@ -199,10 +213,30 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
   // El precio sale de la gente, no de la habitación: cuatro en una quíntuple
   // pagan el tramo de cuatro. Los menores de 5 ocupan lugar pero no se cobran,
   // así que la capacidad y el precio cuentan distinto.
-  const occupancyPricing = getOccupancyPricing(roomTypes, selectedRoomType, {
+  const autoPricing = getOccupancyPricing(roomTypes, selectedRoomType, {
     adults: watchedAdults,
     children: watchedChildren,
   });
+
+  // ...salvo que recepción elija otra tarifa, que es la que manda.
+  const tierOptions = selectableTiers(roomTypes, selectedRoomType);
+
+  // Se compara contra los tramos de la habitación actual a propósito: si se
+  // cambia de habitación, el tramo que se había elegido puede ni existir en la
+  // nueva —una quíntuple elegida y ahora es una doble— y vuelve solo al
+  // automático en vez de arrastrar un precio que ya no corresponde.
+  const chosenPricingTypeId =
+    watchedPricingTypeId &&
+    watchedPricingTypeId !== TARIFA_AUTOMATICA &&
+    tierOptions.some(rt => rt.id === watchedPricingTypeId)
+      ? watchedPricingTypeId
+      : null;
+  const occupancyPricing = getBookingPricing(
+    roomTypes,
+    selectedRoomType,
+    { adults: watchedAdults, children: watchedChildren },
+    chosenPricingTypeId
+  );
   const pricingTypeId = occupancyPricing?.pricingType.id || selectedRoom?.roomTypeId;
 
   const totalGuests = watchedAdults + watchedChildren + watchedInfants;
@@ -463,6 +497,10 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
         // El monto aplicado, no una marca: el configurado va a cambiar y la
         // reserva tiene que seguir diciendo a qué precio se tomó.
         specialRateAmount: usesSpecialRate ? specialRate : undefined,
+        // Solo cuando recepción la eligió: sin esto la reserva quedaría atada a
+        // un tramo que en realidad se calculó solo, y dejaría de seguir a la
+        // gente si la ocupación cambia en el check-in.
+        pricingRoomTypeId: usesSpecialRate ? undefined : chosenPricingTypeId ?? undefined,
         needsReview: isOverCapacity,
         receptionist: data.receptionist?.trim() || undefined,
         hasVehicle: data.hasVehicle ?? false,
@@ -1323,6 +1361,43 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
               />
             )}
 
+            {/* La tarifa la propone la ocupación; el mostrador puede elegir otra */}
+            {!usesSpecialRate && selectedRoomType && tierOptions.length > 1 && (
+              <FormField
+                control={form.control}
+                name="pricingRoomTypeId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tarifa</FormLabel>
+                    <Select value={chosenPricingTypeId ?? TARIFA_AUTOMATICA} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={TARIFA_AUTOMATICA}>
+                          Según la gente que entra
+                          {autoPricing
+                            ? ` — ${guestsLabel(autoPricing.pricingType.maxGuests)}, $${autoPricing.nightlyPrice.toLocaleString('es-AR')}/noche`
+                            : ''}
+                        </SelectItem>
+                        {tierOptions.map(rt => (
+                          <SelectItem key={rt.id} value={rt.id}>
+                            {guestsLabel(rt.maxGuests)} — ${rt.basePrice.toLocaleString('es-AR')}/noche
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription className="text-xs">
+                      Se cobra la que corresponde por la cantidad de gente. Elegí otra solo si el
+                      hotel acordó cobrar distinto.
+                    </FormDescription>
+                  </FormItem>
+                )}
+              />
+            )}
+
             {/* Summary */}
             {nights > 0 && selectedRoomType && (
               <div className="p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border space-y-3">
@@ -1344,11 +1419,16 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
                 )}
 
                 {/* Por qué el precio no es el de la habitación */}
-                {!usesSpecialRate && occupancyPricing?.isDownTiered && (
+                {!usesSpecialRate && occupancyPricing?.isManual && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <Users className="w-3 h-3 shrink-0" />
+                    Tarifa elegida a mano: {guestsLabel(occupancyPricing.pricingType.maxGuests)}.
+                  </p>
+                )}
+                {!usesSpecialRate && !occupancyPricing?.isManual && occupancyPricing?.isDownTiered && (
                   <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                     <Users className="w-3 h-3 shrink-0" />
-                    Entran {occupancyPricing.billable} en una habitación de {selectedRoomType?.maxGuests}:
-                    se cobra la tarifa de {occupancyPricing.pricingType.maxGuests} personas.
+                    {describeDownTier(occupancyPricing, selectedRoomType.maxGuests)}
                   </p>
                 )}
                 {watchedInfants > 0 && (

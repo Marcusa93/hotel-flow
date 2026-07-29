@@ -41,7 +41,7 @@ import { Progress } from '@/components/ui/progress';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BookingStatus } from '@/types/hotel';
-import { cn, formatLastNameFirst, getInitials } from '@/lib/utils';
+import { cn, formatLastNameFirst, getInitials, guestsLabel } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -461,7 +461,7 @@ export default function BookingDetail() {
                   <p className="num-display text-3xl font-bold text-primary">{booking.room.roomNumber}</p>
                 </div>
                 <Badge variant="outline" className="mb-4 bg-background/50 h-8 px-3">
-                  {booking.roomType.maxGuests} personas
+                  {guestsLabel(booking.roomType.maxGuests)}
                 </Badge>
               </div>
 

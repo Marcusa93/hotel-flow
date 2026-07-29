@@ -142,6 +142,12 @@ export interface Booking {
    */
   specialRateAmount?: number;
   /**
+   * Tramo de tarifa elegido a mano en el mostrador. Ausente —la enorme
+   * mayoría— significa el que corresponde por la gente que entra. Cuando está,
+   * manda: ni la edición ni el check-in lo recalculan.
+   */
+  pricingRoomTypeId?: string;
+  /**
    * Alquiler del hotel completo: sin habitación asignada, bloquea todo el
    * período. El precio es el monto acordado, no sale de ninguna tarifa.
    */

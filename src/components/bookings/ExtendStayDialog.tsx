@@ -6,7 +6,7 @@ import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useCreateBookingCharge } from '@/hooks/useCreateBookingCharge';
 import { buildStayExtension, describeStayExtension } from '@/lib/stayExtension';
-import { getOccupancyPricing, billableGuests } from '@/lib/occupancyPricing';
+import { getBookingPricing, billableGuests } from '@/lib/occupancyPricing';
 import { formatLastNameFirst, formatPesosInput, parsePesosInput } from '@/lib/utils';
 import type { BookingWithDetails } from '@/types/hotel';
 import {
@@ -50,7 +50,7 @@ export function ExtendStayDialog({ open, onOpenChange, booking }: ExtendStayDial
     // cuatro personas en una quíntuple pagaban quíntuple cada noche nueva —el
     // mismo error que el resto del sistema ya no comete.
     const nightlyTier =
-        getOccupancyPricing(roomTypes, booking.roomType, booking)?.nightlyPrice ??
+        getBookingPricing(roomTypes, booking.roomType, booking, booking.pricingRoomTypeId)?.nightlyPrice ??
         booking.roomType.basePrice;
 
     const [nights, setNights] = useState(1);

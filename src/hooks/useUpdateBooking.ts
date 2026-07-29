@@ -21,6 +21,8 @@ interface UpdateBookingParams {
     vehicleDescription?: string;
     licensePlate?: string;
     needsReview?: boolean;
+    /** Tramo de tarifa elegido a mano. '' vuelve a la tarifa por ocupación. */
+    pricingRoomTypeId?: string;
 }
 
 /**
@@ -72,6 +74,8 @@ export const useUpdateBooking = () => {
             if (fields.vehicleDescription !== undefined) updateData.vehicle_description = fields.vehicleDescription;
             if (fields.licensePlate !== undefined) updateData.license_plate = fields.licensePlate;
             if (fields.needsReview !== undefined) updateData.needs_review = fields.needsReview;
+            // '' es "volver al automático": se guarda NULL y no un id vacío.
+            if (fields.pricingRoomTypeId !== undefined) updateData.pricing_room_type_id = fields.pricingRoomTypeId || null;
 
             const { data, error } = await supabase
                 .from('bookings')

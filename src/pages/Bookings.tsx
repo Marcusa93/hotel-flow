@@ -23,8 +23,9 @@ import { Badge } from '@/components/ui/badge';
 import { cn, formatLastNameFirst, getInitials } from '@/lib/utils';
 import {
   LayoutGrid, List,
-  Calendar, BedDouble, CalendarRange, CalendarDays,
+  Calendar, BedDouble, CalendarRange, CalendarDays, ArrowDownUp,
 } from 'lucide-react';
+import type { BoardOrder } from '@/lib/reservationBoard';
 import { BookingTimeline } from '@/components/bookings/BookingTimeline';
 import { QRScannerDialog } from '@/components/bookings/QRScannerDialog';
 import { FullHotelRentalDialog } from '@/components/bookings/FullHotelRentalDialog';
@@ -58,6 +59,11 @@ export default function Bookings() {
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
+  /**
+   * Cómo se ordenan las columnas del tablero. Arranca por los primeros —el que
+   * llega antes, el que salió antes— que es el orden en que se atiende.
+   */
+  const [boardOrder, setBoardOrder] = useState<BoardOrder>('asc');
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
   const [isFullHotelOpen, setIsFullHotelOpen] = useState(false);
   const [preselectedRoomId, setPreselectedRoomId] = useState<string | undefined>(undefined);
@@ -218,7 +224,20 @@ export default function Bookings() {
             statusFilter={statusFilter}
             onStatusFilterChange={(v) => { setStatusFilter(v); setTodayFilter(null); }}
             trailing={
-              <div className="hidden md:flex items-center bg-muted/50 rounded-xl p-1">
+              <div className="hidden md:flex items-center gap-2">
+              {viewMode === 'kanban' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 rounded-xl text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                  onClick={() => setBoardOrder(o => (o === 'asc' ? 'desc' : 'asc'))}
+                  title="Cambia el orden de las cuatro columnas. Pendientes, Confirmadas y Hospedadas se ordenan por la fecha de entrada; Salidas, por la de salida."
+                >
+                  <ArrowDownUp className="w-3.5 h-3.5" />
+                  {boardOrder === 'asc' ? 'Primeros arriba' : 'Últimos arriba'}
+                </Button>
+              )}
+              <div className="flex items-center bg-muted/50 rounded-xl p-1">
                 <Button
                   variant={viewMode === 'kanban' ? 'default' : 'ghost'}
                   size="icon"
@@ -244,6 +263,7 @@ export default function Bookings() {
                 >
                   <CalendarRange className="w-4 h-4" />
                 </Button>
+              </div>
               </div>
             }
           />
@@ -273,6 +293,10 @@ export default function Bookings() {
                 rooms={rooms}
                 roomTypes={roomTypes}
                 accounts={accounts}
+                order={boardOrder}
+                // Pedir la pestaña "Salidas" es ir a buscarlas: ahí se muestran
+                // todas, incluidas las de días anteriores que el tablero saca.
+                allDepartures={statusFilter === 'CHECKED_OUT'}
                 onStatusChange={handleStatusChange}
                 onCardClick={setSelectedBookingId}
               />

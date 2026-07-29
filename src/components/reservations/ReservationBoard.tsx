@@ -3,6 +3,8 @@ import { useMemo } from 'react';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { Booking, BookingStatus, Guest, Room, RoomType } from '@/types/hotel';
 import { buildBookingAccount, type BookingAccount } from '@/lib/bookingAccount';
+import { buildBoard, type BoardOrder, type BoardStatus } from '@/lib/reservationBoard';
+import { formatLocalDate } from '@/lib/utils';
 import { ReservationColumn } from './ReservationColumn';
 import { ReservationCard } from './ReservationCard';
 
@@ -13,28 +15,36 @@ interface ReservationBoardProps {
     roomTypes: RoomType[];
     /** Estado de cuenta por reserva, armado en la página con pagos y cargos */
     accounts: Map<string, BookingAccount>;
+    /** Primero los que llegaron o salieron antes, o primero los últimos */
+    order: BoardOrder;
+    /** Con la pestaña "Salidas" elegida el tablero muestra también las viejas */
+    allDepartures?: boolean;
     onStatusChange: (id: string, newStatus: BookingStatus) => void;
     onCardClick: (bookingId: string) => void;
 }
 
-const COLUMNS: { id: BookingStatus; title: string; color: string }[] = [
+const COLUMNS: { id: BoardStatus; title: string; color: string }[] = [
     { id: 'PENDING', title: 'Pendientes', color: 'bg-amber-400 ring-amber-400' },
     { id: 'CONFIRMED', title: 'Confirmadas', color: 'bg-blue-500 ring-blue-500' },
     { id: 'CHECKED_IN', title: 'Hospedadas', color: 'bg-emerald-500 ring-emerald-500' },
     { id: 'CHECKED_OUT', title: 'Salidas', color: 'bg-slate-400 ring-slate-400' },
 ];
 
-export function ReservationBoard({ bookings, guests, rooms, roomTypes, accounts, onStatusChange, onCardClick }: ReservationBoardProps) {
+export function ReservationBoard({ bookings, guests, rooms, roomTypes, accounts, order, allDepartures = false, onStatusChange, onCardClick }: ReservationBoardProps) {
 
-    const columns = useMemo(() => {
-        const cols: Record<string, Booking[]> = {
-            PENDING: [], CONFIRMED: [], CHECKED_IN: [], CHECKED_OUT: []
-        };
-        bookings.forEach(b => {
-            if (cols[b.status]) cols[b.status].push(b);
-        });
-        return cols;
-    }, [bookings]);
+    // El día entra como dependencia y no como `new Date()` suelto: el mostrador
+    // deja esta pantalla abierta toda la noche, y a las 00:00 la columna de
+    // salidas tiene que arrancar limpia sin que nadie recargue nada.
+    const todayKey = formatLocalDate(new Date());
+    const { columns, hiddenDepartures } = useMemo(
+        () => buildBoard({
+            bookings,
+            today: new Date(`${todayKey}T00:00:00`),
+            order,
+            allDepartures,
+        }),
+        [bookings, todayKey, order, allDepartures]
+    );
 
     const onDragEnd = (result: DropResult) => {
         const { destination, source, draggableId } = result;
@@ -64,6 +74,9 @@ export function ReservationBoard({ bookings, guests, rooms, roomTypes, accounts,
                             title={col.title}
                             count={columns[col.id]?.length || 0}
                             headerColorClass={col.color}
+                            hint={col.id === 'CHECKED_OUT' && hiddenDepartures > 0
+                                ? `${hiddenDepartures} de días anteriores · están en la pestaña Salidas`
+                                : undefined}
                         >
                             {columns[col.id]?.map((booking, index) => {
                                 const room = getRoom(booking.roomId);

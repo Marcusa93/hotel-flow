@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
     getOccupancyPricing,
+    getBookingPricing,
+    selectableTiers,
+    describeDownTier,
     billableGuests,
     totalOccupants,
     bookingDiscountRatio,
@@ -104,6 +107,124 @@ describe('getOccupancyPricing', () => {
         const pricing = getOccupancyPricing(TARIFAS, QUINTUPLE, { adults: 0, children: 0 });
 
         expect(pricing?.nightlyPrice).toBe(110_000);
+    });
+});
+
+describe('tramo simple', () => {
+    const SIMPLE = tramo(1, 30_000);
+
+    it('el que viene solo paga la simple, esté en la habitación que esté', () => {
+        // La doble cobrada como simple, que es como la cobra el hotel.
+        const enDoble = getOccupancyPricing([SIMPLE, ...TARIFAS], DOBLE, { adults: 1, children: 0 });
+        const enQuintuple = getOccupancyPricing([SIMPLE, ...TARIFAS], QUINTUPLE, { adults: 1, children: 0 });
+
+        expect(enDoble?.nightlyPrice).toBe(30_000);
+        expect(enQuintuple?.nightlyPrice).toBe(30_000);
+    });
+
+    it('sin tramo simple cargado cae en el piso de la lista', () => {
+        // Lo que llegó reportado como precio duplicado: entra uno y se cobra la
+        // tarifa de dos. No se duplica nada, es que abajo de dos no hay nada.
+        const pricing = getOccupancyPricing(TARIFAS, QUINTUPLE, { adults: 1, children: 0 });
+
+        expect(pricing?.nightlyPrice).toBe(50_000);
+        expect(pricing?.pricingType.maxGuests).toBe(2);
+    });
+
+    it('mientras valga lo mismo que la doble no cambia ningún precio', () => {
+        // Así entra la migración: la simple se crea copiando el precio del tramo
+        // más chico, para no mover un peso hasta que el hotel le ponga el suyo.
+        const simpleAlPrecioDeLaDoble = tramo(1, DOBLE.basePrice);
+        const pricing = getOccupancyPricing(
+            [simpleAlPrecioDeLaDoble, ...TARIFAS],
+            DOBLE,
+            { adults: 1, children: 0 }
+        );
+
+        expect(pricing?.nightlyPrice).toBe(DOBLE.basePrice);
+    });
+});
+
+describe('getBookingPricing', () => {
+    it('sin tarifa elegida decide la ocupación, como siempre', () => {
+        const pricing = getBookingPricing(TARIFAS, QUINTUPLE, { adults: 4, children: 0 }, null);
+
+        expect(pricing?.nightlyPrice).toBe(90_000);
+        expect(pricing?.isManual).toBeUndefined();
+    });
+
+    it('con tarifa elegida se cobra esa y no la que sale del cálculo', () => {
+        // Lo que pidió el hotel: viene uno solo y se le cobra igual la doble.
+        const pricing = getBookingPricing(TARIFAS, DOBLE, { adults: 1, children: 0 }, DOBLE.id);
+
+        expect(pricing?.nightlyPrice).toBe(50_000);
+        expect(pricing?.pricingType.maxGuests).toBe(2);
+        expect(pricing?.isManual).toBe(true);
+    });
+
+    it('la elección no se mueve aunque cambie la gente', () => {
+        // Es la razón de ser de la columna: el check-in no puede recalcularla.
+        const conUno = getBookingPricing(TARIFAS, QUINTUPLE, { adults: 1, children: 0 }, TRIPLE.id);
+        const conCuatro = getBookingPricing(TARIFAS, QUINTUPLE, { adults: 4, children: 0 }, TRIPLE.id);
+
+        expect(conUno?.nightlyPrice).toBe(70_000);
+        expect(conCuatro?.nightlyPrice).toBe(70_000);
+    });
+
+    it('un tramo elegido que ya no existe vuelve al automático', () => {
+        // Borrado de Tarifas: antes que dejar la reserva sin precio, se calcula.
+        const pricing = getBookingPricing(TARIFAS, QUINTUPLE, { adults: 4, children: 0 }, 'rt-borrado');
+
+        expect(pricing?.nightlyPrice).toBe(90_000);
+        expect(pricing?.isManual).toBeUndefined();
+    });
+});
+
+describe('selectableTiers', () => {
+    it('no ofrece tramos más grandes que la habitación', () => {
+        // Elegir la quíntuple para una triple sería cobrar más que la habitación.
+        expect(selectableTiers(TARIFAS, TRIPLE).map(rt => rt.maxGuests)).toEqual([2, 3]);
+    });
+
+    it('los ordena de menor a mayor sin importar cómo vengan', () => {
+        const desordenadas = [QUINTUPLE, DOBLE, CUADRUPLE, TRIPLE];
+
+        expect(selectableTiers(desordenadas, QUINTUPLE).map(rt => rt.maxGuests)).toEqual([2, 3, 4, 5]);
+        // No los reordena en la lista original, que es la que muestra Tarifas.
+        expect(desordenadas[0].maxGuests).toBe(5);
+    });
+
+    it('sin habitación elegida no ofrece nada', () => {
+        expect(selectableTiers(TARIFAS, null)).toEqual([]);
+    });
+});
+
+describe('describeDownTier', () => {
+    it('cuando el tramo coincide con la gente lo dice derecho', () => {
+        const pricing = getOccupancyPricing(TARIFAS, QUINTUPLE, { adults: 4, children: 0 })!;
+
+        expect(describeDownTier(pricing, 5)).toBe(
+            'Entran 4 en una habitación de 5: se cobra la tarifa de 4 personas.'
+        );
+    });
+
+    it('cuando no hay tarifa para esa cantidad aclara que se cobra la más cercana', () => {
+        // La frase vieja —"entran 1: se cobra la tarifa de 2 personas"— se leía
+        // como un recargo y volvió del hotel marcada como error de precio.
+        const pricing = getOccupancyPricing(TARIFAS, QUINTUPLE, { adults: 1, children: 0 })!;
+
+        expect(describeDownTier(pricing, 5)).toBe(
+            'Entra 1 en una habitación de 5: no hay tarifa de 1, se cobra la más cercana, la de 2 personas.'
+        );
+    });
+
+    it('con la simple cargada el singular queda bien', () => {
+        const SIMPLE = tramo(1, 30_000);
+        const pricing = getOccupancyPricing([SIMPLE, ...TARIFAS], DOBLE, { adults: 1, children: 0 })!;
+
+        expect(describeDownTier(pricing, 2)).toBe(
+            'Entra 1 en una habitación de 2: se cobra la tarifa de 1 persona.'
+        );
     });
 });
 

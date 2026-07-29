@@ -2,6 +2,7 @@ import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/render
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { Payment, Guest, Room, RoomType, HotelSettings } from '@/types/hotel';
+import { guestsLabel } from '@/lib/utils';
 
 interface PaymentReceiptPDFProps {
   payment: Payment;
@@ -186,7 +187,7 @@ export function PaymentReceiptPDF({
               <View style={styles.row}>
                 <Text style={styles.label}>Habitacion</Text>
                 <Text style={styles.value}>
-                  {room.roomNumber} {roomType ? `(${roomType.maxGuests} personas)` : ''}
+                  {room.roomNumber} {roomType ? `(${guestsLabel(roomType.maxGuests)})` : ''}
                 </Text>
               </View>
             )}

@@ -19,6 +19,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -41,9 +42,16 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { cn, formatLastNameFirst } from '@/lib/utils';
-import { getOccupancyPricing } from '@/lib/occupancyPricing';
+import { cn, formatLastNameFirst, guestsLabel } from '@/lib/utils';
+import {
+  getBookingPricing,
+  selectableTiers,
+  describeDownTier,
+} from '@/lib/occupancyPricing';
 import { toast } from '@/hooks/use-toast';
+
+/** Ver la nota en NewBookingDialog: centinela de "la que corresponda por ocupación". */
+const TARIFA_AUTOMATICA = 'auto';
 
 const editBookingSchema = z.object({
   checkInDate: z.date({ required_error: 'Fecha de check-in requerida' }),
@@ -54,6 +62,7 @@ const editBookingSchema = z.object({
   infants: z.coerce.number().min(0),
   estimatedArrivalTime: z.string().optional(),
   notes: z.string().optional(),
+  pricingRoomTypeId: z.string().optional(),
 }).refine((data) => data.checkOutDate > data.checkInDate, {
   message: 'Check-out debe ser posterior a check-in',
   path: ['checkOutDate'],
@@ -83,6 +92,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
       infants: booking.infants ?? 0,
       estimatedArrivalTime: booking.estimatedArrivalTime || '',
       notes: booking.notes || '',
+      pricingRoomTypeId: booking.pricingRoomTypeId || TARIFA_AUTOMATICA,
     },
   });
 
@@ -98,6 +108,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
         infants: booking.infants ?? 0,
         estimatedArrivalTime: booking.estimatedArrivalTime || '',
         notes: booking.notes || '',
+        pricingRoomTypeId: booking.pricingRoomTypeId || TARIFA_AUTOMATICA,
       });
     }
   }, [open, booking, form]);
@@ -114,6 +125,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
   const watchedInfants = Number(form.watch('infants')) || 0;
   const watchedNotes = form.watch('notes');
   const watchedArrival = form.watch('estimatedArrivalTime');
+  const watchedPricingTypeId = form.watch('pricingRoomTypeId');
 
   const selectedRoom = rooms.find(r => r.id === watchedRoomId);
   const selectedRoomType = selectedRoom ? roomTypes.find(rt => rt.id === selectedRoom.roomTypeId) : null;
@@ -128,11 +140,21 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
   );
 
   // El precio sale del tramo que corresponde a la gente que entra, no del tipo
-  // de la habitación. Los menores de 5 no cuentan.
-  const occupancyPricing = getOccupancyPricing(roomTypes, selectedRoomType, {
-    adults: watchedAdults,
-    children: watchedChildren,
-  });
+  // de la habitación. Los menores de 5 no cuentan. Si recepción eligió una
+  // tarifa a mano —acá o al tomar la reserva— manda esa y no se recalcula.
+  const tierOptions = selectableTiers(roomTypes, selectedRoomType);
+  const chosenPricingTypeId =
+    watchedPricingTypeId &&
+    watchedPricingTypeId !== TARIFA_AUTOMATICA &&
+    tierOptions.some(rt => rt.id === watchedPricingTypeId)
+      ? watchedPricingTypeId
+      : null;
+  const occupancyPricing = getBookingPricing(
+    roomTypes,
+    selectedRoomType,
+    { adults: watchedAdults, children: watchedChildren },
+    chosenPricingTypeId
+  );
 
   // Calculate new total amount
   const newTotalAmount = occupancyPricing ? nights * occupancyPricing.nightlyPrice : 0;
@@ -254,6 +276,12 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
         // '' (not undefined) so bookingToRow writes NULL and the hour can be cleared.
         estimatedArrivalTime: data.estimatedArrivalTime?.trim() || '',
         notes: data.notes,
+        // Solo cuando hay algo que decir: '' borra una elección previa, pero
+        // mandarlo en toda edición rompería las ediciones si el código llega
+        // antes que la migración. Igual criterio que la promo al crear.
+        ...(chosenPricingTypeId || booking.pricingRoomTypeId
+          ? { pricingRoomTypeId: chosenPricingTypeId ?? '' }
+          : {}),
         totalAmount: newTotalAmount,
       });
 
@@ -477,7 +505,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
               <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 <span>
-                  La capacidad máxima de esta habitación es de {selectedRoomType.maxGuests} persona{selectedRoomType.maxGuests > 1 ? 's' : ''}.
+                  La capacidad máxima de esta habitación es de {guestsLabel(selectedRoomType.maxGuests)}.
                 </span>
               </div>
             )}
@@ -502,22 +530,57 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
               )}
             />
 
+            {/* La tarifa la propone la ocupación; el mostrador puede elegir otra */}
+            {selectedRoomType && tierOptions.length > 1 && (
+              <FormField
+                control={form.control}
+                name="pricingRoomTypeId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tarifa</FormLabel>
+                    <Select value={chosenPricingTypeId ?? TARIFA_AUTOMATICA} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={TARIFA_AUTOMATICA}>Según la gente que entra</SelectItem>
+                        {tierOptions.map(rt => (
+                          <SelectItem key={rt.id} value={rt.id}>
+                            {guestsLabel(rt.maxGuests)} — ${rt.basePrice.toLocaleString('es-AR')}/noche
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription className="text-xs">
+                      Elegida a mano queda fija: el check-in no la recalcula.
+                    </FormDescription>
+                  </FormItem>
+                )}
+              />
+            )}
+
             {/* Price recalculation */}
             {selectedRoomType && nights > 0 && (
               <div className="p-4 rounded-xl bg-background/60 backdrop-blur border space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Tarifa {occupancyPricing?.pricingType.maxGuests ?? selectedRoomType.maxGuests} personas x {nights} noche{nights !== 1 ? 's' : ''}
+                    Tarifa {guestsLabel(occupancyPricing?.pricingType.maxGuests ?? selectedRoomType.maxGuests)} x {nights} noche{nights !== 1 ? 's' : ''}
                   </span>
                   <span className="font-medium">
                     ${(occupancyPricing?.nightlyPrice ?? selectedRoomType.basePrice).toLocaleString('es-AR')} x {nights}
                   </span>
                 </div>
 
-                {occupancyPricing?.isDownTiered && (
+                {occupancyPricing?.isManual && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Tarifa elegida a mano: {guestsLabel(occupancyPricing.pricingType.maxGuests)}.
+                  </p>
+                )}
+                {!occupancyPricing?.isManual && occupancyPricing?.isDownTiered && (
                   <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                    Entran {occupancyPricing.billable} en una habitación de {selectedRoomType.maxGuests}:
-                    se cobra la tarifa de {occupancyPricing.pricingType.maxGuests} personas.
+                    {describeDownTier(occupancyPricing, selectedRoomType.maxGuests)}
                   </p>
                 )}
                 {watchedInfants > 0 && (

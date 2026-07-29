@@ -4,7 +4,7 @@ import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useUpdateBooking } from '@/hooks/useUpdateBooking';
 import { useRates } from '@/hooks/useRates';
 import {
-  getOccupancyPricing,
+  getBookingPricing,
   bookingDiscountRatio,
   resolveCheckInTotal,
 } from '@/lib/occupancyPricing';
@@ -45,13 +45,17 @@ export function useCheckInOccupancy(booking: Booking | undefined | null) {
     ? Math.max(0, differenceInDays(new Date(booking.checkOutDate), new Date(booking.checkInDate)))
     : 0;
 
-  const pricing = getOccupancyPricing(roomTypes, roomType, value);
+  // Con la tarifa elegida a mano los dos tramos dan lo mismo y el total no se
+  // mueve por más que cambie la ocupación: para eso se eligió.
+  const pricing = getBookingPricing(roomTypes, roomType, value, booking?.pricingRoomTypeId);
 
   // El tramo con el que se tomó la reserva. Es el punto de comparación.
-  const bookedPricing = getOccupancyPricing(roomTypes, roomType, {
-    adults: booking?.adults ?? 0,
-    children: booking?.children ?? 0,
-  });
+  const bookedPricing = getBookingPricing(
+    roomTypes,
+    roomType,
+    { adults: booking?.adults ?? 0, children: booking?.children ?? 0 },
+    booking?.pricingRoomTypeId
+  );
 
   const currentTotal = booking?.totalAmount ?? 0;
 

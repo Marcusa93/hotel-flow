@@ -41,6 +41,12 @@ export const useCreateBooking = () => {
                     // la migración, PostgREST rechaza el insert por columna
                     // desconocida. Así una reserva sin promoción —la enorme
                     // mayoría— sigue funcionando igual.
+                    // Igual que la promo: solo va cuando recepción eligió la
+                    // tarifa a mano, para que el código pueda desplegarse antes
+                    // que la migración sin romper la reserva normal.
+                    ...(bookingData.pricingRoomTypeId
+                        ? { pricing_room_type_id: bookingData.pricingRoomTypeId }
+                        : {}),
                     ...(bookingData.rateId || bookingData.promoLabel
                         ? {
                             rate_id: bookingData.rateId ?? null,
@@ -67,6 +73,7 @@ export const useCreateBooking = () => {
                 children: data.children,
                 infants: data.infants ?? 0,
                 specialRateAmount: data.special_rate_amount == null ? undefined : Number(data.special_rate_amount),
+                pricingRoomTypeId: data.pricing_room_type_id || undefined,
                 isFullHotel: data.is_full_hotel ?? false,
                 status: data.status,
                 totalAmount: data.total_amount,

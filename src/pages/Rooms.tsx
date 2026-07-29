@@ -25,7 +25,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { BedDouble, CheckSquare, X, Sparkles, PaintBucket } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, guestsLabel } from '@/lib/utils';
 
 export default function Rooms() {
   const { rooms, roomTypes, updateRoomStatus, isUpdating } = useRoomOperations();
@@ -168,7 +168,7 @@ export default function Rooms() {
   const getSelectedRoomTypeName = () => {
     if (!selectedRoom) return undefined;
     const rt = roomTypes.find(rt => rt.id === selectedRoom.roomTypeId);
-    return rt ? `${rt.maxGuests} personas` : undefined;
+    return rt ? guestsLabel(rt.maxGuests) : undefined;
   };
 
   // Bulk action handlers

@@ -1,6 +1,6 @@
 import { Minus, Plus, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, guestsLabel } from '@/lib/utils';
 import type { OccupancyPricing } from '@/lib/occupancyPricing';
 
 /** Lo que se anotó al reservar y lo que se corrige al entrar. */
@@ -112,11 +112,27 @@ export function CheckInOccupancy({
               promoción el total no es tarifa × noches, y ponerlos en la misma
               línea hacía leer una multiplicación que no cierra. */}
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Tarifa {pricing.pricingType.maxGuests} personas</span>
+            <span>Tarifa {guestsLabel(pricing.pricingType.maxGuests)}</span>
             <span className="tabular-nums">
               ${pricing.nightlyPrice.toLocaleString('es-AR')}/noche · {nights} noche{nights !== 1 ? 's' : ''}
             </span>
           </div>
+          {/* La elegida a mano no sigue a la ocupación: si entran más de los que
+              cubre hay que decirlo, o el precio queda corto sin que nadie lo vea. */}
+          {pricing.isManual && (
+            <p
+              className={cn(
+                'text-xs',
+                pricing.billable > pricing.pricingType.maxGuests
+                  ? 'text-amber-700 dark:text-amber-400'
+                  : 'text-muted-foreground'
+              )}
+            >
+              {pricing.billable > pricing.pricingType.maxGuests
+                ? `Entran ${pricing.billable} y la tarifa elegida a mano cubre ${pricing.pricingType.maxGuests}: el precio no se ajusta solo.`
+                : 'Tarifa elegida a mano: no se recalcula por la ocupación.'}
+            </p>
+          )}
           <div className="flex items-center justify-between text-sm">
             <span className="font-medium">Total</span>
             <span className={cn('font-semibold tabular-nums', difference !== 0 && 'text-primary')}>

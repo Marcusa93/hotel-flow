@@ -1,7 +1,7 @@
 import { Room, RoomType, Booking, Guest } from '@/types/hotel';
 import { RoomCard } from './RoomCard';
 import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { cn, guestsLabel } from '@/lib/utils';
 import { Check } from 'lucide-react';
 
 interface RoomGridProps {
@@ -24,7 +24,7 @@ export function RoomGrid({ rooms, roomTypes, guests, bookings, onRoomClick, onQu
 
     const getType = (typeId: string) => {
         const rt = roomTypes.find(rt => rt.id === typeId);
-        return rt ? `${rt.maxGuests} personas` : undefined;
+        return rt ? guestsLabel(rt.maxGuests) : undefined;
     };
 
     const isBulkMode = !!selectedIds;

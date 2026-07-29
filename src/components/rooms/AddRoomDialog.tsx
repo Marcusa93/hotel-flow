@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { guestsLabel } from '@/lib/utils';
 import {
     Select,
     SelectContent,
@@ -128,7 +129,7 @@ export function AddRoomDialog({ open, onOpenChange }: AddRoomDialogProps) {
                             <SelectContent>
                                 {roomTypes.map((type) => (
                                     <SelectItem key={type.id} value={type.id}>
-                                        {type.maxGuests} personas — ${type.basePrice?.toLocaleString('es-AR') || 0}/noche
+                                        {guestsLabel(type.maxGuests)} — ${type.basePrice?.toLocaleString('es-AR') || 0}/noche
                                     </SelectItem>
                                 ))}
                             </SelectContent>

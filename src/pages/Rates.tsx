@@ -47,7 +47,7 @@ import { useUpdateRate } from '@/hooks/useUpdateRate';
 import { useDeleteRate } from '@/hooks/useDeleteRate';
 import { Rate, DiscountType } from '@/types/hotel';
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS } from '@/lib/constants';
-import { cn } from '@/lib/utils';
+import { cn, guestsLabel } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUpdateRoomType } from '@/hooks/useUpdateRoomType';
 import {
@@ -352,7 +352,7 @@ export default function Rates() {
                 className="p-5 rounded-2xl border border-purple-100 dark:border-purple-900/30 bg-gradient-to-br from-purple-50/50 to-indigo-50/50 dark:from-purple-950/20 dark:to-indigo-950/20 backdrop-blur-md"
               >
                 <div className="flex items-center justify-between mb-3">
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">Hab. {type.maxGuests} personas</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">Hab. {guestsLabel(type.maxGuests)}</span>
                   <Badge variant="outline" className="border-purple-200 text-purple-600 bg-purple-50 dark:bg-purple-900/20 text-xs">
                     Base
                   </Badge>
@@ -386,7 +386,7 @@ export default function Rates() {
                 )}
 
                 <p className="text-xs text-muted-foreground mt-2">
-                  por noche • máx. {type.maxGuests} huéspedes
+                  por noche • máx. {type.maxGuests} huésped{type.maxGuests === 1 ? '' : 'es'}
                 </p>
               </motion.div>
             ))}
@@ -600,7 +600,7 @@ export default function Rates() {
                   <SelectContent>
                     <SelectItem value="all">Todas las categorías</SelectItem>
                     {roomTypes.map(rt => (
-                      <SelectItem key={rt.id} value={rt.id}>Hab. {rt.maxGuests} personas</SelectItem>
+                      <SelectItem key={rt.id} value={rt.id}>Hab. {guestsLabel(rt.maxGuests)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

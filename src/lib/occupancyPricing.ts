@@ -1,5 +1,6 @@
 import type { Rate, RoomType } from '@/types/hotel';
 import { getPromoNightlyPrice } from '@/lib/promoPricing';
+import { guestsLabel } from '@/lib/utils';
 
 /**
  * El precio lo define cuánta gente entra, no la capacidad de la habitación.
@@ -32,6 +33,8 @@ export interface OccupancyPricing {
   billable: number;
   /** true cuando se cobra un tramo más barato que el de la habitación */
   isDownTiered: boolean;
+  /** true cuando el tramo lo eligió recepción y no el cálculo por ocupación */
+  isManual?: boolean;
 }
 
 /**
@@ -75,6 +78,76 @@ export function getOccupancyPricing(
   if (tier.basePrice >= roomType.basePrice) return stay;
 
   return { pricingType: tier, nightlyPrice: tier.basePrice, billable, isDownTiered: true };
+}
+
+/**
+ * El tramo que se cobra, con la última palabra en el mostrador.
+ *
+ * getOccupancyPricing decide por ocupación y acierta casi siempre. Cuando no
+ * —el hotel le cobra igual la doble al que viene solo—, la reserva guarda el
+ * tramo que eligió recepción y se cobra ese. Se respeta tal cual y no se
+ * recalcula: si al editar o al hacer el check-in se volviera al automático, la
+ * elección no serviría de nada.
+ *
+ * Un tramo elegido que ya no existe (se borró de Tarifas) vuelve al automático
+ * en vez de dejar la reserva sin precio.
+ */
+export function getBookingPricing(
+  roomTypes: RoomType[],
+  roomType: RoomType | undefined | null,
+  occupancy: { adults: number | string; children: number | string },
+  chosenTypeId?: string | null
+): OccupancyPricing | null {
+  if (!roomType) return null;
+
+  const chosen = chosenTypeId ? roomTypes.find(rt => rt.id === chosenTypeId) : undefined;
+  if (!chosen) return getOccupancyPricing(roomTypes, roomType, occupancy);
+
+  return {
+    pricingType: chosen,
+    nightlyPrice: chosen.basePrice,
+    billable: billableGuests(occupancy),
+    isDownTiered: chosen.maxGuests < roomType.maxGuests,
+    isManual: true,
+  };
+}
+
+/**
+ * Los tramos que se le pueden elegir a esta habitación, de menor a mayor.
+ *
+ * Se corta en el tramo de la habitación por la misma razón que el cálculo
+ * automático: meter seis en una quíntuple no la convierte en séxtuple, y
+ * ofrecer un tramo más caro que la habitación sería justo el sobreprecio que el
+ * resto del sistema evita. Para abajo se ofrece todo, incluso por debajo de la
+ * gente que entra: quien cobra es el que está atendiendo.
+ */
+export function selectableTiers(
+  roomTypes: RoomType[],
+  roomType: RoomType | undefined | null
+): RoomType[] {
+  if (!roomType) return [];
+  return roomTypes
+    .filter(rt => rt.maxGuests <= roomType.maxGuests)
+    .sort((a, b) => a.maxGuests - b.maxGuests || a.basePrice - b.basePrice);
+}
+
+/**
+ * Por qué el precio no es el de la habitación, dicho para recepción.
+ *
+ * Cuando el tramo coincide con la gente que entra es una buena noticia —pagan
+ * menos que la habitación— y se dice derecho. Cuando no hay tramo para esa
+ * cantidad y se cobra el de arriba, la misma frase se leía como un recargo:
+ * "entra 1, se cobra la tarifa de 2" llegó reportado como precio duplicado. No
+ * lo es, es que abajo de ese tramo la lista no tiene nada, y hay que decirlo.
+ */
+export function describeDownTier(pricing: OccupancyPricing, roomMaxGuests: number): string {
+  const entran = `Entra${pricing.billable === 1 ? '' : 'n'} ${pricing.billable} en una habitación de ${roomMaxGuests}`;
+  const tarifa = guestsLabel(pricing.pricingType.maxGuests);
+
+  if (pricing.billable === pricing.pricingType.maxGuests) {
+    return `${entran}: se cobra la tarifa de ${tarifa}.`;
+  }
+  return `${entran}: no hay tarifa de ${pricing.billable}, se cobra la más cercana, la de ${tarifa}.`;
 }
 
 /**

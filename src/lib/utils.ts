@@ -40,6 +40,16 @@ export function getInitials(fullName: string): string {
     .toUpperCase();
 }
 
+/**
+ * "1 persona" / "4 personas".
+ *
+ * El singular importa desde que existe el tramo simple: hasta entonces el tipo
+ * más chico del hotel era el de dos y el plural fijo nunca se notaba.
+ */
+export function guestsLabel(count: number): string {
+  return `${count} ${count === 1 ? 'persona' : 'personas'}`;
+}
+
 /** Escape HTML special characters to prevent XSS in document.write() contexts */
 export function escapeHtml(str: string | null | undefined): string {
   if (!str) return '';

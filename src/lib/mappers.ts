@@ -93,6 +93,7 @@ export const mapBooking = (row: DbRow): Booking => ({
   // concatenaría en vez de sumar. null se mantiene undefined — "no se registró"
   // no es lo mismo que "descuento de 0".
   specialRateAmount: row.special_rate_amount == null ? undefined : Number(row.special_rate_amount),
+  pricingRoomTypeId: row.pricing_room_type_id || undefined,
   isFullHotel: row.is_full_hotel ?? false,
   baseAmount: row.base_amount == null ? undefined : Number(row.base_amount),
   discountAmount: row.discount_amount == null ? undefined : Number(row.discount_amount),
@@ -242,6 +243,8 @@ export const bookingToRow = (booking: Partial<Booking>): DbRow => {
   if (booking.children !== undefined) row.children = booking.children;
   if (booking.infants !== undefined) row.infants = booking.infants;
   if (booking.specialRateAmount !== undefined) row.special_rate_amount = booking.specialRateAmount;
+  // '' es "volver a la tarifa automática": sin el || null se guardaría un id vacío.
+  if (booking.pricingRoomTypeId !== undefined) row.pricing_room_type_id = booking.pricingRoomTypeId || null;
   if (booking.isFullHotel !== undefined) row.is_full_hotel = booking.isFullHotel;
   if (booking.status !== undefined) row.status = booking.status;
   if (booking.totalAmount !== undefined) row.total_amount = booking.totalAmount;

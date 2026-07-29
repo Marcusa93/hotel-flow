@@ -50,6 +50,45 @@ export function getRoomCheckInWarning(
   const cleaning = getOpenCleaning(room.id, housekeepingTasks);
   const by = cleaning?.assignedTo ? ` (a cargo de ${cleaning.assignedTo})` : '';
 
+  // Va antes que el status: es la decisión más específica y más reciente sobre
+  // esta habitación, tomada por la única persona que estuvo adentro.
+  if (room.housekeepingHold) {
+    return {
+      severity: 'critical',
+      title: 'Habitación no habilitada por limpieza',
+      message: room.housekeepingNote
+        ? `${label} no fue habilitada${signedBy(room)}: ${room.housekeepingNote}`
+        : `${label} no fue habilitada por limpieza${signedBy(room)}.`,
+    };
+  }
+
+  const statusWarning = getStatusWarning(room, label, cleaning, by);
+
+  // La advertencia sin bloqueo no reemplaza a la del estado ni se pierde: se
+  // suma. "Está sucia" y "falta una almohada" son dos cosas distintas y las dos
+  // importan antes de alojar a alguien.
+  if (room.housekeepingNote) {
+    const nota = `Limpieza dejó una nota${signedBy(room)}: ${room.housekeepingNote}`;
+    if (!statusWarning) {
+      return { severity: 'warning', title: 'Aviso de limpieza', message: `${label} está lista. ${nota}` };
+    }
+    return { ...statusWarning, message: `${statusWarning.message} ${nota}` };
+  }
+
+  return statusWarning;
+}
+
+/** "(Ana)" cuando se sabe quién la dejó. Firma la nota sin alargar la frase. */
+function signedBy(room: Room): string {
+  return room.housekeepingNoteBy ? ` (${room.housekeepingNoteBy})` : '';
+}
+
+function getStatusWarning(
+  room: Room,
+  label: string,
+  cleaning: HousekeepingTask | undefined,
+  by: string
+): RoomCheckInWarning | null {
   switch (room.status) {
     case 'OUT_OF_ORDER':
       return {

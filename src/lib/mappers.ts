@@ -40,6 +40,10 @@ export const mapRoom = (row: DbRow): Room => ({
   floor: row.floor,
   status: row.status,
   notes: row.notes,
+  housekeepingHold: row.housekeeping_hold ?? false,
+  housekeepingNote: row.housekeeping_note || undefined,
+  housekeepingNoteBy: row.housekeeping_note_by || undefined,
+  housekeepingNoteAt: row.housekeeping_note_at ? new Date(row.housekeeping_note_at) : undefined,
 });
 
 export const mapGuest = (row: DbRow): Guest => ({

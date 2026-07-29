@@ -47,6 +47,16 @@ export interface Room {
   floor: number;
   status: RoomStatus;
   notes?: string;
+  /**
+   * Limpieza no la habilitó: está limpia pero no en condiciones de recibir a
+   * alguien. Separado del status porque MAINTENANCE y OUT_OF_ORDER los pone
+   * recepción por sus propios motivos.
+   */
+  housekeepingHold?: boolean;
+  /** Qué le pasa, según limpieza. Vale sin el bloqueo: una advertencia sola también sirve. */
+  housekeepingNote?: string;
+  housekeepingNoteBy?: string;
+  housekeepingNoteAt?: Date;
 }
 
 export type DocumentType = 'DNI' | 'PASAPORTE' | 'CEDULA' | 'CUIT' | 'OTRO';

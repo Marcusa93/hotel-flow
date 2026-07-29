@@ -10,10 +10,12 @@ interface ReservationColumnProps {
     title: string;
     count: number;
     headerColorClass: string;
+    /** Qué quedó afuera de la columna. Sin esto, filtrar se lee como perder datos. */
+    hint?: string;
     children: React.ReactNode;
 }
 
-export function ReservationColumn({ id, title, count, headerColorClass, children }: ReservationColumnProps) {
+export function ReservationColumn({ id, title, count, headerColorClass, hint, children }: ReservationColumnProps) {
     // Sin ancho fijo: la columna se estira a lo que le dé el tablero. Con 320px
     // fijos, cuatro columnas no entraban y aparecía el scroll lateral siempre.
     return (
@@ -33,6 +35,10 @@ export function ReservationColumn({ id, title, count, headerColorClass, children
                     <MoreHorizontal className="w-4 h-4" />
                 </Button>
             </div>
+
+            {hint && (
+                <p className="px-1 -mt-1 mb-2 text-[11px] text-slate-400 dark:text-slate-500">{hint}</p>
+            )}
 
             {/* Droppable Area */}
             <Droppable droppableId={id}>

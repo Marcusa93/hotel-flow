@@ -13,7 +13,7 @@ export type UserRole = 'admin' | 'reception' | 'housekeeping' | 'auditor';
 export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'CANCELLED' | 'OVERDUE';
 export type InvoiceItemType = 'ACCOMMODATION' | 'SERVICE' | 'EXTRA' | 'OTHER';
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'STATUS_CHANGE';
-export type AuditEntityType = 'booking' | 'guest' | 'room' | 'payment' | 'invoice' | 'housekeeping_task' | 'rate' | 'expense' | 'hotel_settings' | 'booking_charge';
+export type AuditEntityType = 'booking' | 'guest' | 'room' | 'payment' | 'invoice' | 'housekeeping_task' | 'rate' | 'expense' | 'hotel_settings' | 'booking_charge' | 'logbook_entry';
 
 export type ChargeCategory =
   | 'MINIBAR' | 'LAVANDERIA' | 'ESTACIONAMIENTO' | 'ROOM_SERVICE'
@@ -47,9 +47,25 @@ export interface Room {
   floor: number;
   status: RoomStatus;
   notes?: string;
+  /**
+   * Limpieza no la habilitó: está limpia pero no en condiciones de recibir a
+   * alguien. Separado del status porque MAINTENANCE y OUT_OF_ORDER los pone
+   * recepción por sus propios motivos.
+   */
+  housekeepingHold?: boolean;
+  /** Qué le pasa, según limpieza. Vale sin el bloqueo: una advertencia sola también sirve. */
+  housekeepingNote?: string;
+  housekeepingNoteBy?: string;
+  housekeepingNoteAt?: Date;
 }
 
 export type DocumentType = 'DNI' | 'PASAPORTE' | 'CEDULA' | 'CUIT' | 'OTRO';
+
+/**
+ * Cómo se portó el huésped, para la interna del hotel. NULL/undefined es "sin
+ * calificar": un huésped nuevo no es bueno ni malo, es desconocido.
+ */
+export type GuestRating = 'BUENO' | 'ATENCION' | 'NO_DESEADO';
 
 export interface Guest {
   id: string;
@@ -65,6 +81,12 @@ export interface Guest {
   licensePlate?: string;
   /** Habilitado a cargar sus estadías a cuenta corriente en vez de pagarlas en el momento. */
   hasCurrentAccount?: boolean;
+  /** Calificación interna. Nunca sale impresa ni exportada: es para adentro. */
+  rating?: GuestRating;
+  /** Qué pasó. Sin esto la calificación es una etiqueta que nadie puede discutir. */
+  ratingNotes?: string;
+  ratingBy?: string;
+  ratingAt?: Date;
   createdAt: Date;
 }
 
@@ -158,6 +180,51 @@ export interface Payment {
   promoCode?: string;
   promoLabel?: string;
   discountAmount?: number;
+}
+
+/**
+ * El comprobante colgado de un pago: la captura de la transferencia, el PDF del
+ * banco, la foto del ticket. El archivo vive en el bucket privado; acá va la
+ * ruta y quién lo subió.
+ */
+export interface PaymentAttachment {
+  id: string;
+  paymentId: string;
+  storagePath: string;
+  fileName: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  uploadedBy?: string;
+  uploadedByName?: string;
+  createdAt: Date;
+}
+
+export type LogbookCategory =
+  | 'ROPA_BLANCA' | 'MINIBAR' | 'MANTENIMIENTO' | 'OBJETOS_OLVIDADOS' | 'HUESPED' | 'OTRO';
+
+/**
+ * INFO es la anotación que no espera nada de nadie. PENDING deja algo por hacer
+ * y RESOLVED es esa misma ya levantada; una INFO nunca llega a RESOLVED.
+ */
+export type LogbookStatus = 'INFO' | 'PENDING' | 'RESOLVED';
+
+/** Un renglón de la planilla de novedades. */
+export interface LogbookEntry {
+  id: string;
+  /** Cuándo pasó. `createdAt` guarda cuándo se anotó. */
+  date: Date;
+  category: LogbookCategory;
+  note: string;
+  roomFromId?: string;
+  roomToId?: string;
+  status: LogbookStatus;
+  resolvedAt?: Date;
+  resolvedBy?: string;
+  resolvedByName?: string;
+  createdBy?: string;
+  createdByName?: string;
+  createdAt: Date;
+  updatedAt?: Date;
 }
 
 export interface HousekeepingTask {

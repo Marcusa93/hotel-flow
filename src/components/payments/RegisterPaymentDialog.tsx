@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, startOfDay, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, Tag, Percent, Sparkles, X } from 'lucide-react';
+import { CalendarIcon, Tag, Percent, Sparkles, X, Paperclip } from 'lucide-react';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
@@ -46,6 +46,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn, formatPesosInput, parsePesosInput } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, CURRENT_ACCOUNT_METHOD } from '@/lib/constants';
+import { useAppRole } from '@/context/AppRoleContext';
+import { useAuth } from '@/context/AuthContext';
+import { useReceiptUploader } from '@/hooks/usePaymentAttachments';
+import { missingReceiptWarning } from '@/lib/paymentAttachments';
+import { ReceiptFilePicker } from './ReceiptFilePicker';
 import { Rate } from '@/types/hotel';
 
 const paymentSchema = z.object({
@@ -90,6 +95,13 @@ export function RegisterPaymentDialog({
   const [appliedPromo, setAppliedPromo] = useState<Rate | null>(null);
   // Grouped text shown in the Monto field; the form keeps a plain number.
   const [amountText, setAmountText] = useState('');
+  // Los comprobantes elegidos. Se suben recién cuando el pago existe: sin id de
+  // pago no hay a qué colgarlos.
+  const [receiptFiles, setReceiptFiles] = useState<File[]>([]);
+  const uploadReceipts = useReceiptUploader();
+  const { profileName } = useAppRole();
+  const { user } = useAuth();
+  const uploader = { id: user?.id, name: profileName || user?.email || undefined };
 
   const form = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
@@ -112,6 +124,7 @@ export function RegisterPaymentDialog({
       setConfirmWarning(null);
       setAppliedPromo(null);
       setPromoCodeInput('');
+      setReceiptFiles([]);
     }
   }, [open, pendingAmount, form]);
 
@@ -140,7 +153,9 @@ export function RegisterPaymentDialog({
   };
 
   const originalAmount = form.watch('amount') || 0;
-  const isToCurrentAccount = form.watch('method') === CURRENT_ACCOUNT_METHOD;
+  const selectedMethod = form.watch('method');
+  const isToCurrentAccount = selectedMethod === CURRENT_ACCOUNT_METHOD;
+  const receiptWarning = missingReceiptWarning(selectedMethod, receiptFiles.length);
   const discount = appliedPromo ? calculateDiscount(appliedPromo, originalAmount) : 0;
   const finalAmount = Math.max(0, originalAmount - discount);
 
@@ -208,7 +223,7 @@ export function RegisterPaymentDialog({
       : data.comment;
 
     try {
-      await addPayment({
+      const payment = await addPayment({
         bookingId,
         date: data.date,
         method: data.method,
@@ -222,10 +237,23 @@ export function RegisterPaymentDialog({
         discountAmount: appliedPromo ? discount : undefined,
       });
 
+      // Los comprobantes van después y no cancelan el pago si fallan: la plata
+      // entró igual, y un cobro perdido por una foto que no subió sería peor que
+      // un cobro sin respaldo. Se avisa para que lo adjunten desde el historial.
+      const failed = await uploadReceipts(payment.id, receiptFiles, uploader);
+
       toast({
         title: '✅ Pago registrado',
         description: `$${paymentAmount.toLocaleString('es-AR')} registrado correctamente`,
       });
+
+      if (failed > 0) {
+        toast({
+          title: 'El pago quedó registrado, el comprobante no',
+          description: `No se pudo subir ${failed === 1 ? 'el comprobante' : `${failed} comprobantes`}. Adjuntalo desde el historial de pagos de la reserva.`,
+          variant: 'destructive',
+        });
+      }
 
       form.reset();
       setAmountText('');
@@ -233,6 +261,7 @@ export function RegisterPaymentDialog({
       setPromoCodeInput('');
       setShowConfirm(false);
       setConfirmWarning(null);
+      setReceiptFiles([]);
       onOpenChange(false);
     } catch (error) {
       toast({
@@ -492,8 +521,15 @@ export function RegisterPaymentDialog({
               )}
             />
 
+            {/* Comprobante */}
+            <ReceiptFilePicker
+              files={receiptFiles}
+              onChange={setReceiptFiles}
+              disabled={isSubmitting}
+            />
+
             {showConfirm && (
-              <div className="p-3 rounded-xl border-2 border-amber-300 bg-amber-50 dark:bg-amber-950/30 mb-3">
+              <div className="p-3 rounded-xl border-2 border-amber-300 bg-amber-50 dark:bg-amber-950/30 mb-3 space-y-1.5">
                 <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
                   {confirmWarning
                     ? `⚠️ ${confirmWarning}`
@@ -502,6 +538,14 @@ export function RegisterPaymentDialog({
                       ? `Cargar $${finalAmount.toLocaleString('es-AR')} a la cuenta corriente`
                       : `Confirmar pago de $${finalAmount.toLocaleString('es-AR')} por ${PAYMENT_METHOD_LABELS[form.getValues('method')] || form.getValues('method')}`}
                 </p>
+                {/* Va aparte y no reemplaza al monto: son dos cosas distintas
+                    para mirar antes de confirmar. */}
+                {receiptWarning && (
+                  <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+                    <Paperclip className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    <span>{receiptWarning}</span>
+                  </p>
+                )}
               </div>
             )}
 

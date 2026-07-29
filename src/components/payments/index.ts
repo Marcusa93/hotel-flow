@@ -5,3 +5,6 @@ export * from './PaymentMethodChart';
 export * from './RegisterPaymentDialog';
 export * from './NewPaymentDialog';
 export * from './PaymentReceipt';
+export * from './PaymentAttachments';
+export * from './PaymentReceiptBadge';
+export * from './ReceiptFilePicker';

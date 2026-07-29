@@ -15,6 +15,8 @@ import type {
   BookingCharge,
   OtherIncome,
   CurrentAccountPayment,
+  PaymentAttachment,
+  LogbookEntry,
 } from '@/types/hotel';
 
 // --- Row to Model mappers (snake_case DB → camelCase frontend) ---
@@ -38,6 +40,10 @@ export const mapRoom = (row: DbRow): Room => ({
   floor: row.floor,
   status: row.status,
   notes: row.notes,
+  housekeepingHold: row.housekeeping_hold ?? false,
+  housekeepingNote: row.housekeeping_note || undefined,
+  housekeepingNoteBy: row.housekeeping_note_by || undefined,
+  housekeepingNoteAt: row.housekeeping_note_at ? new Date(row.housekeeping_note_at) : undefined,
 });
 
 export const mapGuest = (row: DbRow): Guest => ({
@@ -53,6 +59,10 @@ export const mapGuest = (row: DbRow): Guest => ({
   vehicleDescription: row.vehicle_description,
   licensePlate: row.license_plate,
   hasCurrentAccount: row.has_current_account ?? false,
+  rating: row.rating || undefined,
+  ratingNotes: row.rating_notes || undefined,
+  ratingBy: row.rating_by || undefined,
+  ratingAt: row.rating_at ? new Date(row.rating_at) : undefined,
   createdAt: new Date(row.created_at || new Date()),
 });
 
@@ -134,6 +144,35 @@ export const mapPayment = (row: DbRow): Payment => ({
   promoCode: row.promo_code || undefined,
   promoLabel: row.promo_label || undefined,
   discountAmount: row.discount_amount == null ? undefined : Number(row.discount_amount),
+});
+
+export const mapPaymentAttachment = (row: DbRow): PaymentAttachment => ({
+  id: row.id,
+  paymentId: row.payment_id,
+  storagePath: row.storage_path,
+  fileName: row.file_name,
+  mimeType: row.mime_type || undefined,
+  sizeBytes: row.size_bytes == null ? undefined : Number(row.size_bytes),
+  uploadedBy: row.uploaded_by || undefined,
+  uploadedByName: row.uploaded_by_name || undefined,
+  createdAt: new Date(row.created_at),
+});
+
+export const mapLogbookEntry = (row: DbRow): LogbookEntry => ({
+  id: row.id,
+  date: new Date(row.date),
+  category: row.category,
+  note: row.note,
+  roomFromId: row.room_from_id || undefined,
+  roomToId: row.room_to_id || undefined,
+  status: row.status,
+  resolvedAt: row.resolved_at ? new Date(row.resolved_at) : undefined,
+  resolvedBy: row.resolved_by || undefined,
+  resolvedByName: row.resolved_by_name || undefined,
+  createdBy: row.created_by || undefined,
+  createdByName: row.created_by_name || undefined,
+  createdAt: new Date(row.created_at),
+  updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
 });
 
 /** Parse a date-only string (YYYY-MM-DD) as local midnight instead of UTC */

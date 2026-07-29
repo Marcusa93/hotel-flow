@@ -34,6 +34,8 @@ import { buildAccountsByBooking } from '@/lib/bookingAccount';
 import { useAllBookingCharges } from '@/hooks/useAllBookingCharges';
 import { PRINT_FONT_LINK, PRINT_FONT_CSS } from '@/lib/printStyles';
 import { GuestCurrentAccount } from '@/components/guests/GuestCurrentAccount';
+import { GuestRatingSection } from '@/components/guests/GuestRatingSection';
+import { GuestRatingBadge } from '@/components/guests/GuestRatingBadge';
 
 const STATUS_LABELS: Record<string, string> = {
     PENDING: 'Pendiente',
@@ -328,7 +330,13 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                             ) : (
                                 <h2 className="text-3xl font-bold tracking-tight">{displayName}</h2>
                             )}
-                            <p className="text-white/70 font-mono text-sm mt-1">{guest.email || 'Sin email'}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                                <p className="text-white/70 font-mono text-sm">{guest.email || 'Sin email'}</p>
+                                {/* Arriba de todo: si al huésped hay algo que
+                                    mirarle, tiene que verse al abrir la ficha y no
+                                    ocho secciones más abajo. */}
+                                <GuestRatingBadge rating={guest.rating} />
+                            </div>
                         </div>
                     </div>
 
@@ -533,6 +541,10 @@ export function GuestDetailsDrawer({ isOpen, onClose, guest, onDeleted }: GuestD
                                 </div>
                             )}
                         </section>
+
+                        <Separator />
+
+                        <GuestRatingSection guest={guest} />
 
                         <Separator />
 

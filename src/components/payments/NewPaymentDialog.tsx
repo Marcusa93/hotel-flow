@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, Search } from 'lucide-react';
+import { CalendarIcon, Search, Paperclip } from 'lucide-react';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
@@ -47,6 +47,11 @@ import { toast } from '@/hooks/use-toast';
 import { PAYMENT_METHODS, CURRENT_ACCOUNT_METHOD } from '@/lib/constants';
 import { buildAccountsByBooking } from '@/lib/bookingAccount';
 import { useAllBookingCharges } from '@/hooks/useAllBookingCharges';
+import { useAppRole } from '@/context/AppRoleContext';
+import { useAuth } from '@/context/AuthContext';
+import { useReceiptUploader } from '@/hooks/usePaymentAttachments';
+import { missingReceiptWarning } from '@/lib/paymentAttachments';
+import { ReceiptFilePicker } from './ReceiptFilePicker';
 
 const MAX_PAYMENT_AMOUNT = 100_000_000; // $100M ARS sanity cap
 
@@ -83,6 +88,19 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
     const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
     // Grouped text shown in the Monto field; the form itself keeps a plain number.
     const [amountText, setAmountText] = useState('');
+    // Los comprobantes elegidos. Se suben recién cuando el pago existe.
+    const [receiptFiles, setReceiptFiles] = useState<File[]>([]);
+    const uploadReceipts = useReceiptUploader();
+    const { profileName } = useAppRole();
+    const { user } = useAuth();
+    const uploader = { id: user?.id, name: profileName || user?.email || undefined };
+
+    // Abrir el diálogo arranca sin comprobantes. Cancelar no limpia el
+    // formulario, y un archivo quedado de un cobro que no se confirmó terminaría
+    // colgado del pago de otra reserva.
+    useEffect(() => {
+        if (open) setReceiptFiles([]);
+    }, [open]);
 
     const form = useForm<PaymentFormData>({
         resolver: zodResolver(paymentSchema),
@@ -98,6 +116,7 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
     });
 
     const selectedBookingId = form.watch('bookingId');
+    const receiptWarning = missingReceiptWarning(form.watch('method'), receiptFiles.length);
 
     // La cuenta corriente es del huésped, no de la reserva: hay que llegar hasta él.
     const selectedGuestHasAccount = useMemo(() => {
@@ -211,7 +230,7 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
 
         setIsSubmitting(true);
         try {
-            await addPayment({
+            const payment = await addPayment({
                 bookingId: data.bookingId,
                 date: data.date,
                 method: data.method,
@@ -221,16 +240,28 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                 status: data.status,
             });
 
+            // Después del pago y sin cancelarlo si falla: la plata entró igual.
+            const failed = await uploadReceipts(payment.id, receiptFiles, uploader);
+
             toast({
                 title: '✅ Pago registrado',
                 description: `$${data.amount.toLocaleString('es-AR')} registrado correctamente`,
             });
+
+            if (failed > 0) {
+                toast({
+                    title: 'El pago quedó registrado, el comprobante no',
+                    description: `No se pudo subir ${failed === 1 ? 'el comprobante' : `${failed} comprobantes`}. Adjuntalo desde el historial de pagos de la reserva.`,
+                    variant: 'destructive',
+                });
+            }
 
             form.reset();
             setSearchTerm('');
             setAmountText('');
             setShowConfirm(false);
             setDuplicateWarning(null);
+            setReceiptFiles([]);
             onOpenChange(false);
         } catch (error) {
             toast({
@@ -546,6 +577,13 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                                         </FormItem>
                                     )}
                                 />
+
+                                {/* Comprobante */}
+                                <ReceiptFilePicker
+                                    files={receiptFiles}
+                                    onChange={setReceiptFiles}
+                                    disabled={isSubmitting}
+                                />
                             </div>
                         </div>
 
@@ -559,6 +597,12 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                                         <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
                                             Confirmar pago de <strong>${form.getValues('amount')?.toLocaleString('es-AR')}</strong> por <strong>{form.getValues('method')}</strong>
                                             {pendingAmount > 0 && <span> — Saldo pendiente: ${pendingAmount.toLocaleString('es-AR')}</span>}
+                                        </p>
+                                    )}
+                                    {receiptWarning && (
+                                        <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+                                            <Paperclip className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                                            <span>{receiptWarning}</span>
                                         </p>
                                     )}
                                 </div>

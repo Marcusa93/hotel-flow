@@ -94,6 +94,58 @@ export const PAYMENT_METHODS: { value: string; label: string }[] = [
 /** El método que no cobra: carga la estadía a la cuenta del huésped. */
 export const CURRENT_ACCOUNT_METHOD = 'CUENTA_CORRIENTE';
 
+/**
+ * Cómo se portó el huésped. Es para la interna del hotel: no se imprime en la
+ * ficha ni sale en las exportaciones.
+ *
+ * Tres niveles y no dos: entre "todo bien" y "no lo quiero más" está el que dio
+ * trabajo pero se le puede alquilar de nuevo avisando, que es el caso más común
+ * y el que se perdería con un sí/no.
+ */
+export const GUEST_RATINGS = [
+  {
+    value: 'BUENO',
+    label: 'Buen huésped',
+    hint: 'Todo bien. Vuelve cuando quiera.',
+  },
+  {
+    value: 'ATENCION',
+    label: 'Con reparos',
+    hint: 'Dio trabajo. Se le puede alquilar, pero avisando.',
+  },
+  {
+    value: 'NO_DESEADO',
+    label: 'No deseado',
+    hint: 'No conviene volver a alojarlo.',
+  },
+] as const;
+
+export const GUEST_RATING_LABELS: Record<string, string> = {
+  BUENO: 'Buen huésped',
+  ATENCION: 'Con reparos',
+  NO_DESEADO: 'No deseado',
+};
+
+/** Las categorías de la planilla de novedades, en el orden del select. */
+export const LOGBOOK_CATEGORIES: { value: string; label: string }[] = [
+  { value: 'ROPA_BLANCA', label: 'Ropa blanca' },
+  { value: 'MINIBAR', label: 'Minibar / Bebidas' },
+  { value: 'MANTENIMIENTO', label: 'Mantenimiento' },
+  { value: 'OBJETOS_OLVIDADOS', label: 'Objetos olvidados' },
+  { value: 'HUESPED', label: 'Huésped' },
+  { value: 'OTRO', label: 'Otro' },
+];
+
+export const LOGBOOK_CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
+  LOGBOOK_CATEGORIES.map(c => [c.value, c.label])
+);
+
+export const LOGBOOK_STATUS_LABELS: Record<string, string> = {
+  INFO: 'Anotación',
+  PENDING: 'Pendiente',
+  RESOLVED: 'Resuelta',
+};
+
 export const EXPENSE_TYPE_LABELS: Record<string, string> = {
   PANADERIA: 'Panadería',
   SUPERMERCADO: 'Supermercado',

@@ -11,8 +11,13 @@ import {
   MobileTaskList,
   TaskAlertBanner,
   CreateTaskDialog,
-  EditTaskDialog
+  EditTaskDialog,
+  RoomHandoverDialog,
+  type RoomHandoverResult
 } from '@/components/housekeeping';
+import { useSetHousekeepingHold } from '@/hooks/useRoomHousekeepingHold';
+import { useAppRole } from '@/context/AppRoleContext';
+import { useAuth } from '@/context/AuthContext';
 import { HousekeepingTask, HousekeepingStatus, TaskPriority } from '@/types/hotel';
 import {
   Select,
@@ -28,6 +33,9 @@ import { cn } from '@/lib/utils';
 export default function Housekeeping() {
   const { housekeepingTasks, addHousekeepingTask, updateHousekeepingTask, refetchHousekeepingTasks, isCreating } = useHousekeepingOperations();
   const { rooms } = useRoomOperations();
+  const setHousekeepingHold = useSetHousekeepingHold();
+  const { profileName } = useAppRole();
+  const { user } = useAuth();
 
   const [floorFilter, setFloorFilter] = useState<'ALL' | string>('ALL');
   const [isMobileView, setIsMobileView] = useState(false);
@@ -35,6 +43,12 @@ export default function Housekeeping() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
   const [editingTask, setEditingTask] = useState<HousekeepingTask | null>(null);
+  /** La tarea que se está por dar por terminada, esperando la respuesta de si habilita. */
+  const [pendingHandover, setPendingHandover] = useState<{
+    taskId: string;
+    startedAt?: Date;
+    completedAt?: Date;
+  } | null>(null);
 
   // Dynamically get available floors from rooms
   const availableFloors = useMemo(() => {
@@ -88,21 +102,27 @@ export default function Housekeeping() {
     const effectiveStartedAt = startedAt ?? (newStatus === 'IN_PROGRESS' ? now : undefined);
     const effectiveCompletedAt = completedAt ?? (newStatus === 'DONE' ? now : undefined);
 
+    // Terminar la limpieza ya no habilita la habitación sola: se pregunta. Los
+    // dos caminos —el tablero y la lista del teléfono— pasan por acá, así que
+    // alcanza con cortarlo en un lugar.
+    if (newStatus === 'DONE') {
+      setPendingHandover({ taskId, startedAt: effectiveStartedAt, completedAt: effectiveCompletedAt });
+      return;
+    }
+
     const run = () => updateHousekeepingTask(taskId, { status: newStatus }, rooms, effectiveStartedAt, effectiveCompletedAt);
 
     try {
       await run();
 
-      const statusMessages: Record<HousekeepingStatus, string> = {
+      // DONE ya no llega hasta acá: sale antes, por el diálogo de habilitación,
+      // que es el que avisa cuando termina.
+      const statusMessages: Record<Exclude<HousekeepingStatus, 'DONE'>, string> = {
         TODO: 'Tarea pendiente',
         IN_PROGRESS: '🧹 ¡Limpieza iniciada!',
-        DONE: '✨ ¡Habitación lista!',
       };
 
-      toast({
-        title: statusMessages[newStatus],
-        description: newStatus === 'DONE' ? 'Buen trabajo' : undefined,
-      });
+      toast({ title: statusMessages[newStatus] });
     } catch (error) {
       errorToast({
         title: 'No se pudo actualizar la tarea',
@@ -111,6 +131,56 @@ export default function Housekeeping() {
       });
     }
   }, [updateHousekeepingTask, rooms]);
+
+  const handoverTask = pendingHandover
+    ? housekeepingTasks.find(t => t.id === pendingHandover.taskId)
+    : undefined;
+  const handoverRoom = handoverTask ? rooms.find(r => r.id === handoverTask.roomId) : undefined;
+
+  const handleHandoverConfirm = useCallback(async ({ hold, note }: RoomHandoverResult) => {
+    if (!pendingHandover || !handoverTask) return;
+
+    try {
+      // Sin `rooms` el hook no toca el estado de la habitación. Es lo que se
+      // quiere cuando no se habilita: la tarea queda terminada pero la
+      // habitación no pasa a disponible, así no figura libre en ninguna
+      // pantalla mientras tenga algo sin resolver.
+      await updateHousekeepingTask(
+        pendingHandover.taskId,
+        { status: 'DONE' },
+        hold ? undefined : rooms,
+        pendingHandover.startedAt,
+        pendingHandover.completedAt
+      );
+
+      await setHousekeepingHold.mutateAsync({
+        roomId: handoverTask.roomId,
+        roomNumber: handoverRoom?.roomNumber,
+        hold,
+        note,
+        // La persona asignada a la tarea antes que el usuario logueado: en el
+        // teléfono compartido de limpieza el usuario es el mismo para todas.
+        by: handoverTask.assignedTo || profileName || user?.email || undefined,
+      });
+
+      toast({
+        title: hold ? '🚫 Habitación sin habilitar' : '✨ ¡Habitación lista!',
+        description: hold
+          ? 'Recepción va a ver el motivo antes de alojar a alguien'
+          : note
+            ? 'Queda habilitada, con tu aviso para recepción'
+            : 'Buen trabajo',
+      });
+
+      setPendingHandover(null);
+    } catch (error) {
+      errorToast({
+        title: 'No se pudo terminar la limpieza',
+        description: error instanceof Error ? error.message : 'Revisá tu conexión e intentá de nuevo.',
+      });
+      throw error;
+    }
+  }, [pendingHandover, handoverTask, handoverRoom, rooms, updateHousekeepingTask, setHousekeepingHold, profileName, user]);
 
   const handleCreateTask = useCallback(async (data: {
     roomId: string;
@@ -393,6 +463,14 @@ export default function Housekeeping() {
           </div>
         </>
       )}
+
+      {/* Terminar la limpieza pregunta si la habitación queda habilitada */}
+      <RoomHandoverDialog
+        open={!!pendingHandover}
+        onOpenChange={open => { if (!open) setPendingHandover(null); }}
+        room={handoverRoom}
+        onConfirm={handleHandoverConfirm}
+      />
 
       {/* Edit Task Dialog — only render when the task's room still exists */}
       {editingTask && editingTaskRoom && (

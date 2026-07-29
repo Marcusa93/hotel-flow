@@ -151,7 +151,7 @@ export function RoomDetailsDrawer({ isOpen, onClose, room, guest, roomTypeName, 
                                 <RoomHousekeepingPanel room={room} />
 
                                 {/* Quick Actions based on status */}
-                                {room.status === 'AVAILABLE' && canSetAdvancedStatuses && (
+                                {canSetAdvancedStatuses && (room.status === 'AVAILABLE' || room.status === 'DIRTY' || room.status === 'OCCUPIED') && (
                                     <Button
                                         className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg"
                                         onClick={() => {

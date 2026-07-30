@@ -8,6 +8,7 @@ import {
     totalOccupants,
     bookingDiscountRatio,
     resolveCheckInTotal,
+    resolveEditedTotal,
 } from '@/lib/occupancyPricing';
 import type { Rate, RoomType } from '@/types/hotel';
 
@@ -304,6 +305,111 @@ describe('resolveCheckInTotal', () => {
         expect(
             resolveCheckInTotal({ agreedTotal: 330_000, nights: 0, tierNightly: 90_000, bookedTierNightly: 110_000 })
         ).toBe(330_000);
+    });
+});
+
+describe('resolveEditedTotal', () => {
+    // El caso que llegó de producción: reserva de 2 noches en una doble de
+    // $80.000, tomada con PROMO26 (10% off) → $144.000 pactados y pagados.
+    const conPromo = {
+        agreedTotal: 144_000,
+        agreedNights: 2,
+        nights: 2,
+        tierNightly: 80_000,
+        bookedTierNightly: 80_000,
+        discountRatio: 0.1,
+    };
+
+    it('abrir la edición sin tocar nada no mueve el total', () => {
+        // Editar recalculaba noches x tramo y proponía $160.000: le devolvía el
+        // precio de lista a alguien que había reservado con descuento, y como
+        // esa reserva ya estaba paga le inventaba una deuda de $16.000.
+        expect(resolveEditedTotal(conPromo)).toBe(144_000);
+    });
+
+    it('cambiar de habitación conserva el descuento sobre el tramo nuevo', () => {
+        // Se lo pasa a una triple de $70.000. El 10% se sigue aplicando.
+        expect(
+            resolveEditedTotal({ ...conPromo, tierNightly: 70_000 })
+        ).toBe(126_000);
+    });
+
+    it('con la promoción todavía viva la reaplica en vez de escalarla', () => {
+        // Una promo de precio plano no es proporcional al precio base: escalarla
+        // por la proporción guardada regala o cobra de más.
+        const promoPlana: Partial<Rate> = { price: 60_000 };
+
+        expect(
+            resolveEditedTotal({ ...conPromo, tierNightly: 70_000, promo: promoPlana as Rate })
+        ).toBe(120_000);
+    });
+
+    it('agregar una noche cobra el precio pactado, no el de lista', () => {
+        // Lo pactado son $72.000 la noche (80.000 con 10% off). Tres noches son
+        // 216.000 y no 240.000.
+        expect(
+            resolveEditedTotal({ ...conPromo, nights: 3 })
+        ).toBe(216_000);
+    });
+
+    it('la tarifa especial no la mueve el cambio de habitación', () => {
+        // Es un precio por noche acordado con ese cliente: son $X entre en la
+        // doble o en la quíntuple.
+        expect(
+            resolveEditedTotal({
+                agreedTotal: 100_000,
+                agreedNights: 2,
+                nights: 2,
+                tierNightly: 110_000,
+                bookedTierNightly: 50_000,
+                specialRateNightly: 50_000,
+            })
+        ).toBe(100_000);
+    });
+
+    it('la tarifa especial sí sigue a las noches', () => {
+        expect(
+            resolveEditedTotal({
+                agreedTotal: 100_000,
+                agreedNights: 2,
+                nights: 3,
+                tierNightly: 110_000,
+                bookedTierNightly: 50_000,
+                specialRateNightly: 50_000,
+            })
+        ).toBe(150_000);
+    });
+
+    it('una reserva sin promoción se corre por la diferencia de tramo', () => {
+        // Quíntuple de 3 noches a 330.000, pasada a una cuádruple de 90.000.
+        expect(
+            resolveEditedTotal({
+                agreedTotal: 330_000,
+                agreedNights: 3,
+                nights: 3,
+                tierNightly: 90_000,
+                bookedTierNightly: 110_000,
+            })
+        ).toBe(270_000);
+    });
+
+    it('sigue sin cobrar más que la lista de hoy', () => {
+        // Reserva vieja cargada al precio de la habitación: el techo la corta.
+        expect(
+            resolveEditedTotal({
+                agreedTotal: 330_000,
+                agreedNights: 3,
+                nights: 3,
+                tierNightly: 110_000,
+                bookedTierNightly: 90_000,
+            })
+        ).toBe(330_000);
+    });
+
+    it('sin noches no inventa un total', () => {
+        expect(
+            resolveEditedTotal({ ...conPromo, nights: 0 })
+        ).toBe(0);
     });
 });
 

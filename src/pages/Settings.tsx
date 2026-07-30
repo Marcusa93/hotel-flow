@@ -76,6 +76,8 @@ export default function Settings() {
     timezone: 'America/Buenos_Aires',
     checkInTime: '14:00',
     checkOutTime: '11:00',
+    halfDayCheckInTime: '10:00',
+    halfDayCheckOutTime: '18:00',
     parkingSpots: 0,
     specialRateAmount: 0,
   });
@@ -93,6 +95,8 @@ export default function Settings() {
         timezone: settings.timezone,
         checkInTime: settings.checkInTime || '14:00',
         checkOutTime: settings.checkOutTime || '11:00',
+        halfDayCheckInTime: settings.halfDayCheckInTime || '10:00',
+        halfDayCheckOutTime: settings.halfDayCheckOutTime || '18:00',
         parkingSpots: settings.parkingSpots ?? 0,
         specialRateAmount: settings.specialRateAmount ?? 0,
       });
@@ -261,6 +265,26 @@ export default function Settings() {
                         type="time"
                         value={hotelForm.checkOutTime}
                         onChange={(e) => setHotelForm(prev => ({ ...prev, checkOutTime: e.target.value }))}
+                      />
+                    </div>
+                    {/* Media estadía: otra política, por eso va aparte de los
+                        horarios de la estadía normal. */}
+                    <div className="space-y-2">
+                      <Label htmlFor="halfDayCheckInTime">Media estadía — entrada</Label>
+                      <Input
+                        id="halfDayCheckInTime"
+                        type="time"
+                        value={hotelForm.halfDayCheckInTime}
+                        onChange={(e) => setHotelForm(prev => ({ ...prev, halfDayCheckInTime: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="halfDayCheckOutTime">Media estadía — salida</Label>
+                      <Input
+                        id="halfDayCheckOutTime"
+                        type="time"
+                        value={hotelForm.halfDayCheckOutTime}
+                        onChange={(e) => setHotelForm(prev => ({ ...prev, halfDayCheckOutTime: e.target.value }))}
                       />
                     </div>
                     <div className="space-y-2">

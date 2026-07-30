@@ -50,6 +50,18 @@ export function guestsLabel(count: number): string {
   return `${count} ${count === 1 ? 'persona' : 'personas'}`;
 }
 
+/**
+ * Cuánto dura la estadía, dicho para la pantalla.
+ *
+ * La media estadía no tiene noches —entra y sale el mismo día— así que sin esto
+ * la ficha decía "0 noches". Va en un solo lugar para que la ficha, el tablero y
+ * los carteles de confirmar digan lo mismo.
+ */
+export function stayLengthLabel(nights: number, isHalfDay = false): string {
+  if (isHalfDay) return 'Media estadía';
+  return `${nights} ${nights === 1 ? 'noche' : 'noches'}`;
+}
+
 /** Escape HTML special characters to prevent XSS in document.write() contexts */
 export function escapeHtml(str: string | null | undefined): string {
   if (!str) return '';

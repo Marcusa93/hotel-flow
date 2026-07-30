@@ -41,7 +41,7 @@ import { Progress } from '@/components/ui/progress';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BookingStatus } from '@/types/hotel';
-import { cn, formatLastNameFirst, getInitials, guestsLabel } from '@/lib/utils';
+import { cn, formatLastNameFirst, getInitials, guestsLabel, stayLengthLabel } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -181,7 +181,7 @@ export default function BookingDetail() {
             <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm mt-1">
               <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">#{booking.id.slice(0, 8)}</span>
               <span className="hidden md:inline">•</span>
-              <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {nights} noches</span>
+              <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {stayLengthLabel(nights, booking.isHalfDay)}</span>
               <span className="hidden md:inline">•</span>
               {/* Cuenta a los menores de 5: dice "huéspedes", no "los que se cobran" */}
               <span className="flex items-center gap-1"><User className="w-3 h-3" /> {totalOccupants(booking)} huéspedes</span>
@@ -201,7 +201,7 @@ export default function BookingDetail() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Confirmar Reserva</AlertDialogTitle>
                   <AlertDialogDescription>
-                    ¿Confirmar la reserva de <strong>{formatLastNameFirst(booking.guest.fullName)}</strong> en la habitación <strong>{booking.room.roomNumber}</strong> por {nights} noches (${booking.totalAmount.toLocaleString('es-AR')})?
+                    ¿Confirmar la reserva de <strong>{formatLastNameFirst(booking.guest.fullName)}</strong> en la habitación <strong>{booking.room.roomNumber}</strong> por {stayLengthLabel(nights, booking.isHalfDay)} (${booking.totalAmount.toLocaleString('es-AR')})?
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -295,10 +295,17 @@ export default function BookingDetail() {
                 </AlertDialogContent>
               </AlertDialog>
               {/* Editar está apagado una vez adentro; sin esto, el huésped que
-                  pide una noche más no tiene dónde cargarse. */}
-              <Button variant="outline" onClick={() => setIsExtendDialogOpen(true)} className="rounded-full">
-                <CalendarPlus className="w-4 h-4 mr-2" /> Extender estadía
-              </Button>
+                  pide una noche más no tiene dónde cargarse.
+
+                  En una media estadía no se ofrece: agregarle noches la
+                  convertiría en otra cosa —el CHECK de la base pide que entrada
+                  y salida sean el mismo día— y el precio dejaría de ser el 50%.
+                  El que se queda a dormir es una reserva nueva. */}
+              {!booking.isHalfDay && (
+                <Button variant="outline" onClick={() => setIsExtendDialogOpen(true)} className="rounded-full">
+                  <CalendarPlus className="w-4 h-4 mr-2" /> Extender estadía
+                </Button>
+              )}
             </>
           )}
 
@@ -325,7 +332,7 @@ export default function BookingDetail() {
                   <AlertDialogDescription asChild>
                     <div className="space-y-3">
                       <p>
-                        Se cancelará la reserva de <strong>{formatLastNameFirst(booking.guest.fullName)}</strong> (Hab. {booking.room.roomNumber}, {nights} noches, ${booking.totalAmount.toLocaleString()}).
+                        Se cancelará la reserva de <strong>{formatLastNameFirst(booking.guest.fullName)}</strong> (Hab. {booking.room.roomNumber}, {stayLengthLabel(nights, booking.isHalfDay)}, ${booking.totalAmount.toLocaleString()}).
                       </p>
                       {totalPaid > 0 && (
                         <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-sm">

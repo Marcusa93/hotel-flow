@@ -29,6 +29,10 @@ export const useCreateBooking = () => {
                     // enorme mayoría, y así el precio no queda atado a un número.
                     special_rate_amount: bookingData.specialRateAmount ?? null,
                     is_full_hotel: bookingData.isFullHotel ?? false,
+                    // Solo cuando se marcó: si el código sale antes que la
+                    // migración, mandar la columna en toda reserva rompería
+                    // también las normales. Mismo criterio que la promo.
+                    ...(bookingData.isHalfDay ? { is_half_day: true } : {}),
                     status: bookingData.status,
                     total_amount: bookingData.totalAmount,
                     notes: bookingData.notes,
@@ -75,6 +79,7 @@ export const useCreateBooking = () => {
                 specialRateAmount: data.special_rate_amount == null ? undefined : Number(data.special_rate_amount),
                 pricingRoomTypeId: data.pricing_room_type_id || undefined,
                 isFullHotel: data.is_full_hotel ?? false,
+                isHalfDay: data.is_half_day ?? false,
                 status: data.status,
                 totalAmount: data.total_amount,
                 notes: data.notes,

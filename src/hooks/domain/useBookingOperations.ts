@@ -159,7 +159,9 @@ export function useBookingOperations() {
       roomId: string,
       checkIn: Date,
       checkOut: Date,
-      excludeBookingId?: string
+      excludeBookingId?: string,
+      /** La que se está por cargar es media estadía: entra y sale el mismo día. */
+      isHalfDay = false
     ): { available: boolean; conflicts: Booking[] } => {
       const conflicts = bookings.filter((b) => {
         if (
@@ -183,6 +185,14 @@ export function useBookingOperations() {
         const bCheckOut = new Date(b.checkOutDate);
         const newCheckIn = new Date(checkIn);
         const newCheckOut = new Date(checkOut);
+
+        // Dos medias estadías el mismo día quieren la misma habitación de 10:00
+        // a 18:00. La comparación de abajo no las ve: el intervalo de una media
+        // estadía es vacío —entra y sale el mismo día— así que da falso siempre.
+        // Mismo caso que agrega el trigger; esto lo avisa antes de guardar.
+        if (isHalfDay && b.isHalfDay) {
+          return bCheckIn.getTime() === newCheckIn.getTime();
+        }
 
         return newCheckIn < bCheckOut && newCheckOut > bCheckIn;
       });

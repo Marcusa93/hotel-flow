@@ -66,10 +66,17 @@ const editBookingSchema = z.object({
   estimatedArrivalTime: z.string().optional(),
   notes: z.string().optional(),
   pricingRoomTypeId: z.string().optional(),
-}).refine((data) => data.checkOutDate > data.checkInDate, {
-  message: 'Check-out debe ser posterior a check-in',
-  path: ['checkOutDate'],
-});
+  /** No se edita: viaja en el formulario para que la validación de fechas sepa
+   *  que en una media estadía entrada y salida son el mismo día. */
+  isHalfDay: z.boolean().optional(),
+}).refine(
+  (data) => data.isHalfDay
+    ? data.checkOutDate.getTime() === data.checkInDate.getTime()
+    : data.checkOutDate > data.checkInDate,
+  {
+    message: 'Check-out debe ser posterior a check-in',
+    path: ['checkOutDate'],
+  });
 
 type EditBookingFormData = z.infer<typeof editBookingSchema>;
 
@@ -86,6 +93,13 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isCheckedIn = booking.status === 'CHECKED_IN';
+  /**
+   * Media estadía. Las fechas quedan fijas: entra y sale el mismo día, y el
+   * CHECK de la base lo exige. Convertirla en una estadía normal —o al revés—
+   * es otra reserva, no una edición.
+   */
+  const isHalfDay = booking.isHalfDay === true;
+  const datesLocked = isCheckedIn || isHalfDay;
 
   const form = useForm<EditBookingFormData>({
     resolver: zodResolver(editBookingSchema),
@@ -99,6 +113,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
       estimatedArrivalTime: booking.estimatedArrivalTime || '',
       notes: booking.notes || '',
       pricingRoomTypeId: booking.pricingRoomTypeId || TARIFA_AUTOMATICA,
+      isHalfDay: booking.isHalfDay === true,
     },
   });
 
@@ -115,6 +130,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
         estimatedArrivalTime: booking.estimatedArrivalTime || '',
         notes: booking.notes || '',
         pricingRoomTypeId: booking.pricingRoomTypeId || TARIFA_AUTOMATICA,
+        isHalfDay: booking.isHalfDay === true,
       });
     }
   }, [open, booking, form]);
@@ -212,6 +228,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
           tierNightly: occupancyPricing.nightlyPrice,
           bookedTierNightly: bookedPricing.nightlyPrice,
           specialRateNightly,
+          isHalfDay,
           promo,
           discountRatio: bookingDiscountRatio(booking),
         })
@@ -400,7 +417,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
                         <FormControl>
                           <Button
                             variant="outline"
-                            disabled={isCheckedIn}
+                            disabled={datesLocked}
                             className={cn(
                               'pl-3 text-left font-normal',
                               !field.value && 'text-muted-foreground'
@@ -437,7 +454,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
                         <FormControl>
                           <Button
                             variant="outline"
-                            disabled={isCheckedIn}
+                            disabled={datesLocked}
                             className={cn(
                               'pl-3 text-left font-normal',
                               !field.value && 'text-muted-foreground'
@@ -465,7 +482,9 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
               />
             </div>
 
-            {nights > 0 && (
+            {isHalfDay ? (
+              <p className="text-sm text-muted-foreground -mt-2">Media estadía</p>
+            ) : nights > 0 && (
               <p className="text-sm text-muted-foreground -mt-2">
                 {nights} noche{nights !== 1 ? 's' : ''}
                 {nights !== originalNights && (
@@ -474,7 +493,12 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
               </p>
             )}
 
-            {isCheckedIn && (
+            {isHalfDay ? (
+              <p className="text-xs text-muted-foreground bg-muted px-3 py-2 rounded-md -mt-2">
+                Es una <strong>media estadía</strong>: entra y sale el mismo día, así que las fechas
+                no se cambian. Sí se puede cambiar la habitación y la tarifa.
+              </p>
+            ) : isCheckedIn && (
               <p className="text-xs text-muted-foreground bg-muted px-3 py-2 rounded-md -mt-2">
                 Las fechas no se pueden cambiar desde acá porque la estadía ya comenzó. Para agregar noches usá <strong>Extender estadía</strong>.
               </p>
@@ -645,39 +669,49 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
             )}
 
             {/* Price recalculation */}
-            {selectedRoomType && nights > 0 && (
+            {selectedRoomType && (nights > 0 || isHalfDay) && (
               <div className="p-4 rounded-xl bg-background/60 backdrop-blur border space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {isSpecialRate
-                      ? 'Tarifa especial'
-                      : `Tarifa ${guestsLabel(occupancyPricing?.pricingType.maxGuests ?? selectedRoomType.maxGuests)}`}
-                    {' '}x {nights} noche{nights !== 1 ? 's' : ''}
+                    {isHalfDay
+                      ? `Media estadía — 50% de ${guestsLabel(occupancyPricing?.pricingType.maxGuests ?? selectedRoomType.maxGuests)}`
+                      : isSpecialRate
+                        ? 'Tarifa especial'
+                        : `Tarifa ${guestsLabel(occupancyPricing?.pricingType.maxGuests ?? selectedRoomType.maxGuests)}`}
+                    {!isHalfDay && ` x ${nights} noche${nights !== 1 ? 's' : ''}`}
                   </span>
                   {/* El precio por noche que se está cobrando de verdad. Antes
                       acá iba el del tramo, que en una reserva con promoción no
                       es lo que paga el huésped y no daba con el total de abajo. */}
                   <span className="font-medium">
-                    ${effectiveNightly.toLocaleString('es-AR')} x {nights}
+                    {isHalfDay
+                      ? `$${(occupancyPricing?.nightlyPrice ?? 0).toLocaleString('es-AR')} / 2`
+                      : `$${effectiveNightly.toLocaleString('es-AR')} x ${nights}`}
                   </span>
                 </div>
 
-                {isSpecialRate && (
+                {isHalfDay && (
+                  <p className="text-xs text-sky-600 dark:text-sky-400">
+                    Sin pasar la noche. No toma promociones ni tarifa especial.
+                  </p>
+                )}
+
+                {!isHalfDay && isSpecialRate && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
                     Precio pactado con el cliente: cambiar de habitación no lo mueve.
                   </p>
                 )}
-                {!isSpecialRate && keepsPromo && (
+                {!isHalfDay && !isSpecialRate && keepsPromo && (
                   <p className="text-xs text-emerald-600 dark:text-emerald-400">
                     Se mantiene la promoción{booking.promoLabel ? ` ${booking.promoLabel}` : ''} con la que se tomó la reserva.
                   </p>
                 )}
-                {!isSpecialRate && occupancyPricing?.isManual && (
+                {!isHalfDay && !isSpecialRate && occupancyPricing?.isManual && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
                     Tarifa elegida a mano: {guestsLabel(occupancyPricing.pricingType.maxGuests)}.
                   </p>
                 )}
-                {!isSpecialRate && !occupancyPricing?.isManual && occupancyPricing?.isDownTiered && (
+                {!isHalfDay && !isSpecialRate && !occupancyPricing?.isManual && occupancyPricing?.isDownTiered && (
                   <p className="text-xs text-emerald-600 dark:text-emerald-400">
                     {describeDownTier(occupancyPricing, selectedRoomType.maxGuests)}
                   </p>

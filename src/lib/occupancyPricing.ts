@@ -221,6 +221,35 @@ export function resolveCheckInTotal({
   return Math.round(Math.min(movedNightly, listNightly) * nights);
 }
 
+/**
+ * La media estadía cobra la mitad. Del hotel: "tiene un costo del 50% de lo que
+ * corresponde a cada habitación", y lo que corresponde es el tramo que sale por
+ * la gente que entra, igual que en cualquier reserva.
+ */
+export const HALF_DAY_RATIO = 0.5;
+
+/** Lo que sale una media estadía sobre el precio por noche del tramo. */
+export function halfDayTotal(tierNightly: number): number {
+  return Math.round(tierNightly * HALF_DAY_RATIO);
+}
+
+/**
+ * El total de una estadía: noches x precio, o la mitad si es media estadía.
+ *
+ * La media estadía no tiene noches —entra y sale el mismo día— así que
+ * multiplicar por `nights` daría cero. Va por acá y no por un `if` en cada
+ * pantalla para que las cuatro que cotizan una reserva digan el mismo número.
+ */
+export function stayTotal(
+  nightlyPrice: number,
+  nights: number,
+  isHalfDay = false
+): number {
+  if (isHalfDay) return halfDayTotal(nightlyPrice);
+  if (nights <= 0) return 0;
+  return Math.round(nightlyPrice * nights);
+}
+
 export interface EditedTotalInput {
   /** El total con el que está cargada la reserva: lo que se pactó. */
   agreedTotal: number;
@@ -234,6 +263,8 @@ export interface EditedTotalInput {
   bookedTierNightly: number;
   /** Precio por noche pactado a mano con el cliente. Cuando está, manda. */
   specialRateNightly?: number | null;
+  /** Media estadía: sin noches y a mitad de tramo. Manda sobre todo lo demás. */
+  isHalfDay?: boolean;
   /** La promoción de la reserva, si todavía se puede resolver por rateId */
   promo?: Rate | null;
   /** Proporción descontada. Solo se usa cuando la promoción ya no se resuelve. */
@@ -266,9 +297,15 @@ export function resolveEditedTotal({
   tierNightly,
   bookedTierNightly,
   specialRateNightly,
+  isHalfDay = false,
   promo,
   discountRatio = 0,
 }: EditedTotalInput): number {
+  // Va primero de todo: una media estadía no tiene noches, así que cualquier
+  // cuenta que multiplique por `nights` da cero. Y no admite promoción ni tarifa
+  // especial — el 50% ya es el descuento.
+  if (isHalfDay) return halfDayTotal(tierNightly);
+
   if (nights <= 0) return 0;
 
   if (specialRateNightly != null) return Math.round(specialRateNightly * nights);

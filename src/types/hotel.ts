@@ -152,6 +152,12 @@ export interface Booking {
    * período. El precio es el monto acordado, no sale de ninguna tarifa.
    */
   isFullHotel?: boolean;
+  /**
+   * Media estadía: entra y sale el mismo día, de 10:00 a 18:00. `checkOutDate`
+   * es igual a `checkInDate`, así que no tiene noches, y el precio es el 50% del
+   * tramo. No admite promoción ni tarifa especial.
+   */
+  isHalfDay?: boolean;
   createdAt: Date;
   updatedAt?: Date;
 }
@@ -376,6 +382,9 @@ export interface HotelSettings {
   timezone: string;
   checkInTime?: string;   // e.g. "14:00"
   checkOutTime?: string;  // e.g. "11:00"
+  /** Horarios de la media estadía. Aparte de los de arriba: es otra política. */
+  halfDayCheckInTime?: string;   // e.g. "10:00"
+  halfDayCheckOutTime?: string;  // e.g. "18:00"
   dailyCashFloat?: number; // "Fijo del día" — cash float kept in the register
   /** Precio por noche de la tarifa especial. 0 = no se ofrece al reservar. */
   specialRateAmount?: number;

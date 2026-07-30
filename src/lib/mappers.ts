@@ -105,6 +105,7 @@ export const mapBooking = (row: DbRow): Booking => ({
   specialRateAmount: row.special_rate_amount == null ? undefined : Number(row.special_rate_amount),
   pricingRoomTypeId: row.pricing_room_type_id || undefined,
   isFullHotel: row.is_full_hotel ?? false,
+  isHalfDay: row.is_half_day ?? false,
   baseAmount: row.base_amount == null ? undefined : Number(row.base_amount),
   discountAmount: row.discount_amount == null ? undefined : Number(row.discount_amount),
   createdAt: new Date(row.created_at || new Date()),
@@ -285,6 +286,7 @@ export const bookingToRow = (booking: Partial<Booking>): DbRow => {
   // '' es "volver a la tarifa automática": sin el || null se guardaría un id vacío.
   if (booking.pricingRoomTypeId !== undefined) row.pricing_room_type_id = booking.pricingRoomTypeId || null;
   if (booking.isFullHotel !== undefined) row.is_full_hotel = booking.isFullHotel;
+  if (booking.isHalfDay !== undefined) row.is_half_day = booking.isHalfDay;
   if (booking.status !== undefined) row.status = booking.status;
   if (booking.totalAmount !== undefined) row.total_amount = booking.totalAmount;
   if (booking.notes !== undefined) row.notes = booking.notes;
@@ -312,6 +314,8 @@ export const mapHotelSettings = (row: DbRow): HotelSettings => ({
   notificationSendOnCheckOut: row.notification_send_on_check_out,
   checkInTime: row.check_in_time || '14:00',
   checkOutTime: row.check_out_time || '11:00',
+  halfDayCheckInTime: row.half_day_check_in_time || '10:00',
+  halfDayCheckOutTime: row.half_day_check_out_time || '18:00',
   dailyCashFloat: Number(row.daily_cash_float ?? 0),
   specialRateAmount: Number(row.special_rate_amount ?? 0),
   parkingSpots: Number(row.parking_spots ?? 0),
@@ -336,6 +340,8 @@ export const hotelSettingsToRow = (settings: Partial<HotelSettings>): DbRow => {
   if (settings.notificationSendOnCheckOut !== undefined) row.notification_send_on_check_out = settings.notificationSendOnCheckOut;
   if (settings.checkInTime !== undefined) row.check_in_time = settings.checkInTime;
   if (settings.checkOutTime !== undefined) row.check_out_time = settings.checkOutTime;
+  if (settings.halfDayCheckInTime !== undefined) row.half_day_check_in_time = settings.halfDayCheckInTime;
+  if (settings.halfDayCheckOutTime !== undefined) row.half_day_check_out_time = settings.halfDayCheckOutTime;
   if (settings.dailyCashFloat !== undefined) row.daily_cash_float = settings.dailyCashFloat;
   if (settings.specialRateAmount !== undefined) row.special_rate_amount = settings.specialRateAmount;
   if (settings.parkingSpots !== undefined) row.parking_spots = settings.parkingSpots;

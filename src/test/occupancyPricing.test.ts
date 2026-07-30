@@ -9,6 +9,8 @@ import {
     bookingDiscountRatio,
     resolveCheckInTotal,
     resolveEditedTotal,
+    halfDayTotal,
+    stayTotal,
 } from '@/lib/occupancyPricing';
 import type { Rate, RoomType } from '@/types/hotel';
 
@@ -410,6 +412,64 @@ describe('resolveEditedTotal', () => {
         expect(
             resolveEditedTotal({ ...conPromo, nights: 0 })
         ).toBe(0);
+    });
+});
+
+describe('media estadía', () => {
+    // Del hotel: 10:00 a 18:00, "un costo del 50% de lo que corresponde a cada
+    // habitación". Lo que corresponde es el tramo por la gente que entra.
+
+    it('cobra la mitad del tramo', () => {
+        expect(halfDayTotal(80_000)).toBe(40_000);
+    });
+
+    it('redondea el medio peso en vez de arrastrarlo', () => {
+        expect(halfDayTotal(85_000)).toBe(42_500);
+        expect(halfDayTotal(85_001)).toBe(42_501);
+    });
+
+    it('stayTotal no la multiplica por noches: no tiene', () => {
+        // Entra y sale el mismo día, así que nights es 0 y el total sería cero
+        // si pasara por el cálculo normal.
+        expect(stayTotal(80_000, 0, true)).toBe(40_000);
+    });
+
+    it('stayTotal sigue cobrando noches cuando no es media estadía', () => {
+        expect(stayTotal(80_000, 2, false)).toBe(160_000);
+        expect(stayTotal(80_000, 0, false)).toBe(0);
+    });
+
+    it('editar una media estadía la mantiene a mitad de tramo', () => {
+        // Cambiarla de habitación la recotiza sobre el tramo nuevo, siempre al 50%.
+        expect(
+            resolveEditedTotal({
+                agreedTotal: 40_000,
+                agreedNights: 0,
+                nights: 0,
+                tierNightly: 70_000,
+                bookedTierNightly: 80_000,
+                isHalfDay: true,
+            })
+        ).toBe(35_000);
+    });
+
+    it('la media estadía no toma promociones ni tarifa especial', () => {
+        // El 50% ya es el descuento; encimarle otro sería rebajar dos veces.
+        const promoPlana: Partial<Rate> = { price: 60_000 };
+
+        expect(
+            resolveEditedTotal({
+                agreedTotal: 40_000,
+                agreedNights: 0,
+                nights: 0,
+                tierNightly: 80_000,
+                bookedTierNightly: 80_000,
+                isHalfDay: true,
+                specialRateNightly: 50_000,
+                promo: promoPlana as Rate,
+                discountRatio: 0.2,
+            })
+        ).toBe(40_000);
     });
 });
 

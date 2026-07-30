@@ -220,3 +220,72 @@ export function resolveCheckInTotal({
 
   return Math.round(Math.min(movedNightly, listNightly) * nights);
 }
+
+export interface EditedTotalInput {
+  /** El total con el que está cargada la reserva: lo que se pactó. */
+  agreedTotal: number;
+  /** Las noches sobre las que se pactó ese total. */
+  agreedNights: number;
+  /** Las noches que quedan después de la edición. */
+  nights: number;
+  /** Precio del tramo que corresponde a la habitación y la ocupación nuevas */
+  tierNightly: number;
+  /** Precio del tramo con el que se tomó la reserva */
+  bookedTierNightly: number;
+  /** Precio por noche pactado a mano con el cliente. Cuando está, manda. */
+  specialRateNightly?: number | null;
+  /** La promoción de la reserva, si todavía se puede resolver por rateId */
+  promo?: Rate | null;
+  /** Proporción descontada. Solo se usa cuando la promoción ya no se resuelve. */
+  discountRatio?: number;
+}
+
+/**
+ * El total que queda al editar una reserva ya tomada.
+ *
+ * Editar recalculaba `noches × precio de tramo` y con eso le devolvía el precio
+ * de lista al huésped que había reservado con promoción: abrir el diálogo de una
+ * reserva de $144.000 con 10% off ya proponía $160.000 sin que nadie tocara
+ * nada, y guardarlo le inventaba una deuda a alguien que había pagado todo.
+ *
+ * La regla es la misma que en el check-in —respetar lo pactado, correrlo por la
+ * diferencia entre tramos y no pasarse de lo que la lista cobra hoy—, así que
+ * resuelve el mismo resolveCheckInTotal. Lo que agrega la edición son dos cosas
+ * que el check-in no tiene:
+ *
+ *   1. Las noches se pueden mover, y lo pactado era por las noches viejas. Se
+ *      resuelve el precio de la noche y recién ahí se multiplica por las nuevas.
+ *
+ *   2. La tarifa especial es un precio por noche acordado con ese cliente: no
+ *      sale de ningún tramo, así que cambiar de habitación no la mueve.
+ */
+export function resolveEditedTotal({
+  agreedTotal,
+  agreedNights,
+  nights,
+  tierNightly,
+  bookedTierNightly,
+  specialRateNightly,
+  promo,
+  discountRatio = 0,
+}: EditedTotalInput): number {
+  if (nights <= 0) return 0;
+
+  if (specialRateNightly != null) return Math.round(specialRateNightly * nights);
+
+  // Reserva sin noches: no hay pactado por noche del que partir, así que lo
+  // único honesto es la lista de hoy.
+  if (agreedNights <= 0) return Math.round(tierNightly * nights);
+
+  const resolvedNightly =
+    resolveCheckInTotal({
+      agreedTotal,
+      nights: agreedNights,
+      tierNightly,
+      bookedTierNightly,
+      promo,
+      discountRatio,
+    }) / agreedNights;
+
+  return Math.round(resolvedNightly * nights);
+}

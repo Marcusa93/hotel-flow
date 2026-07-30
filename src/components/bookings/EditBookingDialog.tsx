@@ -43,10 +43,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { cn, formatLastNameFirst, guestsLabel } from '@/lib/utils';
+import { useRates } from '@/hooks/useRates';
 import {
   getBookingPricing,
   selectableTiers,
   describeDownTier,
+  bookingDiscountRatio,
+  resolveEditedTotal,
 } from '@/lib/occupancyPricing';
 import { toast } from '@/hooks/use-toast';
 
@@ -79,6 +82,7 @@ interface EditBookingDialogProps {
 export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDialogProps) {
   const { updateBooking, checkRoomAvailability } = useBookingOperations();
   const { rooms, roomTypes, updateRoomStatus } = useRoomOperations();
+  const { data: rates = [] } = useRates();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isCheckedIn = booking.status === 'CHECKED_IN';
@@ -158,8 +162,66 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
     chosenPricingTypeId
   );
 
-  // Calculate new total amount
-  const newTotalAmount = occupancyPricing ? nights * occupancyPricing.nightlyPrice : 0;
+  // El tramo con el que se tomó la reserva, en la habitación con la que se tomó.
+  // Es el punto de comparación: sin esto no hay contra qué correr lo pactado.
+  const bookedRoom = rooms.find(r => r.id === booking.roomId);
+  const bookedRoomType = bookedRoom ? roomTypes.find(rt => rt.id === bookedRoom.roomTypeId) : null;
+  const bookedPricing = getBookingPricing(
+    roomTypes,
+    bookedRoomType,
+    { adults: booking.adults, children: booking.children },
+    booking.pricingRoomTypeId
+  );
+
+  // La promoción de la reserva, para reaplicarla sobre el tramo nuevo en vez de
+  // escalarla por proporción. Mismo criterio que el check-in.
+  const promo = booking.rateId ? rates.find(r => r.id === booking.rateId) ?? null : null;
+
+  // La tarifa especial es un precio por noche pactado con el cliente: no sale de
+  // ningún tramo, así que cambiar de habitación no la mueve.
+  const isSpecialRate = booking.specialRateAmount != null;
+  const specialRateNightly = isSpecialRate ? booking.specialRateAmount! : null;
+
+  const datesChanged =
+    (!!watchedCheckIn && format(watchedCheckIn, 'yyyy-MM-dd') !== format(new Date(booking.checkInDate), 'yyyy-MM-dd')) ||
+    (!!watchedCheckOut && format(watchedCheckOut, 'yyyy-MM-dd') !== format(new Date(booking.checkOutDate), 'yyyy-MM-dd'));
+
+  // Qué toca la plata y qué no. Los menores de 5 no se cobran, y las notas y la
+  // hora de llegada tampoco: corregir una nota no tiene por qué repreciar nada.
+  const pricingChanged =
+    watchedRoomId !== booking.roomId ||
+    datesChanged ||
+    watchedAdults !== booking.adults ||
+    watchedChildren !== booking.children ||
+    (chosenPricingTypeId ?? null) !== (booking.pricingRoomTypeId ?? null);
+
+  /**
+   * Antes esto era `noches × precio de tramo`, que le devolvía el precio de
+   * lista al huésped que había reservado con promoción: abrir el diálogo de una
+   * reserva de $144.000 con 10% off ya proponía $160.000 sin que nadie tocara
+   * nada. Ahora se respeta lo pactado, y si no cambió nada que afecte al precio
+   * ni siquiera se recalcula.
+   */
+  const newTotalAmount = !pricingChanged
+    ? booking.totalAmount
+    : occupancyPricing && bookedPricing
+      ? resolveEditedTotal({
+          agreedTotal: booking.totalAmount,
+          agreedNights: originalNights,
+          nights,
+          tierNightly: occupancyPricing.nightlyPrice,
+          bookedTierNightly: bookedPricing.nightlyPrice,
+          specialRateNightly,
+          promo,
+          discountRatio: bookingDiscountRatio(booking),
+        })
+      : booking.totalAmount;
+
+  /** Lo que se cobra por noche de verdad, ya con la promo o la tarifa especial. */
+  const effectiveNightly = nights > 0 ? Math.round(newTotalAmount / nights) : 0;
+
+  /** Si esta reserva trae un descuento que hay que preservar, para decirlo. */
+  const keepsPromo = !!promo || bookingDiscountRatio(booking) > 0;
 
   // Check room availability (exclude current booking)
   const conflicts = watchedRoomId && watchedCheckIn && watchedCheckOut
@@ -549,8 +611,10 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
               )}
             />
 
-            {/* La tarifa la propone la ocupación; el mostrador puede elegir otra */}
-            {selectedRoomType && tierOptions.length > 1 && (
+            {/* La tarifa la propone la ocupación; el mostrador puede elegir otra.
+                Con tarifa especial no se ofrece: el precio ya está pactado y no
+                sale de ningún tramo. */}
+            {!isSpecialRate && selectedRoomType && tierOptions.length > 1 && (
               <FormField
                 control={form.control}
                 name="pricingRoomTypeId"
@@ -585,19 +649,35 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
               <div className="p-4 rounded-xl bg-background/60 backdrop-blur border space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Tarifa {guestsLabel(occupancyPricing?.pricingType.maxGuests ?? selectedRoomType.maxGuests)} x {nights} noche{nights !== 1 ? 's' : ''}
+                    {isSpecialRate
+                      ? 'Tarifa especial'
+                      : `Tarifa ${guestsLabel(occupancyPricing?.pricingType.maxGuests ?? selectedRoomType.maxGuests)}`}
+                    {' '}x {nights} noche{nights !== 1 ? 's' : ''}
                   </span>
+                  {/* El precio por noche que se está cobrando de verdad. Antes
+                      acá iba el del tramo, que en una reserva con promoción no
+                      es lo que paga el huésped y no daba con el total de abajo. */}
                   <span className="font-medium">
-                    ${(occupancyPricing?.nightlyPrice ?? selectedRoomType.basePrice).toLocaleString('es-AR')} x {nights}
+                    ${effectiveNightly.toLocaleString('es-AR')} x {nights}
                   </span>
                 </div>
 
-                {occupancyPricing?.isManual && (
+                {isSpecialRate && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Precio pactado con el cliente: cambiar de habitación no lo mueve.
+                  </p>
+                )}
+                {!isSpecialRate && keepsPromo && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                    Se mantiene la promoción{booking.promoLabel ? ` ${booking.promoLabel}` : ''} con la que se tomó la reserva.
+                  </p>
+                )}
+                {!isSpecialRate && occupancyPricing?.isManual && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
                     Tarifa elegida a mano: {guestsLabel(occupancyPricing.pricingType.maxGuests)}.
                   </p>
                 )}
-                {!occupancyPricing?.isManual && occupancyPricing?.isDownTiered && (
+                {!isSpecialRate && !occupancyPricing?.isManual && occupancyPricing?.isDownTiered && (
                   <p className="text-xs text-emerald-600 dark:text-emerald-400">
                     {describeDownTier(occupancyPricing, selectedRoomType.maxGuests)}
                   </p>

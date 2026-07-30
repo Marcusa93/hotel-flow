@@ -302,7 +302,7 @@ export default function BookingDetail() {
             </>
           )}
 
-          {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
+          {(booking.status === 'PENDING' || booking.status === 'CONFIRMED' || booking.status === 'CHECKED_IN') && (
             <Button variant="outline" onClick={() => setIsEditDialogOpen(true)} className="rounded-full">
               <Pencil className="w-4 h-4 mr-2" /> Editar
             </Button>

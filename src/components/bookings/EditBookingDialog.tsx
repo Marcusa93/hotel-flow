@@ -78,8 +78,10 @@ interface EditBookingDialogProps {
 
 export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDialogProps) {
   const { updateBooking, checkRoomAvailability } = useBookingOperations();
-  const { rooms, roomTypes } = useRoomOperations();
+  const { rooms, roomTypes, updateRoomStatus } = useRoomOperations();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isCheckedIn = booking.status === 'CHECKED_IN';
 
   const form = useForm<EditBookingFormData>({
     resolver: zodResolver(editBookingSchema),
@@ -164,12 +166,14 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
     ? checkRoomAvailability(watchedRoomId, watchedCheckIn, watchedCheckOut, booking.id)
     : { available: true, conflicts: [] };
 
-  // Available rooms: exclude only rooms in maintenance (today's physical status
-  // says nothing about future dates — the conflict check handles availability),
-  // and always include the booking's current room.
-  const availableRooms = rooms.filter(r =>
-    r.status !== 'MAINTENANCE' || r.id === booking.roomId
-  );
+  // Available rooms: exclude maintenance always, and include the booking's current room.
+  // For CHECKED_IN: also exclude OCCUPIED rooms (physically occupied by another guest right now).
+  const availableRooms = rooms.filter(r => {
+    if (r.id === booking.roomId) return true;
+    if (r.status === 'MAINTENANCE') return false;
+    if (isCheckedIn && r.status === 'OCCUPIED') return false;
+    return true;
+  });
 
   // Detect changes for diff display
   const changes = useMemo(() => {
@@ -285,6 +289,13 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
         totalAmount: newTotalAmount,
       });
 
+      // Si el huésped ya hizo check-in y se cambió de habitación, actualizar
+      // el estado físico: la vieja queda sucia, la nueva pasa a ocupada.
+      if (isCheckedIn && data.roomId !== booking.roomId) {
+        await updateRoomStatus(booking.roomId, 'DIRTY');
+        await updateRoomStatus(data.roomId, 'OCCUPIED');
+      }
+
       toast({
         title: 'Reserva actualizada',
         description: `La reserva de ${formatLastNameFirst(booking.guest.fullName)} fue modificada correctamente.`,
@@ -327,6 +338,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
                         <FormControl>
                           <Button
                             variant="outline"
+                            disabled={isCheckedIn}
                             className={cn(
                               'pl-3 text-left font-normal',
                               !field.value && 'text-muted-foreground'
@@ -363,6 +375,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
                         <FormControl>
                           <Button
                             variant="outline"
+                            disabled={isCheckedIn}
                             className={cn(
                               'pl-3 text-left font-normal',
                               !field.value && 'text-muted-foreground'
@@ -396,6 +409,12 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
                 {nights !== originalNights && (
                   <span className="text-primary font-medium ml-1">(antes: {originalNights})</span>
                 )}
+              </p>
+            )}
+
+            {isCheckedIn && (
+              <p className="text-xs text-muted-foreground bg-muted px-3 py-2 rounded-md -mt-2">
+                Las fechas no se pueden cambiar desde acá porque la estadía ya comenzó. Para agregar noches usá <strong>Extender estadía</strong>.
               </p>
             )}
 

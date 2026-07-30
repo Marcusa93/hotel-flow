@@ -114,6 +114,41 @@ Adjust or disable the schedule:
 - Edit `.github/workflows/supabase-keepalive.yml` to change the `cron` entries.
 - Disable the `Supabase Keepalive` workflow in GitHub Actions if the project no longer needs it.
 
+## Bot de Telegram (control remoto del repo)
+
+Este repo se opera principalmente desde el celular a través de un bot de Telegram que corre en la
+misma VPS que aloja el servidor de desarrollo.
+
+**Qué hace el bot:**
+
+- Recibe mensajes de texto (o adjuntos: fotos, documentos) y los ejecuta como tareas de
+  Claude Code sobre este repo en modo headless.
+- Mantiene contexto entre mensajes usando `--resume` con un session-id por chat persistido en
+  `sessions.json`. `/nuevo` reinicia el contexto.
+- Muestra progreso en vivo: edita un mensaje de Telegram con la herramienta y archivo actuales
+  mientras Claude trabaja.
+- Encola los mensajes que llegan durante una tarea en vez de rechazarlos.
+- Las reglas de trabajo del repo (`dev-rules.md`) se inyectan como system prompt en cada tarea,
+  de modo que Claude sabe que está en producción, no hacer deletes sin backup, etc.
+
+**Comandos disponibles:**
+
+| Comando | Qué hace |
+| --- | --- |
+| `/estado` | Rama, cambios sin commitear, últimos commits, cola activa, tamaño de sesión |
+| `/diff` | Cambios sin commitear |
+| `/log` | Últimos 10 commits |
+| `/cola` | Tarea en curso y encoladas |
+| `/cancelar` | Corta la tarea en curso |
+| `/nuevo` | Reinicia el contexto de conversación |
+| `/pwd` | Carpeta de trabajo del bot |
+
+**Dónde vive:**
+
+El código del bot está en `/home/bothotelflow/telegram-claude-bot/` en la VPS (fuera de este repo).
+Corre como servicio systemd (`claude-tg-hotelflow`) bajo el usuario `bothotelflow` y accede al
+repo por deploy key SSH propia.
+
 ## Can I connect a custom domain to my Lovable project?
 
 Yes, you can!

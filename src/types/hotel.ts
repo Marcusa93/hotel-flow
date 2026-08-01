@@ -373,6 +373,32 @@ export interface Expense {
    * se sabe si salieron de la caja, así que no descuentan del efectivo a rendir.
    */
   method?: SettlementMethod;
+  /**
+   * De qué caja salió, cuando se pagó en efectivo. Ausente en los que no son
+   * efectivo y en los cargados antes de la columna, que se leen como
+   * RECAUDACION porque así se venían contando.
+   */
+  cashSource?: CashSource;
+  createdAt: Date;
+}
+
+/**
+ * Los dos pozos de efectivo del hotel.
+ *
+ * RECAUDACION es lo cobrado a huéspedes: es lo que se rinde. EMPRESA es la plata
+ * que pone el hotel para las compras del día, y gastarla no toca lo que hay que
+ * rendir.
+ */
+export type CashSource = 'RECAUDACION' | 'EMPRESA';
+
+/** Efectivo que la empresa pone en la caja para gastos. No es un ingreso. */
+export interface CashContribution {
+  id: string;
+  date: Date;
+  amount: number;
+  notes?: string;
+  createdBy?: string;
+  createdByName?: string;
   createdAt: Date;
 }
 

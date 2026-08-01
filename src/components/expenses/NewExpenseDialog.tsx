@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select';
 import { useCreateExpense } from '@/hooks/useCreateExpense';
 import { useUpdateExpense } from '@/hooks/useUpdateExpense';
-import { Expense, ExpenseType, SettlementMethod } from '@/types/hotel';
+import { CashSource, Expense, ExpenseType, SettlementMethod } from '@/types/hotel';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { Receipt, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -43,6 +43,7 @@ const expenseSchema = z.object({
     method: z.enum(['CASH', 'CREDIT', 'DEBIT', 'TRANSFER', 'QR', 'OTHER'] as const, {
         required_error: 'Elegí con qué se pagó',
     }),
+    cashSource: z.enum(['RECAUDACION', 'EMPRESA'] as const),
 });
 
 interface NewExpenseDialogProps {
@@ -72,6 +73,9 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
     const [description, setDescription] = useState('');
     // Efectivo por defecto: es de donde sale la mayoría de los gastos del día.
     const [method, setMethod] = useState<SettlementMethod>('CASH');
+    // La caja de la empresa es la que se usa para las compras del día, así que
+    // es el arranque más probable de un gasto en efectivo.
+    const [cashSource, setCashSource] = useState<CashSource>('EMPRESA');
 
     const createExpense = useCreateExpense();
     const updateExpense = useUpdateExpense();
@@ -85,12 +89,14 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
             setAmount(formatPesosInput(expense.amount));
             setDescription(expense.description || '');
             setMethod(expense.method ?? 'CASH');
+            setCashSource(expense.cashSource ?? 'RECAUDACION');
         } else {
             setDate(format(new Date(), 'yyyy-MM-dd'));
             setExpenseType('SUPERMERCADO');
             setAmount('');
             setDescription('');
             setMethod('CASH');
+            setCashSource('EMPRESA');
         }
     }, [expense, open]);
 
@@ -104,6 +110,7 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
             amount: parsePesosInput(amount).value,
             description: description || undefined,
             method,
+            cashSource,
         });
 
         if (!parsed.success) {
@@ -127,6 +134,7 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
                     amount: validated.amount,
                     description: validated.description,
                     method: validated.method,
+                    cashSource: validated.cashSource,
                 });
                 toast({ title: 'Gasto actualizado', description: `${expenseTypeLabels[validated.expenseType]} — $${validated.amount.toLocaleString('es-AR')}` });
             } else {
@@ -136,6 +144,7 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
                     amount: validated.amount,
                     description: validated.description,
                     method: validated.method,
+                    cashSource: validated.cashSource,
                 });
                 toast({ title: 'Gasto registrado', description: `${expenseTypeLabels[validated.expenseType]} — $${validated.amount.toLocaleString('es-AR')}` });
             }
@@ -145,6 +154,7 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
             setAmount('');
             setDescription('');
             setMethod('CASH');
+            setCashSource('EMPRESA');
             onOpenChange(false);
         } catch {
             toast({ title: 'Error', description: 'No se pudo guardar el gasto', variant: 'destructive' });
@@ -222,12 +232,29 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
                                 ))}
                             </SelectContent>
                         </Select>
-                        {method === 'CASH' && (
-                            <p className="text-xs text-muted-foreground">
-                                Sale de la caja: se descuenta del efectivo a rendir del día.
-                            </p>
-                        )}
                     </div>
+
+                    {/* De cuál de las dos cajas salió. Solo en efectivo: una
+                        transferencia no sale de ninguna. */}
+                    {method === 'CASH' && (
+                        <div className="space-y-2">
+                            <Label htmlFor="cashSource">¿De qué caja salió?</Label>
+                            <Select value={cashSource} onValueChange={(v) => setCashSource(v as CashSource)}>
+                                <SelectTrigger id="cashSource">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="EMPRESA">Caja de la empresa (para gastos)</SelectItem>
+                                    <SelectItem value="RECAUDACION">Recaudación del día</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                                {cashSource === 'EMPRESA'
+                                    ? 'Sale del fondo que puso la empresa. No toca el efectivo a rendir.'
+                                    : 'Sale de lo cobrado a huéspedes: se descuenta del efectivo a rendir del día.'}
+                            </p>
+                        </div>
+                    )}
 
                     <div className="space-y-2">
                         <Label htmlFor="description">Descripción (opcional)</Label>

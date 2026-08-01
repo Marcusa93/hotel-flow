@@ -13,10 +13,16 @@ import { isCurrentAccountPayment } from '@/lib/currentAccount';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { useUpdateHotelSettings } from '@/hooks/useUpdateHotelSettings';
 import { useCashFloatForDay, useSetCashFloat } from '@/hooks/useCashFloat';
+import {
+  useCashContributions,
+  useCreateCashContribution,
+  useDeleteCashContribution,
+} from '@/hooks/useCashContributions';
 import { useAppRole } from '@/context/AppRoleContext';
 import { useAuth } from '@/context/AuthContext';
 import {
   summarizeExpenses,
+  companyCashBalance,
   cashToDeposit as computeCashToDeposit,
   defaultClosingDay,
   resolveCashFloat,
@@ -33,7 +39,7 @@ import {
 } from '@/components/ui/select';
 import type { PaymentMethod } from '@/types/hotel';
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, EXPENSE_TYPE_LABELS } from '@/lib/constants';
-import { formatLocalDate, escapeHtml } from '@/lib/utils';
+import { cn, formatLocalDate, escapeHtml } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { PRINT_FONT_LINK, PRINT_FONT_CSS } from '@/lib/printStyles';
 
@@ -56,7 +62,11 @@ export default function CierreCaja() {
   const [day, setDay] = useState<string>(formatLocalDate(defaultClosingDay()));
   const [floatOverride, setFloatOverride] = useState<number | null>(null);
   const [newIncome, setNewIncome] = useState<{ description: string; method: PaymentMethod; amount: string }>({ description: '', method: 'CASH', amount: '' });
+  const [newAporte, setNewAporte] = useState<{ notes: string; amount: string }>({ notes: '', amount: '' });
 
+  const { data: allContributions = [] } = useCashContributions();
+  const createContribution = useCreateCashContribution();
+  const deleteContribution = useDeleteCashContribution();
   const savedFloat = useCashFloatForDay(day);
   const setCashFloat = useSetCashFloat();
   const { profileName } = useAppRole();
@@ -166,13 +176,48 @@ export default function CierreCaja() {
   const cashToDeposit = computeCashToDeposit({
     cashIncome: cashTotal,
     cashFloat,
-    cashExpenses: expenses.cash,
+    // Solo lo que salió de la recaudación: lo pagado con la plata de la empresa
+    // es otra caja y rendirla no corresponde.
+    cashExpenses: expenses.cashRecaudacion,
   });
   const totalDelDia = totalIngresos - expenses.total;
+
+  // La caja de la empresa. El saldo es histórico —lo que pusieron el lunes sigue
+  // estando el miércoles— así que se calcula sobre todo, no sobre el día.
+  const aportesDia = useMemo(
+    () => allContributions.filter((c) => formatLocalDate(new Date(c.date)) === day),
+    [allContributions, day]
+  );
+  const aportesDiaTotal = aportesDia.reduce((sum, c) => sum + c.amount, 0);
+  const saldoEmpresa = useMemo(
+    () => companyCashBalance(allContributions, allExpenses),
+    [allContributions, allExpenses]
+  );
 
   const dayLabel = format(new Date(day + 'T00:00:00'), "EEEE d 'de' MMMM 'de' yyyy", { locale: es });
 
   const author = { id: user?.id, name: profileName || user?.email || undefined };
+
+  const addAporte = async () => {
+    const amount = Number(newAporte.amount);
+    if (!amount || amount <= 0) {
+      toast({ title: 'Monto inválido', description: 'Ingresá cuánto puso la empresa', variant: 'destructive' });
+      return;
+    }
+    try {
+      await createContribution.mutateAsync({
+        date: new Date(day + 'T00:00:00'),
+        amount,
+        notes: newAporte.notes.trim() || undefined,
+        createdBy: author.id,
+        createdByName: author.name,
+      });
+      setNewAporte({ notes: '', amount: '' });
+      toast({ title: 'Aporte registrado', description: `${money(amount)} a la caja de la empresa` });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo registrar el aporte', variant: 'destructive' });
+    }
+  };
 
   /** Fija el fondo para ESTE día, sin tocar el de los demás. */
   const saveFloatForDay = async () => {
@@ -217,9 +262,15 @@ export default function CierreCaja() {
         : '')
       || '<tr><td colspan="2">Sin gastos</td></tr>';
     // Cada gasto con su descripción: en qué se gastó de verdad.
+    // Cada gasto dice también de qué caja salió: es lo que permite cuadrar.
+    const cajaLabel = (e: typeof expenses.list[number]) =>
+      e.method !== 'CASH' ? '' : ` · ${(e.cashSource ?? 'RECAUDACION') === 'EMPRESA' ? 'caja empresa' : 'recaudación'}`;
     const expenseDetailRows = expenses.list
-      .map((e) => `<tr><td>${h(EXPENSE_TYPE_LABELS[e.expenseType] || e.expenseType)}${e.description ? ` — ${h(e.description)}` : ''}<br><span class="muted">${h(e.method ? PAYMENT_METHOD_LABELS[e.method] || e.method : 'sin especificar')}</span></td><td class="num">${money(e.amount)}</td></tr>`)
+      .map((e) => `<tr><td>${h(EXPENSE_TYPE_LABELS[e.expenseType] || e.expenseType)}${e.description ? ` — ${h(e.description)}` : ''}<br><span class="muted">${h((e.method ? PAYMENT_METHOD_LABELS[e.method] || e.method : 'sin especificar') + cajaLabel(e))}</span></td><td class="num">${money(e.amount)}</td></tr>`)
       .join('') || '<tr><td colspan="2">Sin gastos</td></tr>';
+    const aporteRows = aportesDia
+      .map((c) => `<tr><td>${h(c.notes || 'Aporte a la caja')}${c.createdByName ? `<br><span class="muted">${h(c.createdByName)}</span>` : ''}</td><td class="num">${money(c.amount)}</td></tr>`)
+      .join('') || '<tr><td colspan="2">Sin aportes este día</td></tr>';
     const deudaRows = deuda.rows
       .map((r) => `<tr><td>${h(r.name)} — Hab. ${h(r.room)}</td><td class="num">${money(r.owed)}</td></tr>`)
       .join('') || '<tr><td colspan="2">Sin deudas</td></tr>';
@@ -249,12 +300,17 @@ export default function CierreCaja() {
     <h2>Caja (efectivo)</h2><table>
       <tr><td>Efectivo cobrado</td><td class="num">${money(cashTotal)}</td></tr>
       <tr><td>Menos fondo fijo</td><td class="num">-${money(cashFloat)}</td></tr>
-      <tr><td>Menos gastos pagados en efectivo</td><td class="num">-${money(expenses.cash)}</td></tr>
+      <tr><td>Menos gastos pagados de la recaudación</td><td class="num">-${money(expenses.cashRecaudacion)}</td></tr>
       <tr class="tot"><td>Efectivo a rendir</td><td class="num">${money(cashToDeposit)}</td></tr></table>
     <h2>Gastos por rubro</h2><table>${expenseTypeRows}
       <tr class="tot"><td>Total gastos</td><td class="num">${money(expenses.total)}</td></tr></table>
     <h2>Gastos por cuenta</h2><table>${expenseMethodRows}</table>
     <h2>Detalle de gastos</h2><table>${expenseDetailRows}</table>
+    <h2>Caja de la empresa</h2><table>
+      <tr><td>Aportes de este día</td><td class="num">${money(aportesDiaTotal)}</td></tr>
+      <tr><td>Gastado de esta caja</td><td class="num">-${money(expenses.cashEmpresa)}</td></tr>
+      <tr class="tot"><td>Saldo disponible</td><td class="num">${money(saldoEmpresa)}</td></tr></table>
+    <table>${aporteRows}</table>
     <h2>Ingresos externos</h2><table>${otherIncomeRows}</table>
     <h2>Deudas (DEBE)</h2><table>${deudaRows}
       <tr class="tot"><td>Total deuda</td><td class="num">${money(deuda.total)}</td></tr></table>
@@ -264,7 +320,7 @@ export default function CierreCaja() {
     w.document.close();
     w.focus();
     setTimeout(() => w.print(), 250);
-  }, [byMethod, expenses, deuda, otherIncomeDay, aCuentaCorriente, day, dayLabel, cashFloat, cashTotal, cashToDeposit, totalIngresos, totalDelDia, hotelSettings]);
+  }, [byMethod, expenses, deuda, otherIncomeDay, aCuentaCorriente, day, dayLabel, cashFloat, cashTotal, cashToDeposit, totalIngresos, totalDelDia, hotelSettings, aportesDia, aportesDiaTotal, saldoEmpresa]);
 
   return (
     <div className="space-y-6">
@@ -351,8 +407,8 @@ export default function CierreCaja() {
             {/* La plata que se pagó del cajón ya no está: rendirla otra vez sería
                 contarla dos veces. */}
             <div className="flex justify-between text-sm py-1">
-              <span className="text-muted-foreground">Menos gastos pagados en efectivo</span>
-              <span className="font-medium tabular-nums text-rose-500">-{money(expenses.cash)}</span>
+              <span className="text-muted-foreground">Menos gastos pagados de la recaudación</span>
+              <span className="font-medium tabular-nums text-rose-500">-{money(expenses.cashRecaudacion)}</span>
             </div>
             <div className="flex justify-between pt-2 border-t font-bold">
               <span>Efectivo a rendir</span>
@@ -438,6 +494,78 @@ export default function CierreCaja() {
               ))
             )}
             <div className="flex justify-between pt-2 border-t font-bold"><span>Total deuda</span><span className="text-amber-600 tabular-nums">{money(deuda.total)}</span></div>
+          </CardContent>
+        </Card>
+
+        {/* Caja de la empresa — la plata que pone el hotel para comprar */}
+        <Card className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border-white/20 shadow-sm lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base">Caja de la empresa</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Efectivo que pone el hotel para las compras del día. No es un ingreso y no se rinde:
+              va aparte de lo cobrado a huéspedes.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="rounded-xl border p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Aportes de este día</p>
+                <p className="text-lg font-bold tabular-nums text-emerald-600">{money(aportesDiaTotal)}</p>
+              </div>
+              <div className="rounded-xl border p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Gastado de esta caja</p>
+                <p className="text-lg font-bold tabular-nums text-rose-600">{money(expenses.cashEmpresa)}</p>
+              </div>
+              <div className="rounded-xl border p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Saldo disponible</p>
+                <p className={cn('text-lg font-bold tabular-nums', saldoEmpresa < 0 ? 'text-rose-600' : 'text-slate-800 dark:text-slate-100')}>
+                  {money(saldoEmpresa)}
+                </p>
+              </div>
+            </div>
+
+            {saldoEmpresa < 0 && (
+              <p className="text-xs text-rose-600 dark:text-rose-400">
+                Se gastó más de lo que la empresa puso: hay que reponer la caja.
+              </p>
+            )}
+
+            {aportesDia.length > 0 && (
+              <div>
+                {aportesDia.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between text-sm py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                    <span className="text-muted-foreground flex-1">{c.notes || 'Aporte a la caja'}</span>
+                    <span className="text-xs text-slate-400 mr-3">{c.createdByName || ''}</span>
+                    <span className="font-medium tabular-nums mr-2">{money(c.amount)}</span>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-rose-500" onClick={() => deleteContribution.mutate(c)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-end gap-2 pt-2 border-t">
+              <div className="flex-1 min-w-[160px]">
+                <Label className="text-xs mb-1 block">Detalle (opcional)</Label>
+                <Input
+                  value={newAporte.notes}
+                  onChange={(e) => setNewAporte((p) => ({ ...p, notes: e.target.value }))}
+                  placeholder="Ej: reposición para compras"
+                />
+              </div>
+              <div className="w-[140px]">
+                <Label className="text-xs mb-1 block">Monto</Label>
+                <Input
+                  type="number" min={0}
+                  value={newAporte.amount}
+                  onChange={(e) => setNewAporte((p) => ({ ...p, amount: e.target.value }))}
+                />
+              </div>
+              <Button onClick={addAporte} disabled={createContribution.isPending}>
+                <Plus className="w-4 h-4 mr-1" /> Registrar aporte
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

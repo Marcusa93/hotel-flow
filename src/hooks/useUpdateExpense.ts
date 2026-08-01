@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { ExpenseType, SettlementMethod } from '@/types/hotel';
+import { CashSource, ExpenseType, SettlementMethod } from '@/types/hotel';
 import { logAuditEvent } from './useCreateAuditLog';
 
 interface UpdateExpenseInput {
@@ -10,6 +10,8 @@ interface UpdateExpenseInput {
     amount: number;
     description?: string;
     method?: SettlementMethod;
+    /** Solo cuando se pagó en efectivo: de cuál de las dos cajas salió. */
+    cashSource?: CashSource;
 }
 
 export const useUpdateExpense = () => {
@@ -25,6 +27,9 @@ export const useUpdateExpense = () => {
                     amount: input.amount,
                     description: input.description || null,
                     method: input.method || null,
+                    // Solo tiene sentido en efectivo: una transferencia no sale
+                    // de ninguna de las dos cajas.
+                    cash_source: input.method === 'CASH' ? input.cashSource || 'RECAUDACION' : null,
                 })
                 .eq('id', input.id)
                 .select()

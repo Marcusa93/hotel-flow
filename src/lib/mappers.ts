@@ -17,6 +17,8 @@ import type {
   CurrentAccountPayment,
   PaymentAttachment,
   LogbookEntry,
+  CashFloat,
+  CashContribution,
 } from '@/types/hotel';
 
 // --- Row to Model mappers (snake_case DB → camelCase frontend) ---
@@ -222,7 +224,29 @@ export const mapExpense = (row: DbRow): Expense => ({
   expenseType: row.expense_type,
   amount: Number(row.amount),
   description: row.description,
+  // undefined y no 'CASH': los gastos viejos no dicen con qué se pagaron, y
+  // suponerlo movería el efectivo a rendir de los cierres ya hechos.
+  method: row.method || undefined,
+  cashSource: row.cash_source || undefined,
   createdAt: new Date(row.created_at || new Date()),
+});
+
+export const mapCashContribution = (row: DbRow): CashContribution => ({
+  id: row.id,
+  date: parseLocalDate(row.date),
+  amount: Number(row.amount),
+  notes: row.notes || undefined,
+  createdBy: row.created_by || undefined,
+  createdByName: row.created_by_name || undefined,
+  createdAt: new Date(row.created_at || new Date()),
+});
+
+export const mapCashFloat = (row: DbRow): CashFloat => ({
+  date: parseLocalDate(row.date),
+  amount: Number(row.amount),
+  setBy: row.set_by || undefined,
+  setByName: row.set_by_name || undefined,
+  updatedAt: new Date(row.updated_at || row.created_at || new Date()),
 });
 
 export const mapInvoiceItem = (row: DbRow): InvoiceItem => ({

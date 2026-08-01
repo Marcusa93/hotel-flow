@@ -24,6 +24,7 @@ import { useExpenses } from '@/hooks/useExpenses';
 import { useDeleteExpense } from '@/hooks/useDeleteExpense';
 import { NewExpenseDialog } from '@/components/expenses';
 import { ExpenseType } from '@/types/hotel';
+import { PAYMENT_METHOD_LABELS } from '@/lib/constants';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -127,11 +128,12 @@ export default function Expenses() {
 
     const handleExportCSV = () => {
         if (expenses.length === 0) return;
-        const headers = ['Fecha', 'Tipo', 'Descripción', 'Monto'];
+        const headers = ['Fecha', 'Tipo', 'Descripción', 'Cuenta', 'Monto'];
         const rows = expenses.map(e => [
             format(e.date, 'dd/MM/yyyy'),
             expenseTypeLabels[e.expenseType],
             e.description || '',
+            e.method ? PAYMENT_METHOD_LABELS[e.method] || e.method : 'Sin especificar',
             e.amount.toString(),
         ]);
         const csvContent = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -340,6 +342,7 @@ export default function Expenses() {
                                     <TableHead>Fecha</TableHead>
                                     <TableHead>Tipo</TableHead>
                                     <TableHead className="hidden sm:table-cell">Descripción</TableHead>
+                                    <TableHead className="hidden md:table-cell">Cuenta</TableHead>
                                     <TableHead className="text-right">Monto</TableHead>
                                     <TableHead className="w-16"></TableHead>
                                 </TableRow>
@@ -357,6 +360,11 @@ export default function Expenses() {
                                         </TableCell>
                                         <TableCell className="text-muted-foreground hidden sm:table-cell">
                                             {expense.description || '-'}
+                                        </TableCell>
+                                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                                            {expense.method
+                                                ? PAYMENT_METHOD_LABELS[expense.method] || expense.method
+                                                : <span className="text-amber-600 dark:text-amber-400">Sin especificar</span>}
                                         </TableCell>
                                         <TableCell className="text-right font-semibold">
                                             ${expense.amount.toLocaleString('es-AR')}

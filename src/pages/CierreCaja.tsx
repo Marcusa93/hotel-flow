@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Printer, Wallet, Save, Calendar as CalendarIcon } from 'lucide-react';
@@ -12,6 +12,22 @@ import { useCurrentAccountPayments } from '@/hooks/useCurrentAccount';
 import { isCurrentAccountPayment } from '@/lib/currentAccount';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { useUpdateHotelSettings } from '@/hooks/useUpdateHotelSettings';
+import { useCashFloatForDay, useSetCashFloat } from '@/hooks/useCashFloat';
+import {
+  useCashContributions,
+  useCreateCashContribution,
+  useDeleteCashContribution,
+} from '@/hooks/useCashContributions';
+import { useAppRole } from '@/context/AppRoleContext';
+import { useAuth } from '@/context/AuthContext';
+import {
+  summarizeExpenses,
+  companyCashBalance,
+  cashToDeposit as computeCashToDeposit,
+  defaultClosingDay,
+  resolveCashFloat,
+  EXPENSE_METHOD_ORDER,
+} from '@/lib/cashClosing';
 import { PageHeader } from '@/components/shared';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,8 +38,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import type { PaymentMethod } from '@/types/hotel';
-import { PAYMENT_METHODS, EXPENSE_TYPE_LABELS } from '@/lib/constants';
-import { formatLocalDate, escapeHtml } from '@/lib/utils';
+import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, EXPENSE_TYPE_LABELS } from '@/lib/constants';
+import { cn, formatLocalDate, escapeHtml } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { PRINT_FONT_LINK, PRINT_FONT_CSS } from '@/lib/printStyles';
 
@@ -41,11 +57,27 @@ export default function CierreCaja() {
   const createOtherIncome = useCreateOtherIncome();
   const deleteOtherIncome = useDeleteOtherIncome();
 
-  const [day, setDay] = useState<string>(formatLocalDate(new Date()));
+  // Arranca en ayer: el hotel se sienta a la mañana a cerrar la caja del día
+  // anterior, y abrir en "hoy" los obligaba a corregir la fecha siempre.
+  const [day, setDay] = useState<string>(formatLocalDate(defaultClosingDay()));
   const [floatOverride, setFloatOverride] = useState<number | null>(null);
   const [newIncome, setNewIncome] = useState<{ description: string; method: PaymentMethod; amount: string }>({ description: '', method: 'CASH', amount: '' });
+  const [newAporte, setNewAporte] = useState<{ notes: string; amount: string }>({ notes: '', amount: '' });
 
-  const cashFloat = floatOverride ?? hotelSettings?.dailyCashFloat ?? 0;
+  const { data: allContributions = [] } = useCashContributions();
+  const createContribution = useCreateCashContribution();
+  const deleteContribution = useDeleteCashContribution();
+  const savedFloat = useCashFloatForDay(day);
+  const setCashFloat = useSetCashFloat();
+  const { profileName } = useAppRole();
+  const { user } = useAuth();
+  // Lo tecleado gana mientras se edita; después el de ese día, y al final el
+  // predeterminado del hotel.
+  const cashFloat = floatOverride ?? resolveCashFloat(savedFloat, hotelSettings?.dailyCashFloat);
+
+  // Cambiar de día descarta lo tecleado: si no, el monto de un día se arrastraba
+  // al siguiente y se guardaba en el equivocado.
+  useEffect(() => setFloatOverride(null), [day]);
 
   const otherIncomeDay = useMemo(
     () => allOtherIncome.filter((o) => formatLocalDate(new Date(o.date)) === day),
@@ -112,14 +144,10 @@ export default function CierreCaja() {
   // Expenses via the expenses hook (filtered locally by day)
   const { data: allExpenses = [] } = useExpenses();
   const expenses = useMemo(() => {
-    const dayExpenses = allExpenses.filter((e) => formatLocalDate(new Date(e.date)) === day);
-    const byType: Record<string, number> = {};
-    let total = 0;
-    for (const e of dayExpenses) {
-      byType[e.expenseType] = (byType[e.expenseType] || 0) + e.amount;
-      total += e.amount;
-    }
-    return { list: dayExpenses, byType, total };
+    const dayExpenses = allExpenses
+      .filter((e) => formatLocalDate(new Date(e.date)) === day)
+      .sort((a, b) => b.amount - a.amount);
+    return { list: dayExpenses, ...summarizeExpenses(dayExpenses) };
   }, [allExpenses, day]);
 
   // Deuda del día: guests checking in that day whose booking isn't fully paid
@@ -143,18 +171,73 @@ export default function CierreCaja() {
     return { rows, total };
   }, [bookings, payments, guests, rooms, day]);
 
-  const cashToDeposit = cashTotal - cashFloat;
+  // Los gastos en efectivo salieron del cajón: rendirlos otra vez sería contar
+  // dos veces la misma plata.
+  const cashToDeposit = computeCashToDeposit({
+    cashIncome: cashTotal,
+    cashFloat,
+    // Solo lo que salió de la recaudación: lo pagado con la plata de la empresa
+    // es otra caja y rendirla no corresponde.
+    cashExpenses: expenses.cashRecaudacion,
+  });
   const totalDelDia = totalIngresos - expenses.total;
+
+  // La caja de la empresa. El saldo es histórico —lo que pusieron el lunes sigue
+  // estando el miércoles— así que se calcula sobre todo, no sobre el día.
+  const aportesDia = useMemo(
+    () => allContributions.filter((c) => formatLocalDate(new Date(c.date)) === day),
+    [allContributions, day]
+  );
+  const aportesDiaTotal = aportesDia.reduce((sum, c) => sum + c.amount, 0);
+  const saldoEmpresa = useMemo(
+    () => companyCashBalance(allContributions, allExpenses),
+    [allContributions, allExpenses]
+  );
 
   const dayLabel = format(new Date(day + 'T00:00:00'), "EEEE d 'de' MMMM 'de' yyyy", { locale: es });
 
+  const author = { id: user?.id, name: profileName || user?.email || undefined };
+
+  const addAporte = async () => {
+    const amount = Number(newAporte.amount);
+    if (!amount || amount <= 0) {
+      toast({ title: 'Monto inválido', description: 'Ingresá cuánto puso la empresa', variant: 'destructive' });
+      return;
+    }
+    try {
+      await createContribution.mutateAsync({
+        date: new Date(day + 'T00:00:00'),
+        amount,
+        notes: newAporte.notes.trim() || undefined,
+        createdBy: author.id,
+        createdByName: author.name,
+      });
+      setNewAporte({ notes: '', amount: '' });
+      toast({ title: 'Aporte registrado', description: `${money(amount)} a la caja de la empresa` });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo registrar el aporte', variant: 'destructive' });
+    }
+  };
+
+  /** Fija el fondo para ESTE día, sin tocar el de los demás. */
+  const saveFloatForDay = async () => {
+    try {
+      await setCashFloat.mutateAsync({ day, amount: cashFloat, setBy: author.id, setByName: author.name });
+      setFloatOverride(null);
+      toast({ title: 'Fondo fijo guardado', description: `${money(cashFloat)} para el ${day}` });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo guardar el fondo fijo del día', variant: 'destructive' });
+    }
+  };
+
+  /** Lo deja como habitual: los días que no tengan el suyo heredan este. */
   const saveFloatAsDefault = async () => {
     if (!hotelSettings) return;
     try {
       await updateSettings.mutateAsync({ id: hotelSettings.id, data: { dailyCashFloat: cashFloat } });
-      toast({ title: 'Fijo del día guardado', description: `Predeterminado: ${money(cashFloat)}` });
+      toast({ title: 'Fondo fijo habitual guardado', description: `Predeterminado: ${money(cashFloat)}` });
     } catch {
-      toast({ title: 'Error', description: 'No se pudo guardar el fijo del día', variant: 'destructive' });
+      toast({ title: 'Error', description: 'No se pudo guardar el fondo fijo', variant: 'destructive' });
     }
   };
 
@@ -165,9 +248,29 @@ export default function CierreCaja() {
     const methodRows = PAYMENT_METHODS.map(
       (m) => `<tr><td>${h(m.label)}</td><td class="num">${money(byMethod[m.value] || 0)}</td></tr>`
     ).join('');
-    const expenseRows = Object.entries(expenses.byType)
+    const expenseTypeRows = Object.entries(expenses.byType)
       .map(([t, v]) => `<tr><td>${h(EXPENSE_TYPE_LABELS[t] || t)}</td><td class="num">${money(v)}</td></tr>`)
       .join('') || '<tr><td colspan="2">Sin gastos</td></tr>';
+    // De qué cuenta salió cada peso. Es la mitad que faltaba: sin esto el cierre
+    // decía en qué se gastó pero no de dónde salió la plata.
+    const expenseMethodRows = EXPENSE_METHOD_ORDER
+      .filter((m) => expenses.byMethod[m])
+      .map((m) => `<tr><td>${h(PAYMENT_METHOD_LABELS[m] || m)}</td><td class="num">${money(expenses.byMethod[m])}</td></tr>`)
+      .join('')
+      + (expenses.unspecified > 0
+        ? `<tr><td>Sin especificar</td><td class="num">${money(expenses.unspecified)}</td></tr>`
+        : '')
+      || '<tr><td colspan="2">Sin gastos</td></tr>';
+    // Cada gasto con su descripción: en qué se gastó de verdad.
+    // Cada gasto dice también de qué caja salió: es lo que permite cuadrar.
+    const cajaLabel = (e: typeof expenses.list[number]) =>
+      e.method !== 'CASH' ? '' : ` · ${(e.cashSource ?? 'RECAUDACION') === 'EMPRESA' ? 'caja empresa' : 'recaudación'}`;
+    const expenseDetailRows = expenses.list
+      .map((e) => `<tr><td>${h(EXPENSE_TYPE_LABELS[e.expenseType] || e.expenseType)}${e.description ? ` — ${h(e.description)}` : ''}<br><span class="muted">${h((e.method ? PAYMENT_METHOD_LABELS[e.method] || e.method : 'sin especificar') + cajaLabel(e))}</span></td><td class="num">${money(e.amount)}</td></tr>`)
+      .join('') || '<tr><td colspan="2">Sin gastos</td></tr>';
+    const aporteRows = aportesDia
+      .map((c) => `<tr><td>${h(c.notes || 'Aporte a la caja')}${c.createdByName ? `<br><span class="muted">${h(c.createdByName)}</span>` : ''}</td><td class="num">${money(c.amount)}</td></tr>`)
+      .join('') || '<tr><td colspan="2">Sin aportes este día</td></tr>';
     const deudaRows = deuda.rows
       .map((r) => `<tr><td>${h(r.name)} — Hab. ${h(r.room)}</td><td class="num">${money(r.owed)}</td></tr>`)
       .join('') || '<tr><td colspan="2">Sin deudas</td></tr>';
@@ -183,6 +286,7 @@ export default function CierreCaja() {
       h2{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:#003366;border-bottom:2px solid #D4A017;padding-bottom:4px;margin:20px 0 8px}
       table{width:100%;border-collapse:collapse}td{padding:6px 4px;border-bottom:1px solid #f1f5f9;font-size:13px}
       .num{text-align:right;font-variant-numeric:tabular-nums}
+      .muted{color:#94a3b8;font-size:11px}
       .tot{font-weight:700;border-top:2px solid #1e293b}
       .grand{font-size:16px;font-weight:700;color:#003366}
     </style></head><body>
@@ -194,11 +298,19 @@ export default function CierreCaja() {
         ? `<tr><td>A cuenta corriente (no ingresó)</td><td class="num">${money(aCuentaCorriente)}</td></tr>`
         : ''}</table>
     <h2>Caja (efectivo)</h2><table>
-      <tr><td>Efectivo del día</td><td class="num">${money(cashTotal)}</td></tr>
-      <tr><td>Menos fijo del día</td><td class="num">-${money(cashFloat)}</td></tr>
+      <tr><td>Efectivo cobrado</td><td class="num">${money(cashTotal)}</td></tr>
+      <tr><td>Menos fondo fijo</td><td class="num">-${money(cashFloat)}</td></tr>
+      <tr><td>Menos gastos pagados de la recaudación</td><td class="num">-${money(expenses.cashRecaudacion)}</td></tr>
       <tr class="tot"><td>Efectivo a rendir</td><td class="num">${money(cashToDeposit)}</td></tr></table>
-    <h2>Gastos del día</h2><table>${expenseRows}
+    <h2>Gastos por rubro</h2><table>${expenseTypeRows}
       <tr class="tot"><td>Total gastos</td><td class="num">${money(expenses.total)}</td></tr></table>
+    <h2>Gastos por cuenta</h2><table>${expenseMethodRows}</table>
+    <h2>Detalle de gastos</h2><table>${expenseDetailRows}</table>
+    <h2>Caja de la empresa</h2><table>
+      <tr><td>Aportes de este día</td><td class="num">${money(aportesDiaTotal)}</td></tr>
+      <tr><td>Gastado de esta caja</td><td class="num">-${money(expenses.cashEmpresa)}</td></tr>
+      <tr class="tot"><td>Saldo disponible</td><td class="num">${money(saldoEmpresa)}</td></tr></table>
+    <table>${aporteRows}</table>
     <h2>Ingresos externos</h2><table>${otherIncomeRows}</table>
     <h2>Deudas (DEBE)</h2><table>${deudaRows}
       <tr class="tot"><td>Total deuda</td><td class="num">${money(deuda.total)}</td></tr></table>
@@ -208,13 +320,13 @@ export default function CierreCaja() {
     w.document.close();
     w.focus();
     setTimeout(() => w.print(), 250);
-  }, [byMethod, expenses, deuda, otherIncomeDay, aCuentaCorriente, day, dayLabel, cashFloat, cashTotal, cashToDeposit, totalIngresos, totalDelDia, hotelSettings]);
+  }, [byMethod, expenses, deuda, otherIncomeDay, aCuentaCorriente, day, dayLabel, cashFloat, cashTotal, cashToDeposit, totalIngresos, totalDelDia, hotelSettings, aportesDia, aportesDiaTotal, saldoEmpresa]);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Cierre de Caja"
-        description="Resumen diario de caja: ingresos por método, gastos, deudas y efectivo a rendir"
+        description="Se cierra la caja del día anterior. Ingresos por método, gastos por rubro y cuenta, deudas y efectivo a rendir."
         actions={
           <Button variant="outline" size="sm" onClick={handlePrint}>
             <Printer className="w-4 h-4 mr-2" /> Imprimir cierre
@@ -229,7 +341,7 @@ export default function CierreCaja() {
           <Input type="date" value={day} max={formatLocalDate(new Date())} onChange={(e) => setDay(e.target.value)} className="w-[180px]" />
         </div>
         <div>
-          <Label className="text-xs mb-1 block flex items-center gap-1"><Wallet className="w-3 h-3" /> Fijo del día</Label>
+          <Label className="text-xs mb-1 block flex items-center gap-1"><Wallet className="w-3 h-3" /> Fondo fijo</Label>
           <div className="flex items-center gap-2">
             <Input
               type="number" min={0} step={1000}
@@ -237,10 +349,24 @@ export default function CierreCaja() {
               onChange={(e) => setFloatOverride(Number(e.target.value) || 0)}
               className="w-[140px]"
             />
-            <Button variant="ghost" size="sm" onClick={saveFloatAsDefault} title="Guardar como predeterminado">
-              <Save className="w-4 h-4" />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={saveFloatForDay}
+              disabled={setCashFloat.isPending}
+              title="Guardar el fondo fijo de este día"
+            >
+              <Save className="w-4 h-4 mr-1.5" /> Este día
+            </Button>
+            <Button variant="ghost" size="sm" onClick={saveFloatAsDefault} title="Dejarlo como monto habitual para los días que no tengan uno propio">
+              Habitual
             </Button>
           </div>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            {savedFloat !== null
+              ? 'Fijado para este día.'
+              : `Heredado del habitual (${money(hotelSettings?.dailyCashFloat ?? 0)}).`}
+          </p>
         </div>
         <p className="text-sm text-muted-foreground capitalize ml-auto">{dayLabel}</p>
       </div>
@@ -276,25 +402,78 @@ export default function CierreCaja() {
         <Card className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border-white/20 shadow-sm">
           <CardHeader><CardTitle className="text-base">Caja (efectivo)</CardTitle></CardHeader>
           <CardContent className="space-y-2">
-            <div className="flex justify-between text-sm py-1"><span className="text-muted-foreground">Efectivo del día</span><span className="font-medium tabular-nums">{money(cashTotal)}</span></div>
-            <div className="flex justify-between text-sm py-1"><span className="text-muted-foreground">Menos fijo del día</span><span className="font-medium tabular-nums text-rose-500">-{money(cashFloat)}</span></div>
-            <div className="flex justify-between pt-2 border-t font-bold"><span>Efectivo a rendir</span><span className="tabular-nums">{money(cashToDeposit)}</span></div>
+            <div className="flex justify-between text-sm py-1"><span className="text-muted-foreground">Efectivo cobrado</span><span className="font-medium tabular-nums">{money(cashTotal)}</span></div>
+            <div className="flex justify-between text-sm py-1"><span className="text-muted-foreground">Menos fondo fijo</span><span className="font-medium tabular-nums text-rose-500">-{money(cashFloat)}</span></div>
+            {/* La plata que se pagó del cajón ya no está: rendirla otra vez sería
+                contarla dos veces. */}
+            <div className="flex justify-between text-sm py-1">
+              <span className="text-muted-foreground">Menos gastos pagados de la recaudación</span>
+              <span className="font-medium tabular-nums text-rose-500">-{money(expenses.cashRecaudacion)}</span>
+            </div>
+            <div className="flex justify-between pt-2 border-t font-bold">
+              <span>Efectivo a rendir</span>
+              <span className={cashToDeposit < 0 ? 'tabular-nums text-rose-600' : 'tabular-nums'}>{money(cashToDeposit)}</span>
+            </div>
+            {cashToDeposit < 0 && (
+              <p className="text-xs text-rose-600 dark:text-rose-400">
+                Se gastó más efectivo del que entró: la diferencia salió del fondo fijo.
+              </p>
+            )}
           </CardContent>
         </Card>
 
-        {/* Gastos del día */}
-        <Card className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border-white/20 shadow-sm">
+        {/* Gastos del día — en qué se gastó y de qué cuenta salió */}
+        <Card className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border-white/20 shadow-sm lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Gastos del día</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-            {Object.keys(expenses.byType).length === 0 ? (
+          <CardContent className="space-y-4">
+            {expenses.list.length === 0 ? (
               <p className="text-sm text-muted-foreground py-2">Sin gastos registrados este día</p>
             ) : (
-              Object.entries(expenses.byType).map(([t, v]) => (
-                <div key={t} className="flex justify-between text-sm py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
-                  <span className="text-muted-foreground">{EXPENSE_TYPE_LABELS[t] || t}</span>
-                  <span className="font-medium tabular-nums">{money(v)}</span>
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">Por rubro</p>
+                    {Object.entries(expenses.byType).map(([t, v]) => (
+                      <div key={t} className="flex justify-between text-sm py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                        <span className="text-muted-foreground">{EXPENSE_TYPE_LABELS[t] || t}</span>
+                        <span className="font-medium tabular-nums">{money(v)}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">Por cuenta</p>
+                    {EXPENSE_METHOD_ORDER.filter(m => expenses.byMethod[m]).map((m) => (
+                      <div key={m} className="flex justify-between text-sm py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                        <span className="text-muted-foreground">{PAYMENT_METHOD_LABELS[m] || m}</span>
+                        <span className="font-medium tabular-nums">{money(expenses.byMethod[m])}</span>
+                      </div>
+                    ))}
+                    {/* Los cargados antes de que se pidiera el medio de pago */}
+                    {expenses.unspecified > 0 && (
+                      <div className="flex justify-between text-sm py-1">
+                        <span className="text-amber-600 dark:text-amber-400">Sin especificar</span>
+                        <span className="font-medium tabular-nums text-amber-600 dark:text-amber-400">{money(expenses.unspecified)}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ))
+
+                {/* El detalle: qué se compró, no solo cuánto */}
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">Detalle</p>
+                  {expenses.list.map((e) => (
+                    <div key={e.id} className="flex items-baseline gap-2 text-sm py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                      <span className="text-muted-foreground shrink-0">{EXPENSE_TYPE_LABELS[e.expenseType] || e.expenseType}</span>
+                      <span className="flex-1 truncate text-xs text-slate-500 dark:text-slate-400">{e.description || '—'}</span>
+                      <span className="text-[11px] text-slate-400 shrink-0">
+                        {e.method ? PAYMENT_METHOD_LABELS[e.method] || e.method : 'sin especificar'}
+                      </span>
+                      <span className="font-medium tabular-nums shrink-0">{money(e.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
             <div className="flex justify-between pt-2 border-t font-bold"><span>Total gastos</span><span className="text-rose-600 tabular-nums">{money(expenses.total)}</span></div>
           </CardContent>
@@ -315,6 +494,78 @@ export default function CierreCaja() {
               ))
             )}
             <div className="flex justify-between pt-2 border-t font-bold"><span>Total deuda</span><span className="text-amber-600 tabular-nums">{money(deuda.total)}</span></div>
+          </CardContent>
+        </Card>
+
+        {/* Caja de la empresa — la plata que pone el hotel para comprar */}
+        <Card className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border-white/20 shadow-sm lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base">Caja de la empresa</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Efectivo que pone el hotel para las compras del día. No es un ingreso y no se rinde:
+              va aparte de lo cobrado a huéspedes.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="rounded-xl border p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Aportes de este día</p>
+                <p className="text-lg font-bold tabular-nums text-emerald-600">{money(aportesDiaTotal)}</p>
+              </div>
+              <div className="rounded-xl border p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Gastado de esta caja</p>
+                <p className="text-lg font-bold tabular-nums text-rose-600">{money(expenses.cashEmpresa)}</p>
+              </div>
+              <div className="rounded-xl border p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Saldo disponible</p>
+                <p className={cn('text-lg font-bold tabular-nums', saldoEmpresa < 0 ? 'text-rose-600' : 'text-slate-800 dark:text-slate-100')}>
+                  {money(saldoEmpresa)}
+                </p>
+              </div>
+            </div>
+
+            {saldoEmpresa < 0 && (
+              <p className="text-xs text-rose-600 dark:text-rose-400">
+                Se gastó más de lo que la empresa puso: hay que reponer la caja.
+              </p>
+            )}
+
+            {aportesDia.length > 0 && (
+              <div>
+                {aportesDia.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between text-sm py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                    <span className="text-muted-foreground flex-1">{c.notes || 'Aporte a la caja'}</span>
+                    <span className="text-xs text-slate-400 mr-3">{c.createdByName || ''}</span>
+                    <span className="font-medium tabular-nums mr-2">{money(c.amount)}</span>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-rose-500" onClick={() => deleteContribution.mutate(c)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-end gap-2 pt-2 border-t">
+              <div className="flex-1 min-w-[160px]">
+                <Label className="text-xs mb-1 block">Detalle (opcional)</Label>
+                <Input
+                  value={newAporte.notes}
+                  onChange={(e) => setNewAporte((p) => ({ ...p, notes: e.target.value }))}
+                  placeholder="Ej: reposición para compras"
+                />
+              </div>
+              <div className="w-[140px]">
+                <Label className="text-xs mb-1 block">Monto</Label>
+                <Input
+                  type="number" min={0}
+                  value={newAporte.amount}
+                  onChange={(e) => setNewAporte((p) => ({ ...p, amount: e.target.value }))}
+                />
+              </div>
+              <Button onClick={addAporte} disabled={createContribution.isPending}>
+                <Plus className="w-4 h-4 mr-1" /> Registrar aporte
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

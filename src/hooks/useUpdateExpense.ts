@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { ExpenseType } from '@/types/hotel';
+import { ExpenseType, SettlementMethod } from '@/types/hotel';
 import { logAuditEvent } from './useCreateAuditLog';
 
 interface UpdateExpenseInput {
@@ -9,6 +9,7 @@ interface UpdateExpenseInput {
     expenseType: ExpenseType;
     amount: number;
     description?: string;
+    method?: SettlementMethod;
 }
 
 export const useUpdateExpense = () => {
@@ -23,6 +24,7 @@ export const useUpdateExpense = () => {
                     expense_type: input.expenseType,
                     amount: input.amount,
                     description: input.description || null,
+                    method: input.method || null,
                 })
                 .eq('id', input.id)
                 .select()

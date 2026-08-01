@@ -368,7 +368,21 @@ export interface Expense {
   expenseType: ExpenseType;
   amount: number;
   description?: string;
+  /**
+   * De dónde salió la plata. Ausente en los gastos anteriores a la columna: no
+   * se sabe si salieron de la caja, así que no descuentan del efectivo a rendir.
+   */
+  method?: SettlementMethod;
   createdAt: Date;
+}
+
+/** El fondo fijo que queda en la caja un día puntual. */
+export interface CashFloat {
+  date: Date;
+  amount: number;
+  setBy?: string;
+  setByName?: string;
+  updatedAt: Date;
 }
 
 export interface HotelSettings {

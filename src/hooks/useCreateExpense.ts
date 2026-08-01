@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { Expense, ExpenseType } from '@/types/hotel';
+import { Expense, ExpenseType, SettlementMethod } from '@/types/hotel';
 import { logAuditEvent } from './useCreateAuditLog';
 import { createNotificationIfEnabled } from './useCreateNotification';
 import { formatLocalDate } from '@/lib/utils';
@@ -10,6 +10,8 @@ interface CreateExpenseInput {
     expenseType: ExpenseType;
     amount: number;
     description?: string;
+    /** Con qué se pagó. Sin esto la caja no cuadra: un gasto en efectivo sale del cajón. */
+    method?: SettlementMethod;
 }
 
 export const useCreateExpense = () => {
@@ -23,7 +25,8 @@ export const useCreateExpense = () => {
                     date: formatLocalDate(input.date),
                     expense_type: input.expenseType,
                     amount: input.amount,
-                    description: input.description || null
+                    description: input.description || null,
+                    method: input.method || null,
                 })
                 .select()
                 .single();
@@ -36,6 +39,7 @@ export const useCreateExpense = () => {
                 expenseType: data.expense_type as ExpenseType,
                 amount: parseFloat(data.amount),
                 description: data.description,
+                method: data.method || undefined,
                 createdAt: new Date(data.created_at)
             };
         },

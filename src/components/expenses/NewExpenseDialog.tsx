@@ -19,7 +19,8 @@ import {
 } from '@/components/ui/select';
 import { useCreateExpense } from '@/hooks/useCreateExpense';
 import { useUpdateExpense } from '@/hooks/useUpdateExpense';
-import { Expense, ExpenseType } from '@/types/hotel';
+import { Expense, ExpenseType, SettlementMethod } from '@/types/hotel';
+import { PAYMENT_METHODS } from '@/lib/constants';
 import { Receipt, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
@@ -37,6 +38,11 @@ const expenseSchema = z.object({
         .max(MAX_EXPENSE_AMOUNT, 'Monto excede el límite permitido')
         .finite('Monto inválido'),
     description: z.string().max(500, 'Descripción demasiado larga').optional(),
+    // Obligatorio de acá en adelante: sin esto la caja no cuadra. Los gastos ya
+    // cargados quedan sin método y el cierre los muestra como "sin especificar".
+    method: z.enum(['CASH', 'CREDIT', 'DEBIT', 'TRANSFER', 'QR', 'OTHER'] as const, {
+        required_error: 'Elegí con qué se pagó',
+    }),
 });
 
 interface NewExpenseDialogProps {
@@ -64,6 +70,8 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
     // Grouped text as typed ("70.000"); the numeric value is derived on submit.
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
+    // Efectivo por defecto: es de donde sale la mayoría de los gastos del día.
+    const [method, setMethod] = useState<SettlementMethod>('CASH');
 
     const createExpense = useCreateExpense();
     const updateExpense = useUpdateExpense();
@@ -76,11 +84,13 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
             setExpenseType(expense.expenseType);
             setAmount(formatPesosInput(expense.amount));
             setDescription(expense.description || '');
+            setMethod(expense.method ?? 'CASH');
         } else {
             setDate(format(new Date(), 'yyyy-MM-dd'));
             setExpenseType('SUPERMERCADO');
             setAmount('');
             setDescription('');
+            setMethod('CASH');
         }
     }, [expense, open]);
 
@@ -93,6 +103,7 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
             // The field holds "70.000"; z.coerce.number() needs the plain number.
             amount: parsePesosInput(amount).value,
             description: description || undefined,
+            method,
         });
 
         if (!parsed.success) {
@@ -115,6 +126,7 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
                     expenseType: validated.expenseType,
                     amount: validated.amount,
                     description: validated.description,
+                    method: validated.method,
                 });
                 toast({ title: 'Gasto actualizado', description: `${expenseTypeLabels[validated.expenseType]} — $${validated.amount.toLocaleString('es-AR')}` });
             } else {
@@ -123,6 +135,7 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
                     expenseType: validated.expenseType,
                     amount: validated.amount,
                     description: validated.description,
+                    method: validated.method,
                 });
                 toast({ title: 'Gasto registrado', description: `${expenseTypeLabels[validated.expenseType]} — $${validated.amount.toLocaleString('es-AR')}` });
             }
@@ -131,6 +144,7 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
             setExpenseType('SUPERMERCADO');
             setAmount('');
             setDescription('');
+            setMethod('CASH');
             onOpenChange(false);
         } catch {
             toast({ title: 'Error', description: 'No se pudo guardar el gasto', variant: 'destructive' });
@@ -194,6 +208,25 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
                                 ))}
                             </SelectContent>
                         </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="method">Con qué se pagó</Label>
+                        <Select value={method} onValueChange={(v) => setMethod(v as SettlementMethod)}>
+                            <SelectTrigger id="method">
+                                <SelectValue placeholder="Seleccionar" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {PAYMENT_METHODS.map((m) => (
+                                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        {method === 'CASH' && (
+                            <p className="text-xs text-muted-foreground">
+                                Sale de la caja: se descuenta del efectivo a rendir del día.
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-2">

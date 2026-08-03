@@ -14,6 +14,22 @@ export function formatLocalDate(date: Date): string {
 }
 
 /**
+ * Parse a date-only string (YYYY-MM-DD) as local midnight instead of UTC.
+ *
+ * Inversa de formatLocalDate: las dos leen y escriben el calendario local. Un
+ * `new Date("2026-08-03")` pelado es medianoche UTC, o sea las 21 del día 2 en
+ * Argentina, y al volver a formatearlo el día se corre para atrás. Todo lo que
+ * venga de un <input type="date"> o de una columna DATE tiene que entrar por acá.
+ */
+export function parseLocalDate(value: string | Date): Date {
+  if (value instanceof Date) return value;
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date(value + 'T00:00:00');
+  }
+  return new Date(value);
+}
+
+/**
  * Format a full name as "Apellido, Nombre" for hotel display.
  * "María García López" → "García López, María"
  * "Juan Pérez" → "Pérez, Juan"

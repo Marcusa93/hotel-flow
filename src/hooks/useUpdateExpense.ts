@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { CashSource, ExpenseType, SettlementMethod } from '@/types/hotel';
 import { logAuditEvent } from './useCreateAuditLog';
+import { formatLocalDate } from '@/lib/utils';
 
 interface UpdateExpenseInput {
     id: string;
@@ -22,7 +23,9 @@ export const useUpdateExpense = () => {
             const { data, error } = await supabase
                 .from('expenses')
                 .update({
-                    date: input.date.toISOString().split('T')[0],
+                    // Mismo criterio que el alta: el día es el del calendario
+                    // local. toISOString() acá restaba un día.
+                    date: formatLocalDate(input.date),
                     expense_type: input.expenseType,
                     amount: input.amount,
                     description: input.description || null,

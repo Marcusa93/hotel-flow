@@ -24,13 +24,18 @@ import { PAYMENT_METHODS } from '@/lib/constants';
 import { Receipt, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
-import { formatPesosInput, parsePesosInput } from '@/lib/utils';
+import { formatPesosInput, parsePesosInput, parseLocalDate } from '@/lib/utils';
 import { z } from 'zod';
 
 const MAX_EXPENSE_AMOUNT = 100_000_000; // $100M ARS sanity cap
 
-const expenseSchema = z.object({
-    date: z.coerce.date({ required_error: 'Fecha requerida' })
+export const expenseSchema = z.object({
+    // El <input type="date"> entrega "2026-08-03". Parsearlo como medianoche
+    // local y no UTC: si no, en Argentina el gasto se guardaba con la fecha del
+    // día anterior y no aparecía en el cierre de caja del día en que se cargó.
+    date: z.string({ required_error: 'Fecha requerida' })
+        .regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha requerida')
+        .transform(parseLocalDate)
         .refine(d => d.getTime() <= Date.now() + 60_000, 'La fecha no puede ser futura'),
     expenseType: z.enum(['PANADERIA', 'SUPERMERCADO', 'VERDULERIA', 'CARNICERIA', 'BEBIDAS', 'LIMPIEZA', 'MANTENIMIENTO', 'SERVICIOS', 'OTROS'] as const),
     amount: z.coerce.number()

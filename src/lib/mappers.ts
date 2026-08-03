@@ -1,4 +1,4 @@
-import { formatLocalDate } from '@/lib/utils';
+import { formatLocalDate, parseLocalDate } from '@/lib/utils';
 import type {
   RoomType,
   Room,
@@ -177,16 +177,6 @@ export const mapLogbookEntry = (row: DbRow): LogbookEntry => ({
   createdAt: new Date(row.created_at),
   updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
 });
-
-/** Parse a date-only string (YYYY-MM-DD) as local midnight instead of UTC */
-function parseLocalDate(value: string | Date): Date {
-  if (value instanceof Date) return value;
-  // DATE columns come as "YYYY-MM-DD" — append T00:00:00 so JS treats it as local
-  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return new Date(value + 'T00:00:00');
-  }
-  return new Date(value);
-}
 
 export const mapHousekeepingTask = (row: DbRow): HousekeepingTask => ({
   id: row.id,

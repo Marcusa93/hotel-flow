@@ -18,6 +18,7 @@ import type {
   PaymentAttachment,
   LogbookEntry,
   CashFloat,
+  CashClosing,
   CashContribution,
 } from '@/types/hotel';
 
@@ -237,6 +238,26 @@ export const mapCashFloat = (row: DbRow): CashFloat => ({
   setBy: row.set_by || undefined,
   setByName: row.set_by_name || undefined,
   updatedAt: new Date(row.updated_at || row.created_at || new Date()),
+});
+
+export const mapCashClosing = (row: DbRow): CashClosing => ({
+  id: row.id,
+  closingDate: parseLocalDate(row.closing_date),
+  cashIncome: Number(row.cash_income ?? 0),
+  cashFloat: Number(row.cash_float ?? 0),
+  cashExpenses: Number(row.cash_expenses ?? 0),
+  cashToDeposit: Number(row.cash_to_deposit ?? 0),
+  totalIncome: Number(row.total_income ?? 0),
+  totalExpenses: Number(row.total_expenses ?? 0),
+  notes: row.notes || undefined,
+  closedAt: new Date(row.closed_at || new Date()),
+  closedBy: row.closed_by || undefined,
+  closedByName: row.closed_by_name || undefined,
+  reopenedAt: row.reopened_at ? new Date(row.reopened_at) : undefined,
+  reopenedBy: row.reopened_by || undefined,
+  reopenedByName: row.reopened_by_name || undefined,
+  createdAt: new Date(row.created_at || new Date()),
+  updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
 });
 
 export const mapInvoiceItem = (row: DbRow): InvoiceItem => ({

@@ -1,8 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useDashboardStats } from '@/hooks/domain/useDashboardStats';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
+import { useOtherIncome } from '@/hooks/useOtherIncome';
+import { useCurrentAccountPayments } from '@/hooks/useCurrentAccount';
+import { receivedPayments, totalIncome } from '@/lib/income';
+import { PAYMENT_METHODS } from '@/lib/constants';
 import { PageHeader, KPICard } from '@/components/shared';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,17 +35,13 @@ import { DollarSign, BedDouble, Users, Calendar, Activity, Download, FileSpreads
 import { format, subDays, startOfMonth, eachDayOfInterval, isWithinInterval, startOfDay, endOfDay, differenceInCalendarDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-const METHOD_LABELS: Record<string, string> = {
-  CASH: 'Efectivo',
-  CARD: 'Tarjeta',
-  TRANSFER: 'Transferencia',
-  OTHER: 'Otro',
-};
-
 export default function Statistics() {
   const { stats, occupancyByType } = useDashboardStats();
   const { bookings } = useBookingOperations();
   const { payments } = usePaymentOperations();
+  // Las otras dos fuentes de plata del período: ver income.ts.
+  const { data: otherIncome = [] } = useOtherIncome();
+  const { data: accountPayments = [] } = useCurrentAccountPayments();
   const { data: hotelSettings } = useHotelSettings();
   const { toast } = useToast();
 
@@ -50,26 +50,39 @@ export default function Statistics() {
     to: new Date(),
   });
 
-  const rangeStart = startOfDay(dateRange.from);
-  const rangeEnd = endOfDay(dateRange.to);
-  const inRange = (d: Date) => isWithinInterval(d, { start: rangeStart, end: rangeEnd });
-
-  // PAID payments dated inside the selected range
-  const paidInRange = useMemo(
-    () => payments.filter(p => p.status === 'PAID' && inRange(new Date(p.date))),
-    [payments, rangeStart, rangeEnd]
+  // Memoizados sobre dateRange: sin esto son objetos Date nuevos en cada
+  // render, y todos los cálculos de abajo se rehacían siempre aunque el rango
+  // no hubiera cambiado.
+  const rangeStart = useMemo(() => startOfDay(dateRange.from), [dateRange.from]);
+  const rangeEnd = useMemo(() => endOfDay(dateRange.to), [dateRange.to]);
+  const inRange = useCallback(
+    (d: Date) => isWithinInterval(d, { start: rangeStart, end: rangeEnd }),
+    [rangeStart, rangeEnd]
   );
 
-  // Period revenue KPI
+  // Cobros que son plata, dentro del rango. Sin lo anotado a cuenta corriente:
+  // eso es deuda del huésped, no un ingreso. Ver income.ts.
+  const paidInRange = useMemo(
+    () => receivedPayments(payments).filter(p => inRange(new Date(p.date))),
+    [payments, inRange]
+  );
+
+  // Los ingresos del período: las tres fuentes, igual que el cierre de caja y
+  // el balance del mes. Mirando solo los cobros de reservas, este KPI quedaba
+  // más bajo que el cierre y nadie sabía cuál de los dos creer.
   const periodRevenue = useMemo(
-    () => paidInRange.reduce((sum, p) => sum + p.amount, 0),
-    [paidInRange]
+    () => totalIncome({
+      payments: paidInRange,
+      otherIncome: otherIncome.filter(o => inRange(o.date)),
+      accountPayments: accountPayments.filter(p => inRange(p.date)),
+    }),
+    [paidInRange, otherIncome, accountPayments, inRange]
   );
 
   // Bookings whose check-in falls inside the range
   const bookingsInRange = useMemo(
     () => bookings.filter(b => inRange(new Date(b.checkInDate))),
-    [bookings, rangeStart, rangeEnd]
+    [bookings, inRange]
   );
 
   // Revenue by day across the selected range (capped to 62 days so the axis stays readable)
@@ -92,9 +105,13 @@ export default function Statistics() {
     for (const p of paidInRange) {
       totals[p.method] = (totals[p.method] || 0) + p.amount;
     }
-    return Object.entries(METHOD_LABELS).map(([method, label]) => ({
+    // La lista sale de constants y no de una copia local. La que había acá se
+    // había quedado en 'CARD': crédito, débito y QR no aparecían en el gráfico
+    // —plata cobrada que no se veía en ninguna parte— y "Tarjeta" daba siempre
+    // cero, porque esos cobros se habían migrado a 'CREDIT' hace rato.
+    return PAYMENT_METHODS.map(({ value, label }) => ({
       subject: label,
-      A: totals[method] || 0,
+      A: totals[value] || 0,
     }));
   }, [paidInRange]);
 

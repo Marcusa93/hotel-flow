@@ -19,9 +19,12 @@ import {
 } from '@/components/ui/select';
 import { useCreateExpense } from '@/hooks/useCreateExpense';
 import { useUpdateExpense } from '@/hooks/useUpdateExpense';
+import { useExpenses } from '@/hooks/useExpenses';
+import { useCashContributions } from '@/hooks/useCashContributions';
+import { companyCashBalance, DEFAULT_CASH_SOURCE } from '@/lib/cashClosing';
 import { CashSource, Expense, ExpenseType, SettlementMethod } from '@/types/hotel';
 import { PAYMENT_METHODS } from '@/lib/constants';
-import { Receipt, Loader2 } from 'lucide-react';
+import { Receipt, Loader2, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import { formatPesosInput, parsePesosInput, parseLocalDate } from '@/lib/utils';
@@ -78,12 +81,48 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
     const [description, setDescription] = useState('');
     // Efectivo por defecto: es de donde sale la mayoría de los gastos del día.
     const [method, setMethod] = useState<SettlementMethod>('CASH');
-    // La caja de la empresa es la que se usa para las compras del día, así que
-    // es el arranque más probable de un gasto en efectivo.
-    const [cashSource, setCashSource] = useState<CashSource>('EMPRESA');
+    /**
+     * Recaudación por defecto, y no la caja de la empresa.
+     *
+     * Arrancaba en EMPRESA y eso rompía el cierre: recepción le pagaba al
+     * panadero sacando del cajón, no tocaba este desplegable, y el gasto quedaba
+     * como si hubiera salido del fondo de la empresa. Como ese fondo no baja el
+     * efectivo a rendir, el sistema pedía rendir plata que ya no estaba en el
+     * cajón — y el cierre daba faltante.
+     *
+     * De los dos supuestos posibles este es el que no rompe nada: si el gasto
+     * salió del cajón, el número cierra; y si en realidad salió del fondo de la
+     * empresa, lo peor que pasa es que el efectivo a rendir dé de menos y sobre
+     * plata, que se ve enseguida y no genera un faltante.
+     *
+     * Es además el mismo supuesto que ya usaban expenseCashSource() para los
+     * gastos viejos y el modo edición de acá abajo. Antes eran tres criterios
+     * para el mismo dato faltante.
+     */
+    const [cashSource, setCashSource] = useState<CashSource>(DEFAULT_CASH_SOURCE);
 
     const createExpense = useCreateExpense();
     const updateExpense = useUpdateExpense();
+
+    /**
+     * Cuánto queda en la caja de la empresa, para avisar antes de gastar de una
+     * caja vacía.
+     *
+     * Es el guardarraíl del error que rompió el cierre: decir que un gasto salió
+     * del fondo de la empresa cuando la empresa no puso nada significa, casi
+     * siempre, que salió del cajón. El default ya no lleva a ese error, pero
+     * alguien lo puede elegir a mano igual.
+     */
+    const { data: allExpenses = [] } = useExpenses();
+    const { data: contributions = [] } = useCashContributions();
+    const saldoEmpresa = companyCashBalance(contributions, allExpenses);
+    const montoActual = parsePesosInput(amount).value || 0;
+    // Al editar, lo ya imputado a la empresa por ESTE gasto no se cuenta dos veces.
+    const yaImputado =
+        expense && expense.method === 'CASH' && expense.cashSource === 'EMPRESA'
+            ? expense.amount
+            : 0;
+    const alcanzaLaCajaEmpresa = saldoEmpresa + yaImputado >= montoActual;
     const isPending = createExpense.isPending || updateExpense.isPending;
 
     // Pre-fill form when editing
@@ -94,14 +133,14 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
             setAmount(formatPesosInput(expense.amount));
             setDescription(expense.description || '');
             setMethod(expense.method ?? 'CASH');
-            setCashSource(expense.cashSource ?? 'RECAUDACION');
+            setCashSource(expense.cashSource ?? DEFAULT_CASH_SOURCE);
         } else {
             setDate(format(new Date(), 'yyyy-MM-dd'));
             setExpenseType('SUPERMERCADO');
             setAmount('');
             setDescription('');
             setMethod('CASH');
-            setCashSource('EMPRESA');
+            setCashSource(DEFAULT_CASH_SOURCE);
         }
     }, [expense, open]);
 
@@ -159,7 +198,7 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
             setAmount('');
             setDescription('');
             setMethod('CASH');
-            setCashSource('EMPRESA');
+            setCashSource(DEFAULT_CASH_SOURCE);
             onOpenChange(false);
         } catch {
             toast({ title: 'Error', description: 'No se pudo guardar el gasto', variant: 'destructive' });
@@ -249,8 +288,10 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    {/* La recaudación va primero porque es el default:
+                                        que el orden no sugiera otra cosa que la elegida. */}
+                                    <SelectItem value="RECAUDACION">Recaudación del día (el cajón)</SelectItem>
                                     <SelectItem value="EMPRESA">Caja de la empresa (para gastos)</SelectItem>
-                                    <SelectItem value="RECAUDACION">Recaudación del día</SelectItem>
                                 </SelectContent>
                             </Select>
                             <p className="text-xs text-muted-foreground">
@@ -258,6 +299,22 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
                                     ? 'Sale del fondo que puso la empresa. No toca el efectivo a rendir.'
                                     : 'Sale de lo cobrado a huéspedes: se descuenta del efectivo a rendir del día.'}
                             </p>
+
+                            {/* No bloquea: puede haber un aporte que todavía no
+                                cargaron. Pero si la plata salió del cajón y se
+                                marca acá, el cierre del día va a dar faltante. */}
+                            {cashSource === 'EMPRESA' && !alcanzaLaCajaEmpresa && (
+                                <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/30 p-2.5 text-xs text-amber-800 dark:text-amber-200">
+                                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                    <span>
+                                        La caja de la empresa tiene{' '}
+                                        <strong>${saldoEmpresa.toLocaleString('es-AR')}</strong>
+                                        {montoActual > 0 ? ` y este gasto es de $${montoActual.toLocaleString('es-AR')}` : ''}.
+                                        {' '}Si la plata salió del cajón, elegí <strong>Recaudación del día</strong>:
+                                        marcarlo acá deja el cierre con faltante.
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     )}
 

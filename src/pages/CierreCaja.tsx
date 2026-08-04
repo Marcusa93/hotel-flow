@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Printer, Wallet, Save, Calendar as CalendarIcon } from 'lucide-react';
+import { Printer, Wallet, Save, Calendar as CalendarIcon, Lock, LockOpen, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
@@ -26,8 +26,17 @@ import {
   cashToDeposit as computeCashToDeposit,
   defaultClosingDay,
   resolveCashFloat,
+  belongsToClosingDay,
+  isDayClosed,
+  closingDrift,
   EXPENSE_METHOD_ORDER,
 } from '@/lib/cashClosing';
+import { useCashClosings, useCloseCashDay, useReopenCashDay } from '@/hooks/useCashClosings';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { PageHeader } from '@/components/shared';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -69,7 +78,7 @@ export default function CierreCaja() {
   const deleteContribution = useDeleteCashContribution();
   const savedFloat = useCashFloatForDay(day);
   const setCashFloat = useSetCashFloat();
-  const { profileName } = useAppRole();
+  const { profileName, currentRole } = useAppRole();
   const { user } = useAuth();
   // Lo tecleado gana mientras se edita; después el de ese día, y al final el
   // predeterminado del hotel.
@@ -80,12 +89,12 @@ export default function CierreCaja() {
   useEffect(() => setFloatOverride(null), [day]);
 
   const otherIncomeDay = useMemo(
-    () => allOtherIncome.filter((o) => formatLocalDate(new Date(o.date)) === day),
+    () => allOtherIncome.filter((o) => belongsToClosingDay(formatLocalDate(new Date(o.date)), day)),
     [allOtherIncome, day]
   );
 
   const accountPaymentsDay = useMemo(
-    () => allAccountPayments.filter((p) => formatLocalDate(new Date(p.date)) === day),
+    () => allAccountPayments.filter((p) => belongsToClosingDay(formatLocalDate(new Date(p.date)), day)),
     [allAccountPayments, day]
   );
 
@@ -99,7 +108,7 @@ export default function CierreCaja() {
     let aCuentaCorriente = 0;
 
     for (const p of payments) {
-      if (p.status !== 'PAID' || formatLocalDate(new Date(p.date)) !== day) continue;
+      if (p.status !== 'PAID' || !belongsToClosingDay(formatLocalDate(new Date(p.date)), day)) continue;
       if (isCurrentAccountPayment(p)) {
         aCuentaCorriente += p.amount;
         continue;
@@ -145,7 +154,7 @@ export default function CierreCaja() {
   const { data: allExpenses = [] } = useExpenses();
   const expenses = useMemo(() => {
     const dayExpenses = allExpenses
-      .filter((e) => formatLocalDate(new Date(e.date)) === day)
+      .filter((e) => belongsToClosingDay(formatLocalDate(new Date(e.date)), day))
       .sort((a, b) => b.amount - a.amount);
     return { list: dayExpenses, ...summarizeExpenses(dayExpenses) };
   }, [allExpenses, day]);
@@ -185,7 +194,7 @@ export default function CierreCaja() {
   // La caja de la empresa. El saldo es histórico —lo que pusieron el lunes sigue
   // estando el miércoles— así que se calcula sobre todo, no sobre el día.
   const aportesDia = useMemo(
-    () => allContributions.filter((c) => formatLocalDate(new Date(c.date)) === day),
+    () => allContributions.filter((c) => belongsToClosingDay(formatLocalDate(new Date(c.date)), day)),
     [allContributions, day]
   );
   const aportesDiaTotal = aportesDia.reduce((sum, c) => sum + c.amount, 0);
@@ -197,6 +206,81 @@ export default function CierreCaja() {
   const dayLabel = format(new Date(day + 'T00:00:00'), "EEEE d 'de' MMMM 'de' yyyy", { locale: es });
 
   const author = { id: user?.id, name: profileName || user?.email || undefined };
+
+  // ─── El cierre del día ──────────────────────────────────────────────
+  const { data: allClosings = [] } = useCashClosings();
+  const closeDay = useCloseCashDay();
+  const reopenDay = useReopenCashDay();
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [closeNotes, setCloseNotes] = useState('');
+
+  const closing = allClosings.find((c) => formatLocalDate(c.closingDate) === day);
+  const closed = isDayClosed(closing);
+  const canClose = currentRole === 'admin' || currentRole === 'reception';
+  const canReopen = currentRole === 'admin';
+
+  // Lo que se cerró contra lo que dan los números ahora. Con algo acá, alguien
+  // tocó un movimiento después de cerrar y lo rendido ya no coincide.
+  const drift = useMemo(
+    () => (closing && closed
+      ? closingDrift(closing, {
+          cashIncome: cashTotal,
+          cashExpenses: expenses.cashRecaudacion,
+          cashToDeposit,
+          totalIncome: totalIngresos,
+          totalExpenses: expenses.total,
+        })
+      : []),
+    [closing, closed, cashTotal, expenses.cashRecaudacion, expenses.total, cashToDeposit, totalIngresos]
+  );
+
+  // Los últimos 7 días cerrables, hoy afuera: el cierre es del día que ya pasó.
+  const ultimosDias = useMemo(() => {
+    const dias: { dia: string; etiqueta: string; cerrado: boolean }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = defaultClosingDay();
+      d.setDate(d.getDate() - i);
+      const dia = formatLocalDate(d);
+      dias.push({
+        dia,
+        etiqueta: format(d, 'EEE d/M', { locale: es }),
+        cerrado: isDayClosed(allClosings.find((c) => formatLocalDate(c.closingDate) === dia)),
+      });
+    }
+    return dias;
+  }, [allClosings]);
+
+  const handleClose = async () => {
+    try {
+      await closeDay.mutateAsync({
+        day,
+        cashIncome: cashTotal,
+        cashFloat,
+        cashExpenses: expenses.cashRecaudacion,
+        cashToDeposit,
+        totalIncome: totalIngresos,
+        totalExpenses: expenses.total,
+        notes: closeNotes,
+        closedBy: author.id,
+        closedByName: author.name,
+      });
+      setCloseNotes('');
+      setConfirmClose(false);
+      toast({ title: '🔒 Caja cerrada', description: `${dayLabel} — a rendir ${money(cashToDeposit)}` });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo cerrar la caja', variant: 'destructive' });
+    }
+  };
+
+  const handleReopen = async () => {
+    if (!closing) return;
+    try {
+      await reopenDay.mutateAsync({ closing, reopenedBy: author.id, reopenedByName: author.name });
+      toast({ title: 'Caja reabierta', description: `${dayLabel} vuelve a estar pendiente` });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo reabrir. Solo administración puede.', variant: 'destructive' });
+    }
+  };
 
   const addAporte = async () => {
     const amount = Number(newAporte.amount);
@@ -328,14 +412,102 @@ export default function CierreCaja() {
         title="Cierre de Caja"
         description="Se cierra la caja del día anterior. Ingresos por método, gastos por rubro y cuenta, deudas y efectivo a rendir."
         actions={
-          <Button variant="outline" size="sm" onClick={handlePrint}>
-            <Printer className="w-4 h-4 mr-2" /> Imprimir cierre
-          </Button>
+          <>
+            <Button variant="outline" size="sm" onClick={handlePrint}>
+              <Printer className="w-4 h-4 mr-2" /> Imprimir cierre
+            </Button>
+            {!closed && canClose && (
+              <Button size="sm" onClick={() => setConfirmClose(true)} disabled={closeDay.isPending}>
+                <Lock className="w-4 h-4 mr-2" /> Cerrar este día
+              </Button>
+            )}
+          </>
         }
       />
 
+      {/* Los últimos días de un vistazo: cuáles ya se cerraron y cuáles quedaron
+          colgados. Es la respuesta a "que aparezca en alguna parte". */}
+      <div className="flex flex-wrap gap-2">
+        {ultimosDias.map(({ dia, etiqueta, cerrado }) => (
+          <button
+            key={dia}
+            type="button"
+            onClick={() => setDay(dia)}
+            className={cn(
+              'flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs transition-colors',
+              dia === day
+                ? 'border-primary bg-primary/10 font-semibold'
+                : 'border-border hover:bg-muted/60',
+              cerrado ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'
+            )}
+          >
+            {cerrado ? <Lock className="w-3 h-3" /> : <LockOpen className="w-3 h-3" />}
+            <span className="capitalize">{etiqueta}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* El estado del día: cerrado, reabierto o pendiente */}
+      {closed && closing ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 dark:border-emerald-800/50 dark:bg-emerald-950/30 p-4">
+          <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+              Caja cerrada — se rindieron {money(closing.cashToDeposit)}
+            </p>
+            <p className="text-xs text-emerald-700/80 dark:text-emerald-300/80">
+              {closing.closedByName ? `${closing.closedByName} · ` : ''}
+              {format(closing.closedAt, "d 'de' MMMM, HH:mm", { locale: es })}
+              {closing.notes ? ` · ${closing.notes}` : ''}
+            </p>
+          </div>
+          {canReopen && (
+            <Button variant="outline" size="sm" onClick={handleReopen} disabled={reopenDay.isPending}>
+              <LockOpen className="w-4 h-4 mr-2" /> Reabrir
+            </Button>
+          )}
+        </div>
+      ) : closing?.reopenedAt ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/30 p-4">
+          <LockOpen className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p className="text-sm text-amber-800 dark:text-amber-200">
+            <strong>Reabierta</strong> por {closing.reopenedByName || 'administración'} el{' '}
+            {format(closing.reopenedAt, "d 'de' MMMM, HH:mm", { locale: es })}. Volvé a cerrarla cuando termines de corregir.
+          </p>
+        </div>
+      ) : null}
+
+      {/* Alguien tocó un movimiento después de cerrar: lo rendido ya no coincide */}
+      {drift.length > 0 && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 dark:border-rose-800/50 dark:bg-rose-950/30 p-4 space-y-2">
+          <p className="flex items-center gap-2 text-sm font-semibold text-rose-800 dark:text-rose-200">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            Se modificó algo después de cerrar
+          </p>
+          <p className="text-xs text-rose-700/90 dark:text-rose-300/90">
+            El cierre firmado dice una cosa y los movimientos de hoy dicen otra. Revisá qué cambió:
+          </p>
+          <div className="space-y-1">
+            {drift.map((d) => (
+              <div key={d.label} className="flex justify-between text-xs text-rose-800 dark:text-rose-200">
+                <span>{d.label}</span>
+                <span className="tabular-nums">
+                  <span className="line-through opacity-70">{money(d.closed)}</span>
+                  {' → '}
+                  <strong>{money(d.now)}</strong>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Day selector */}
-      <div className="flex flex-wrap items-end gap-4 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl p-4 rounded-2xl border border-white/20 shadow-sm">
+      {/* items-start y no items-end: el bloque del fondo fijo lleva una línea de
+          ayuda debajo, y alineando por abajo esa línea empujaba su casillero más
+          arriba que el del día. Alineando por arriba —las dos etiquetas miden
+          igual— los casilleros quedan a la misma altura y la ayuda cuelga. */}
+      <div className="flex flex-wrap items-start gap-4 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl p-4 rounded-2xl border border-white/20 shadow-sm">
         <div>
           <Label className="text-xs mb-1 block flex items-center gap-1"><CalendarIcon className="w-3 h-3" /> Día</Label>
           <Input type="date" value={day} max={formatLocalDate(new Date())} onChange={(e) => setDay(e.target.value)} className="w-[180px]" />
@@ -368,7 +540,9 @@ export default function CierreCaja() {
               : `Heredado del habitual (${money(hotelSettings?.dailyCashFloat ?? 0)}).`}
           </p>
         </div>
-        <p className="text-sm text-muted-foreground capitalize ml-auto">{dayLabel}</p>
+        {/* first-letter y no capitalize: capitalize pone en mayúscula TODAS las
+            palabras y el día quedaba escrito "Lunes 3 De Agosto De 2026". */}
+        <p className="text-sm text-muted-foreground first-letter:uppercase ml-auto self-center">{dayLabel}</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -626,6 +800,50 @@ export default function CierreCaja() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Confirmar el cierre. Muestra el número que se va a guardar: es el que
+          después va a decir cuánto se rindió, y no se recalcula solo. */}
+      <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cerrar la caja del {dayLabel}?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Se guardan los números tal como están ahora:</p>
+                <div className="rounded-xl border bg-muted/40 p-3 space-y-1 text-sm">
+                  <div className="flex justify-between"><span>Efectivo cobrado</span><span className="tabular-nums">{money(cashTotal)}</span></div>
+                  <div className="flex justify-between"><span>Menos fondo fijo</span><span className="tabular-nums">-{money(cashFloat)}</span></div>
+                  <div className="flex justify-between"><span>Menos gastos del cajón</span><span className="tabular-nums">-{money(expenses.cashRecaudacion)}</span></div>
+                  <div className="flex justify-between pt-1 border-t font-semibold">
+                    <span>Efectivo a rendir</span><span className="tabular-nums">{money(cashToDeposit)}</span>
+                  </div>
+                </div>
+                {expenses.unspecified > 0 && (
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    Hay {money(expenses.unspecified)} en gastos sin especificar con qué se pagaron. Si alguno
+                    salió del cajón, el efectivo a rendir está dando de más.
+                  </p>
+                )}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Observaciones (opcional)</Label>
+                  <Textarea
+                    rows={2}
+                    placeholder="Diferencia de $500, faltó el ticket del panadero..."
+                    value={closeNotes}
+                    onChange={(e) => setCloseNotes(e.target.value)}
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClose} disabled={closeDay.isPending}>
+              <Lock className="w-4 h-4 mr-2" /> Cerrar la caja
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Brain, TrendingUp, TrendingDown, AlertTriangle, Lightbulb, ChevronDown,
 import { Booking, Room, Payment, Guest } from '@/types/hotel';
 import { isToday, isTomorrow, subDays, isAfter, isBefore, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { cn, formatLastNameFirst, formatCompactMoney } from '@/lib/utils';
+import { receivedPayments } from '@/lib/income';
 
 interface AIInsightsProps {
     bookings: Booking[];
@@ -74,8 +75,10 @@ export function AIInsights({ bookings, rooms, payments, guests, monthlyRevenue, 
         const lastMonthStart = startOfMonth(subMonths(now, 1));
         const lastMonthEnd = endOfMonth(subMonths(now, 1));
 
-        const lastMonthRevenue = payments
-            .filter(p => p.status === 'PAID' && isAfter(new Date(p.date), lastMonthStart) && isBefore(new Date(p.date), lastMonthEnd))
+        // Sin los cobros a cuenta corriente: son deuda anotada al huésped, no
+        // plata cobrada. Ver income.ts.
+        const lastMonthRevenue = receivedPayments(payments)
+            .filter(p => isAfter(new Date(p.date), lastMonthStart) && isBefore(new Date(p.date), lastMonthEnd))
             .reduce((s, p) => s + p.amount, 0);
 
         if (lastMonthRevenue > 0) {

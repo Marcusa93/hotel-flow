@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { subDays, format } from 'date-fns';
+import { CURRENT_ACCOUNT_METHOD } from '@/lib/constants';
 
 export interface DailyRevenue {
     date: string;
@@ -16,10 +17,14 @@ export const useRevenueStats = (days = 7) => {
             const startDate = subDays(today, days);
 
             // Fetch raw payments instead of using RPC
+            // Sin los cobros a cuenta corriente: la estadía se le anotó al
+            // huésped y no entró plata. Ver income.ts. Se filtra en la consulta
+            // y no acá para no traer filas que se van a descartar.
             const { data, error } = await supabase
                 .from('payments')
                 .select('amount, date, status')
                 .eq('status', 'PAID')
+                .neq('method', CURRENT_ACCOUNT_METHOD)
                 .gte('date', startDate.toISOString())
                 .lte('date', today.toISOString());
 

@@ -1,13 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import {
+  DEFAULT_CASH_SOURCE,
+  belongsToClosingDay,
   cashToDeposit,
+  closingDrift,
+  isDayClosed,
   companyCashBalance,
   defaultClosingDay,
   expenseCashSource,
   resolveCashFloat,
   summarizeExpenses,
 } from '@/lib/cashClosing';
-import type { Expense } from '@/types/hotel';
+import type { CashClosing, Expense } from '@/types/hotel';
 
 // El hotel cierra la caja de ayer, a la mañana siguiente. Lo que se rinde es lo
 // que quedó físicamente en el cajón: lo cobrado en efectivo, menos el fondo fijo
@@ -112,6 +116,32 @@ describe('las dos cajas', () => {
   });
 });
 
+describe('el supuesto de qué caja pagó', () => {
+  // De acá salió un faltante real en producción: el formulario arrancaba en
+  // EMPRESA por su cuenta mientras la lectura de gastos suponía RECAUDACION.
+  // Recepción pagaba del cajón sin tocar el desplegable, el gasto no bajaba el
+  // efectivo a rendir y el cierre pedía rendir plata que ya no estaba.
+
+  it('el default que usa el formulario es el mismo que lee el cierre', () => {
+    // Si alguien cambia uno de los dos, este test lo frena.
+    expect(expenseCashSource(gasto({ method: 'CASH' }))).toBe(DEFAULT_CASH_SOURCE);
+  });
+
+  it('el supuesto es recaudación, que es el que no genera faltante', () => {
+    // Errarle para el lado de la recaudación hace sobrar plata, que se ve.
+    // Errarle para el lado de la empresa la hace faltar, que es lo que pasó.
+    expect(DEFAULT_CASH_SOURCE).toBe('RECAUDACION');
+  });
+
+  it('un gasto en efectivo sin caja elegida baja el efectivo a rendir', () => {
+    const result = summarizeExpenses([gasto({ method: 'CASH', amount: 15_000 })]);
+
+    expect(
+      cashToDeposit({ cashIncome: 100_000, cashFloat: 20_000, cashExpenses: result.cashRecaudacion })
+    ).toBe(65_000);
+  });
+});
+
 describe('companyCashBalance', () => {
   it('es lo que la empresa puso menos lo que se gastó de ahí', () => {
     const balance = companyCashBalance(
@@ -205,5 +235,73 @@ describe('defaultClosingDay', () => {
     expect(day.getFullYear()).toBe(2026);
     expect(day.getMonth()).toBe(11);
     expect(day.getDate()).toBe(31);
+  });
+});
+
+
+// ─── Cerrar el día ────────────────────────────────────────────────────
+
+const cierre = (over: Partial<CashClosing> = {}): CashClosing => ({
+  id: 'c-1',
+  closingDate: new Date(2026, 7, 3),
+  cashIncome: 100_000,
+  cashFloat: 20_000,
+  cashExpenses: 5_000,
+  cashToDeposit: 75_000,
+  totalIncome: 120_000,
+  totalExpenses: 8_000,
+  closedAt: new Date(2026, 7, 4, 9, 30),
+  createdAt: new Date(2026, 7, 4, 9, 30),
+  ...over,
+});
+
+describe('belongsToClosingDay', () => {
+  // El hotel eligió que el cierre se lleve lo que tiene la fecha de ese día.
+  it('entra lo que tiene la fecha del día que se cierra', () => {
+    expect(belongsToClosingDay('2026-08-03', '2026-08-03')).toBe(true);
+  });
+
+  it('no entra lo cargado con otra fecha, aunque sea del cajón de ese día', () => {
+    // El cobro que entró el 3 y se carga el 4 a la mañana queda con fecha del 4:
+    // hay que corregirle la fecha a mano para que caiga en el cierre del 3.
+    expect(belongsToClosingDay('2026-08-04', '2026-08-03')).toBe(false);
+  });
+});
+
+describe('isDayClosed', () => {
+  it('un día con cierre está cerrado', () => {
+    expect(isDayClosed(cierre())).toBe(true);
+  });
+
+  it('reabierto vuelve a contar como pendiente', () => {
+    expect(isDayClosed(cierre({ reopenedAt: new Date(2026, 7, 5) }))).toBe(false);
+  });
+
+  it('un día sin cierre está pendiente', () => {
+    expect(isDayClosed(undefined)).toBe(false);
+  });
+});
+
+describe('closingDrift', () => {
+  const ahora = {
+    cashIncome: 100_000, cashExpenses: 5_000, cashToDeposit: 75_000,
+    totalIncome: 120_000, totalExpenses: 8_000,
+  };
+
+  it('sin cambios no avisa nada', () => {
+    expect(closingDrift(cierre(), ahora)).toEqual([]);
+  });
+
+  it('avisa cuando alguien cargó un gasto después de cerrar', () => {
+    // El gasto nuevo mueve los gastos y, con él, el efectivo a rendir.
+    const drift = closingDrift(cierre(), { ...ahora, cashExpenses: 12_000, cashToDeposit: 68_000 });
+
+    expect(drift.map(d => d.label)).toEqual(['Gastos en efectivo', 'Efectivo a rendir']);
+    expect(drift[0]).toMatchObject({ closed: 5_000, now: 12_000 });
+  });
+
+  it('los centavos de redondeo no cuentan como cambio', () => {
+    // Sin el redondeo, un total con decimales marcaría descuadre todos los días.
+    expect(closingDrift(cierre(), { ...ahora, cashToDeposit: 75_000.4 })).toEqual([]);
   });
 });

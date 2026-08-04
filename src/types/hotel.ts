@@ -13,7 +13,7 @@ export type UserRole = 'admin' | 'reception' | 'housekeeping' | 'auditor';
 export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'CANCELLED' | 'OVERDUE';
 export type InvoiceItemType = 'ACCOMMODATION' | 'SERVICE' | 'EXTRA' | 'OTHER';
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'STATUS_CHANGE';
-export type AuditEntityType = 'booking' | 'guest' | 'room' | 'payment' | 'invoice' | 'housekeeping_task' | 'rate' | 'expense' | 'hotel_settings' | 'booking_charge' | 'logbook_entry';
+export type AuditEntityType = 'booking' | 'guest' | 'room' | 'payment' | 'invoice' | 'housekeeping_task' | 'rate' | 'expense' | 'hotel_settings' | 'booking_charge' | 'logbook_entry' | 'cash_closing';
 
 export type ChargeCategory =
   | 'MINIBAR' | 'LAVANDERIA' | 'ESTACIONAMIENTO' | 'ROOM_SERVICE'
@@ -400,6 +400,34 @@ export interface CashContribution {
   createdBy?: string;
   createdByName?: string;
   createdAt: Date;
+}
+
+/**
+ * Un día de caja ya cerrado, con los números tal como estaban al cerrarlo.
+ *
+ * Se guarda el corte y no solo la fecha: si después alguien corrige un gasto
+ * viejo, el cierre firmado tiene que seguir diciendo lo mismo, y la pantalla
+ * poder avisar que lo de hoy ya no coincide.
+ */
+export interface CashClosing {
+  id: string;
+  closingDate: Date;
+  cashIncome: number;
+  cashFloat: number;
+  cashExpenses: number;
+  cashToDeposit: number;
+  totalIncome: number;
+  totalExpenses: number;
+  notes?: string;
+  closedAt: Date;
+  closedBy?: string;
+  closedByName?: string;
+  /** Con valor, el día volvió a estar pendiente. Solo administración reabre. */
+  reopenedAt?: Date;
+  reopenedBy?: string;
+  reopenedByName?: string;
+  createdAt: Date;
+  updatedAt?: Date;
 }
 
 /** El fondo fijo que queda en la caja un día puntual. */

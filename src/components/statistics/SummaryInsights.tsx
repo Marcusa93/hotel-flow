@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, Clock, CreditCard, BedDouble } from 'lucide-react';
 import { differenceInDays } from 'date-fns';
 import type { Booking, Payment } from '@/types/hotel';
+import { receivedPayments } from '@/lib/income';
+import { PAYMENT_METHOD_LABELS } from '@/lib/constants';
 
 interface SummaryInsightsProps {
   bookings: Booking[];
@@ -22,7 +24,9 @@ export function SummaryInsights({ bookings, payments }: SummaryInsightsProps) {
 
   // Payment method breakdown
   const paymentBreakdown = useMemo(() => {
-    const paid = payments.filter(p => p.status === 'PAID');
+    // Con qué medios pagaron. La cuenta corriente no es un medio de pago: la
+    // estadía se le anotó al huésped y no entró plata. Ver income.ts.
+    const paid = receivedPayments(payments);
     const total = paid.reduce((sum, p) => sum + p.amount, 0);
     if (total === 0) return [];
 
@@ -31,16 +35,11 @@ export function SummaryInsights({ bookings, payments }: SummaryInsightsProps) {
       byMethod[p.method] = (byMethod[p.method] || 0) + p.amount;
     });
 
-    const labels: Record<string, string> = {
-      CARD: 'Tarjeta',
-      CASH: 'Efectivo',
-      TRANSFER: 'Transferencia',
-      OTHER: 'Otro',
-    };
-
     return Object.entries(byMethod)
       .map(([method, amount]) => ({
-        method: labels[method] || method,
+        // Los rótulos salen de constants: los de acá se habían quedado en
+        // 'CARD' y dejaban crédito, débito y QR mostrando el nombre crudo.
+        method: PAYMENT_METHOD_LABELS[method] || method,
         amount,
         pct: ((amount / total) * 100).toFixed(0),
       }))

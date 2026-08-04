@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { format, subDays, isSameDay, eachDayOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { chartColors, chartGrid, chartAxis, chartTooltip } from '@/lib/chartTheme';
+import { receivedPayments } from '@/lib/income';
 
 interface PaymentRevenueChartProps {
     payments: Payment[];
@@ -18,9 +19,12 @@ export function PaymentRevenueChart({ payments }: PaymentRevenueChartProps) {
             end: today
         });
 
+        // Sin lo anotado a cuenta corriente: no entró plata ese día. Ver income.ts.
+        const cobrado = receivedPayments(payments);
+
         return last30Days.map(day => {
-            const dailyTotal = payments
-                .filter(p => isSameDay(new Date(p.date), day) && p.status === 'PAID')
+            const dailyTotal = cobrado
+                .filter(p => isSameDay(new Date(p.date), day))
                 .reduce((sum, p) => sum + p.amount, 0);
 
             return {

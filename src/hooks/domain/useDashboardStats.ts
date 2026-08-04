@@ -3,6 +3,9 @@ import { useBookings } from '@/hooks/useBookings';
 import { useRooms } from '@/hooks/useRooms';
 import { useRoomTypes } from '@/hooks/useRoomTypes';
 import { usePayments } from '@/hooks/usePayments';
+import { useOtherIncome } from '@/hooks/useOtherIncome';
+import { useCurrentAccountPayments } from '@/hooks/useCurrentAccount';
+import { totalIncome } from '@/lib/income';
 import type { DashboardStats, OccupancyByType } from '@/types/hotel';
 
 export function useDashboardStats() {
@@ -10,6 +13,9 @@ export function useDashboardStats() {
   const { data: roomTypes = [] } = useRoomTypes();
   const { data: bookings = [] } = useBookings();
   const { data: payments = [] } = usePayments();
+  // Las otras dos fuentes de plata del mes: ver income.ts.
+  const { data: otherIncome = [] } = useOtherIncome();
+  const { data: accountPayments = [] } = useCurrentAccountPayments();
 
   const stats = useMemo((): DashboardStats => {
     const today = new Date();
@@ -61,9 +67,15 @@ export function useDashboardStats() {
       );
     }).length;
 
-    const monthlyRevenue = payments
-      .filter((p) => new Date(p.date) >= startOfMonth && p.status === 'PAID')
-      .reduce((sum, p) => sum + p.amount, 0);
+    // La plata que entró en el mes, de las tres fuentes y sin lo anotado a
+    // cuenta corriente. Antes contaba la cuenta corriente como cobrada e
+    // ignoraba las otras dos fuentes, así que este número no coincidía con el
+    // cierre de caja ni con el balance del mes. Ver income.ts.
+    const monthlyRevenue = totalIncome({
+      payments: payments.filter((p) => new Date(p.date) >= startOfMonth),
+      otherIncome: otherIncome.filter((o) => o.date >= startOfMonth),
+      accountPayments: accountPayments.filter((p) => p.date >= startOfMonth),
+    });
 
     const pendingPayments = payments
       .filter((p) => p.status === 'PENDING')
@@ -83,7 +95,7 @@ export function useDashboardStats() {
       monthlyRevenue,
       pendingPayments,
     };
-  }, [rooms, bookings, payments]);
+  }, [rooms, bookings, payments, otherIncome, accountPayments]);
 
   const occupancyByType = useMemo((): OccupancyByType[] => {
     return roomTypes.map((rt) => {

@@ -6,7 +6,10 @@ import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useAllBookingCharges } from '@/hooks/useAllBookingCharges';
+import { useOtherIncome } from '@/hooks/useOtherIncome';
+import { useCurrentAccountPayments } from '@/hooks/useCurrentAccount';
 import { buildOutstandingTotals } from '@/lib/bookingAccount';
+import { totalIncome } from '@/lib/income';
 import { useAppRole } from '@/context/AppRoleContext';
 import { PageHeader, EmptyState, TableSkeleton } from '@/components/shared';
 import { Button } from '@/components/ui/button';
@@ -35,6 +38,10 @@ export default function Payments() {
   const { guests } = useGuestOperations();
   const { rooms } = useRoomOperations();
   const { data: charges = [] } = useAllBookingCharges();
+  // Las otras dos fuentes de plata. Sin ellas esta pantalla mostraba solo los
+  // cobros de reservas y no coincidía con el cierre de caja.
+  const { data: otherIncome = [] } = useOtherIncome();
+  const { data: accountPayments = [] } = useCurrentAccountPayments();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'ALL'>('ALL');
@@ -131,15 +138,22 @@ export default function Payments() {
     toast({ title: 'Exportado', description: `${filteredPayments.length} pagos exportados a CSV` });
   };
 
-  const totalPaid = payments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + p.amount, 0);
   const now = new Date();
-  const totalPaidMonth = payments
-    .filter(p => p.status === 'PAID')
-    .filter(p => {
-      const d = new Date(p.date);
-      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-    })
-    .reduce((sum, p) => sum + p.amount, 0);
+  const delMesActual = (d: Date) =>
+    d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+
+  // Ingresos = la plata que entró, de las tres fuentes. Ver income.ts.
+  //
+  // Esta pantalla se equivocaba dos veces y en direcciones opuestas: sumaba los
+  // cobros a cuenta corriente —que son deuda, no plata— y no miraba ni los
+  // ingresos varios ni lo que los huéspedes traen para bajar la cuenta. Por eso
+  // daba un número y el cierre de caja daba otro para el mismo día.
+  const totalPaid = totalIncome({ payments, otherIncome, accountPayments });
+  const totalPaidMonth = totalIncome({
+    payments: payments.filter(p => delMesActual(new Date(p.date))),
+    otherIncome: otherIncome.filter(o => delMesActual(o.date)),
+    accountPayments: accountPayments.filter(p => delMesActual(p.date)),
+  });
   // Lo que falta cobrar sale de las reservas, no de los pagos en estado
   // PENDING: ver buildOutstandingTotals.
   const { outstanding, outstandingCount, departedDebt, upcoming } = useMemo(

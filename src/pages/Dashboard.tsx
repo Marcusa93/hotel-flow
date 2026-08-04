@@ -5,6 +5,9 @@ import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
+import { useOtherIncome } from '@/hooks/useOtherIncome';
+import { useCurrentAccountPayments } from '@/hooks/useCurrentAccount';
+import { totalIncome } from '@/lib/income';
 import { useAppRole } from '@/context/AppRoleContext';
 import {
   RoomStatusMap,
@@ -53,6 +56,10 @@ export default function Dashboard() {
   const { bookings } = useBookingOperations();
   const { data: hotelSettings } = useHotelSettings();
   const { payments } = usePaymentOperations();
+  // Las otras dos fuentes de plata, para que el mes anterior se compare contra
+  // lo mismo que mide el mes actual: ver income.ts.
+  const { data: otherIncome = [] } = useOtherIncome();
+  const { data: accountPayments = [] } = useCurrentAccountPayments();
   const { currentRole } = useAppRole();
   const navigate = useNavigate();
 
@@ -103,9 +110,15 @@ export default function Dashboard() {
       return ci <= today && co > today;
     }).length;
 
-    const prevRev = payments
-      .filter(p => p.status === 'PAID' && isWithinInterval(new Date(p.date), { start: prevMonthStart, end: prevMonthEnd }))
-      .reduce((sum, p) => sum + p.amount, 0);
+    // Tiene que medir lo mismo que monthlyRevenue —las tres fuentes, sin cuenta
+    // corriente— o la comparación "vs mes ant." resta peras contra manzanas.
+    const enElMesAnterior = (d: Date) =>
+      isWithinInterval(d, { start: prevMonthStart, end: prevMonthEnd });
+    const prevRev = totalIncome({
+      payments: payments.filter(p => enElMesAnterior(new Date(p.date))),
+      otherIncome: otherIncome.filter(o => enElMesAnterior(o.date)),
+      accountPayments: accountPayments.filter(p => enElMesAnterior(p.date)),
+    });
 
     return {
       todayCheckIns: checkIns,
@@ -116,7 +129,7 @@ export default function Dashboard() {
       todayOccupancy: occupiedToday,
       prevMonthRevenue: prevRev,
     };
-  }, [bookings, payments]);
+  }, [bookings, payments, otherIncome, accountPayments]);
 
   // ADR
   const adr = useMemo(() => {

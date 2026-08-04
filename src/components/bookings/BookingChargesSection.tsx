@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, Trash2, Receipt } from 'lucide-react';
+import { Plus, Trash2, Receipt, Pencil } from 'lucide-react';
+import type { BookingCharge } from '@/types/hotel';
 import { useBookingCharges } from '@/hooks/useBookingCharges';
 import { useDeleteBookingCharge } from '@/hooks/useDeleteBookingCharge';
 import { CHARGE_CATEGORIES } from '@/lib/constants';
@@ -19,6 +20,7 @@ import {
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { NewBookingChargeDialog } from './NewBookingChargeDialog';
+import { EditBookingChargeDialog } from './EditBookingChargeDialog';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -31,6 +33,7 @@ export function BookingChargesSection({ bookingId }: BookingChargesSectionProps)
     const { data: charges = [], isLoading } = useBookingCharges(bookingId);
     const deleteCharge = useDeleteBookingCharge();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [editingCharge, setEditingCharge] = useState<BookingCharge | null>(null);
 
     const totalCharges = charges.reduce((sum, c) => sum + c.amount * c.quantity, 0);
 
@@ -113,6 +116,18 @@ export function BookingChargesSection({ bookingId }: BookingChargesSectionProps)
                                                 ${lineTotal.toLocaleString('es-AR')}
                                             </span>
 
+                                            {/* Corregir en vez de borrar y volver a cargar: así el
+                                                cargo conserva la hora en que se consumió. */}
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                onClick={() => setEditingCharge(charge)}
+                                                title="Corregir cargo"
+                                            >
+                                                <Pencil className="w-3.5 h-3.5" />
+                                            </Button>
+
                                             <AlertDialog>
                                                 <AlertDialogTrigger asChild>
                                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive">
@@ -158,6 +173,14 @@ export function BookingChargesSection({ bookingId }: BookingChargesSectionProps)
                 onOpenChange={setIsDialogOpen}
                 bookingId={bookingId}
             />
+
+            {editingCharge && (
+                <EditBookingChargeDialog
+                    open
+                    onOpenChange={open => !open && setEditingCharge(null)}
+                    charge={editingCharge}
+                />
+            )}
         </>
     );
 }

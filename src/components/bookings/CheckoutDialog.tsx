@@ -15,6 +15,8 @@ import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useCreateInvoice } from '@/hooks/useCreateInvoice';
 import { useBookingCharges } from '@/hooks/useBookingCharges';
 import { useCreateBookingCharge } from '@/hooks/useCreateBookingCharge';
+import { useUpdateBookingCharge } from '@/hooks/useUpdateBookingCharge';
+import { useDeleteBookingCharge } from '@/hooks/useDeleteBookingCharge';
 import { toast } from '@/hooks/use-toast';
 import { BookingWithDetails } from '@/types/hotel';
 import { addDays, differenceInCalendarDays, format } from 'date-fns';
@@ -71,6 +73,8 @@ export function CheckoutDialog({
     const { updateBookingStatus, updateBooking } = useBookingOperations();
     const createInvoice = useCreateInvoice();
     const createBookingCharge = useCreateBookingCharge();
+    const updateBookingCharge = useUpdateBookingCharge();
+    const deleteBookingCharge = useDeleteBookingCharge();
     const { data: bookingCharges = [] } = useBookingCharges(booking.id);
 
     const { data: staff = [], isLoading: isLoadingStaff } = useHousekeepingStaff();
@@ -122,15 +126,29 @@ export function CheckoutDialog({
      *
      * Sin multa, y prorrateando lo pactado: la promoción o la tarifa especial con
      * la que se tomó la reserva viajan solas dentro del precio por noche.
+     *
+     * Los cargos de alojamiento entran al cálculo porque son parte del precio de
+     * la estadía: "Extender estadía" mueve la fecha de salida pero cobra las
+     * noches nuevas por acá, no en el total de la reserva.
      */
+    const lodgingCharges = bookingCharges.filter(c => c.category === 'ALOJAMIENTO');
     const early = buildEarlyCheckout({
         checkInDate: checkIn,
         bookedCheckOut,
         actualCheckOut: actualCheckOut ?? bookedCheckOut,
         agreedTotal: booking.totalAmount,
+        lodgingCharges,
     });
     const leavesEarly = isEarlyCheckout && canLeaveEarly && early.credited > 0;
     const lodgingTotal = leavesEarly ? early.lodgingTotal : booking.totalAmount;
+
+    /** Los cargos como van a quedar: las noches devueltas ya descontadas. */
+    const adjustedCharges = leavesEarly
+        ? bookingCharges.map(charge => {
+            const adjustment = early.chargeAdjustments.find(a => a.id === charge.id);
+            return adjustment ? { ...charge, quantity: adjustment.quantity } : charge;
+        })
+        : bookingCharges;
 
     // Calculate payment summary
     const lateCharge = isLateCheckout ? lateCheckoutFee : 0;
@@ -139,7 +157,7 @@ export function CheckoutDialog({
         // verdad; si no, el saldo seguiría pidiendo las noches que no usó.
         booking: { ...booking, totalAmount: lodgingTotal },
         payments: bookingPayments,
-        charges: bookingCharges,
+        charges: adjustedCharges,
         pendingExtra: lateCharge,
     });
     const { paid: totalPaid, extras: totalChargesWithLate, total: adjustedTotal, discount: totalDiscount } = account;
@@ -172,6 +190,27 @@ export function CheckoutDialog({
                     checkOutDate: early.actualCheckOut,
                     totalAmount: early.lodgingTotal,
                 });
+
+                // Y las noches agregadas que no llegó a usar. Se le baja la
+                // cantidad al cargo en vez de tocarle el precio, así la línea
+                // sigue diciendo a cuánto se pactó cada noche. Sin cantidad, el
+                // cargo entero desaparece.
+                for (const adjustment of early.chargeAdjustments) {
+                    const charge = lodgingCharges.find(c => c.id === adjustment.id);
+                    if (!charge || charge.quantity === adjustment.quantity) continue;
+
+                    if (adjustment.quantity === 0) {
+                        await deleteBookingCharge.mutateAsync({
+                            chargeId: adjustment.id,
+                            bookingId: booking.id,
+                        });
+                    } else {
+                        await updateBookingCharge.mutateAsync({
+                            chargeId: adjustment.id,
+                            quantity: adjustment.quantity,
+                        });
+                    }
+                }
             }
 
             // 1. Persist late-checkout fee as a booking charge so it exists in the account
@@ -207,12 +246,16 @@ export function CheckoutDialog({
                             unitPrice: lodgingTotal,
                             itemType: 'ACCOMMODATION'
                         },
-                        ...bookingCharges.map(charge => ({
-                            description: charge.description,
-                            quantity: charge.quantity,
-                            unitPrice: charge.amount,
-                            itemType: 'EXTRA' as const,
-                        })),
+                        // Los ajustados, y sin los que quedaron en cero: facturar
+                        // las noches agregadas que devolvió sería cobrárselas.
+                        ...adjustedCharges
+                            .filter(charge => charge.quantity > 0)
+                            .map(charge => ({
+                                description: charge.description,
+                                quantity: charge.quantity,
+                                unitPrice: charge.amount,
+                                itemType: 'EXTRA' as const,
+                            })),
                         ...(isLateCheckout && lateCharge > 0
                             ? [{
                                 description: 'Check-out tardío',
@@ -321,14 +364,19 @@ export function CheckoutDialog({
                                     ${lodgingTotal.toLocaleString('es-AR')}
                                 </span>
                             </div>
+                            {/* Una nota y no una línea que reste: las noches devueltas
+                                ya están descontadas arriba —en el alojamiento y, si la
+                                estadía se había extendido, también en los consumos—.
+                                Restarlas de nuevo acá las descontaría dos veces. */}
                             {leavesEarly && (
-                                <div className="flex justify-between text-emerald-600">
-                                    <span className="text-sm flex items-center gap-1">
-                                        <Undo2 className="w-3 h-3" />
-                                        {early.releasedNights} noche{early.releasedNights === 1 ? '' : 's'} que no usó
+                                <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-start gap-1 pt-0.5">
+                                    <Undo2 className="w-3 h-3 shrink-0 mt-0.5" />
+                                    <span>
+                                        {early.releasedNights} noche{early.releasedNights === 1 ? '' : 's'} que no
+                                        usó, sin cobrar: ${early.credited.toLocaleString('es-AR')} menos de lo que
+                                        figuraba.
                                     </span>
-                                    <span className="font-medium">-${early.credited.toLocaleString('es-AR')}</span>
-                                </div>
+                                </p>
                             )}
                             {totalCharges > 0 && (
                                 <div className="flex justify-between">

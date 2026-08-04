@@ -13,7 +13,43 @@ import { es } from 'date-fns/locale';
  * solo la promoción, la tarifa especial y el tramo elegido a mano, sin tener que
  * volver a resolver ninguno de los tres. Rearmarlo desde la lista le cambiaría el
  * precio al huésped que reservó con descuento, justo cuando se está yendo.
+ *
+ * OJO con dónde vive la plata del alojamiento: en una estadía extendida está en
+ * dos lugares. `total_amount` guarda lo que se cotizó al reservar —contra eso se
+ * tomaron las señas— y las noches agregadas después van como cargo aparte, de
+ * categoría ALOJAMIENTO. La fecha de salida, en cambio, se movió por las dos.
+ *
+ * Dividir el total entre todas las noches, entonces, inventa un precio por noche
+ * que nunca existió: reparte lo que costaron las primeras noches sobre todas.
+ * Una reserva de 1 noche a $80.000 extendida 2 noches más quedaba en $26.667 la
+ * noche, y arriba seguía el cargo entero de las 2 noches que el huésped no usó.
+ * Por eso las noches se reparten en dos baldes y cada uno se cobra a su precio.
  */
+/**
+ * Un cargo de noches agregadas por "Extender estadía".
+ *
+ * `amount` es el precio de UNA noche y `quantity` cuántas: así se puede devolver
+ * de a una sin tocar el precio al que se pactaron.
+ */
+export interface LodgingCharge {
+  id: string;
+  /** Precio por noche. */
+  amount: number;
+  /** Cuántas noches cubre. */
+  quantity: number;
+  /** Para ordenarlos: lo agregado después son las últimas noches de la estadía. */
+  createdAt: Date;
+}
+
+/** Cómo queda un cargo de noches agregadas después de recortar la estadía. */
+export interface ChargeAdjustment {
+  id: string;
+  /** Noches que quedan cobradas. Cero significa que el cargo se borra. */
+  quantity: number;
+  /** Lo que se deja de cobrar de este cargo. */
+  credited: number;
+}
+
 export interface EarlyCheckout {
   /** La salida que figuraba en la reserva. */
   bookedCheckOut: Date;
@@ -30,11 +66,15 @@ export interface EarlyCheckout {
   stayedNights: number;
   /** Las noches que la reserva tenía tomadas y no se usaron. */
   releasedNights: number;
-  /** Lo pactado por noche. Es el precio al que se cobran las que sí estuvo. */
+  /** Las noches de la reserva original, sin contar las agregadas después. */
+  bookedBaseNights: number;
+  /** Lo pactado por noche en la reserva original. */
   nightlyRate: number;
-  /** El alojamiento que se cobra, ya solo por las noches usadas. */
+  /** El total de la reserva que se guarda: solo las noches originales usadas. */
   lodgingTotal: number;
-  /** Cuánto baja el alojamiento respecto de lo que figuraba. */
+  /** Cómo queda cada cargo de noches agregadas. */
+  chargeAdjustments: ChargeAdjustment[];
+  /** Lo que se deja de cobrar en total: reserva más cargos. */
   credited: number;
 }
 
@@ -46,6 +86,11 @@ interface BuildEarlyCheckoutParams {
   actualCheckOut: Date;
   /** El total de alojamiento con el que está cargada la reserva: lo pactado. */
   agreedTotal: number;
+  /**
+   * Los cargos de categoría ALOJAMIENTO de la reserva, si la estadía se extendió.
+   * Sin esto la cuenta sale mal en cuanto haya una extensión.
+   */
+  lodgingCharges?: LodgingCharge[];
 }
 
 export const buildEarlyCheckout = ({
@@ -53,6 +98,7 @@ export const buildEarlyCheckout = ({
   bookedCheckOut,
   actualCheckOut,
   agreedTotal,
+  lodgingCharges = [],
 }: BuildEarlyCheckoutParams): EarlyCheckout => {
   const bookedNights = differenceInCalendarDays(bookedCheckOut, checkInDate);
 
@@ -65,8 +111,10 @@ export const buildEarlyCheckout = ({
       bookedNights: 0,
       stayedNights: 0,
       releasedNights: 0,
+      bookedBaseNights: 0,
       nightlyRate: agreedTotal,
       lodgingTotal: agreedTotal,
+      chargeAdjustments: [],
       credited: 0,
     };
   }
@@ -78,8 +126,46 @@ export const buildEarlyCheckout = ({
   const rawNights = differenceInCalendarDays(actualCheckOut, checkInDate);
   const stayedNights = Math.min(Math.max(rawNights, 1), bookedNights);
 
-  const nightlyRate = agreedTotal / bookedNights;
-  const lodgingTotal = Math.round(nightlyRate * stayedNights);
+  // Las agregadas primero son las que van antes en la estadía: se extendió el
+  // martes y después el jueves, así que ese orden es el de las noches.
+  const extensions = [...lodgingCharges].sort(
+    (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
+  );
+  const extensionNights = extensions.reduce((sum, c) => sum + c.quantity, 0);
+
+  /**
+   * Las noches que cubre `agreedTotal`: las de la reserva original.
+   *
+   * Si los cargos dicen cubrir tantas noches como tiene la estadía entera, los
+   * datos no cierran —quedaría una reserva de cero noches con un total— y no se
+   * toca nada de los cargos: se prorratea el total sobre todo, que es lo peor
+   * que puede pasar, pero no inventa devoluciones sobre datos que no se entienden.
+   */
+  const bookedBaseNights = bookedNights - extensionNights;
+  const dataIsCoherent = bookedBaseNights > 0;
+
+  const baseNights = dataIsCoherent ? bookedBaseNights : bookedNights;
+  const nightlyRate = agreedTotal / baseNights;
+
+  // Primero se llenan las noches de la reserva original, y recién después las
+  // agregadas: el huésped usa la estadía en orden.
+  const baseNightsCharged = Math.min(stayedNights, baseNights);
+  let extensionNightsLeft = stayedNights - baseNightsCharged;
+
+  const chargeAdjustments: ChargeAdjustment[] = dataIsCoherent
+    ? extensions.map(charge => {
+        const keep = Math.min(charge.quantity, extensionNightsLeft);
+        extensionNightsLeft -= keep;
+        return {
+          id: charge.id,
+          quantity: keep,
+          credited: (charge.quantity - keep) * charge.amount,
+        };
+      })
+    : [];
+
+  const lodgingTotal = Math.round(nightlyRate * baseNightsCharged);
+  const chargesCredited = chargeAdjustments.reduce((sum, a) => sum + a.credited, 0);
 
   return {
     bookedCheckOut,
@@ -90,9 +176,11 @@ export const buildEarlyCheckout = ({
     bookedNights,
     stayedNights,
     releasedNights: bookedNights - stayedNights,
+    bookedBaseNights: baseNights,
     nightlyRate,
     lodgingTotal,
-    credited: agreedTotal - lodgingTotal,
+    chargeAdjustments,
+    credited: agreedTotal - lodgingTotal + chargesCredited,
   };
 };
 

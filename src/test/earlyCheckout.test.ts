@@ -126,6 +126,120 @@ describe('buildEarlyCheckout', () => {
   });
 });
 
+// Cuando la estadía se extendió, la plata del alojamiento vive en dos lugares:
+// total_amount tiene lo que se cotizó al reservar, y las noches agregadas después
+// van como cargo aparte. La fecha de salida, en cambio, se movió por las dos.
+
+const extension = (over: Partial<{ id: string; amount: number; quantity: number; createdAt: Date }> = {}) => ({
+  id: 'ext-1',
+  amount: 80_000,
+  quantity: 2,
+  createdAt: new Date(2026, 7, 2),
+  ...over,
+});
+
+describe('buildEarlyCheckout con estadía extendida', () => {
+  // El caso que reportó el hotel: reservó 1 noche a $80.000, la extendió 2 noches
+  // más ($160.000 de cargo), y se fue en la segunda.
+  const extendida = {
+    checkInDate: new Date(2026, 7, 1),
+    bookedCheckOut: new Date(2026, 7, 4), // 3 noches después de extender
+    agreedTotal: 80_000, // pero el total solo cubre la primera
+    lodgingCharges: [extension()],
+  };
+
+  it('no inventa un precio por noche repartiendo el total sobre todas', () => {
+    // El bug: $80.000 / 3 noches = $26.667 la noche, un precio que nunca existió.
+    const result = buildEarlyCheckout({ ...extendida, actualCheckOut: new Date(2026, 7, 3) });
+
+    expect(result.bookedBaseNights).toBe(1);
+    expect(result.nightlyRate).toBe(80_000);
+  });
+
+  it('cobra las noches usadas de cada balde, a su precio', () => {
+    // Se quedó 2: la original ($80.000) y la primera de la extensión ($80.000).
+    const result = buildEarlyCheckout({ ...extendida, actualCheckOut: new Date(2026, 7, 3) });
+
+    expect(result.stayedNights).toBe(2);
+    expect(result.lodgingTotal).toBe(80_000);
+    expect(result.chargeAdjustments).toEqual([
+      { id: 'ext-1', quantity: 1, credited: 80_000 },
+    ]);
+    // $80.000 de reserva + $80.000 de la noche extendida que sí usó = $160.000.
+    expect(result.lodgingTotal + extension().amount * result.chargeAdjustments[0].quantity)
+      .toBe(160_000);
+  });
+
+  it('devuelve todas las noches agregadas si no usó ninguna', () => {
+    const result = buildEarlyCheckout({ ...extendida, actualCheckOut: new Date(2026, 7, 2) });
+
+    expect(result.stayedNights).toBe(1);
+    expect(result.lodgingTotal).toBe(80_000);
+    expect(result.chargeAdjustments[0]).toEqual({ id: 'ext-1', quantity: 0, credited: 160_000 });
+    expect(result.credited).toBe(160_000);
+  });
+
+  it('no toca el cargo si se queda hasta el final', () => {
+    const result = buildEarlyCheckout({ ...extendida, actualCheckOut: new Date(2026, 7, 4) });
+
+    expect(result.credited).toBe(0);
+    expect(result.chargeAdjustments[0].quantity).toBe(2);
+  });
+
+  it('va gastando las extensiones en el orden en que se agregaron', () => {
+    // Extendió el 2 y después el 3: esas son, en ese orden, las noches 2 y 3.
+    const result = buildEarlyCheckout({
+      checkInDate: new Date(2026, 7, 1),
+      bookedCheckOut: new Date(2026, 7, 4),
+      agreedTotal: 80_000,
+      lodgingCharges: [
+        extension({ id: 'segunda', quantity: 1, createdAt: new Date(2026, 7, 3) }),
+        extension({ id: 'primera', quantity: 1, createdAt: new Date(2026, 7, 2) }),
+      ],
+      actualCheckOut: new Date(2026, 7, 3),
+    });
+
+    const porId = Object.fromEntries(result.chargeAdjustments.map(a => [a.id, a.quantity]));
+    expect(porId).toEqual({ primera: 1, segunda: 0 });
+  });
+
+  it('el crédito total suma la reserva y los cargos', () => {
+    const result = buildEarlyCheckout({
+      checkInDate: new Date(2026, 7, 1),
+      bookedCheckOut: new Date(2026, 7, 5), // 2 originales + 2 extendidas
+      agreedTotal: 160_000,
+      lodgingCharges: [extension({ quantity: 2 })],
+      actualCheckOut: new Date(2026, 7, 2), // se queda 1 noche
+    });
+
+    // Devuelve 1 noche original ($80.000) y las 2 extendidas ($160.000).
+    expect(result.lodgingTotal).toBe(80_000);
+    expect(result.credited).toBe(240_000);
+  });
+
+  it('con datos incoherentes no inventa devoluciones', () => {
+    // Los cargos dicen cubrir más noches de las que tiene la estadía entera.
+    const result = buildEarlyCheckout({
+      checkInDate: new Date(2026, 7, 1),
+      bookedCheckOut: new Date(2026, 7, 3),
+      agreedTotal: 80_000,
+      lodgingCharges: [extension({ quantity: 5 })],
+      actualCheckOut: new Date(2026, 7, 2),
+    });
+
+    expect(result.chargeAdjustments).toEqual([]);
+    expect(Number.isFinite(result.nightlyRate)).toBe(true);
+  });
+
+  it('una reserva sin extensiones se comporta igual que antes', () => {
+    const result = buildEarlyCheckout({ ...base, actualCheckOut: new Date(2026, 7, 3) });
+
+    expect(result.bookedBaseNights).toBe(3);
+    expect(result.chargeAdjustments).toEqual([]);
+    expect(result.lodgingTotal).toBe(100_000);
+  });
+});
+
 describe('describeEarlyCheckout', () => {
   it('dice qué se cobró y qué se dejó de cobrar', () => {
     const result = buildEarlyCheckout({ ...base, actualCheckOut: new Date(2026, 7, 3) });

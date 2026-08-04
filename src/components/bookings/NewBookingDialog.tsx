@@ -1002,11 +1002,14 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
                         </FormControl>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
+                        {/* Sin piso en el día de hoy: el pasajero que entra
+                            pasada la medianoche paga la noche anterior, y con
+                            el calendario cortado ahí la fecha que corresponde
+                            era justamente la única que no se podía elegir. */}
                         <Calendar
                           mode="single"
                           selected={field.value}
                           onSelect={field.onChange}
-                          disabled={(date) => date < startOfDay(new Date())}
                           initialFocus
                         />
                       </PopoverContent>
@@ -1045,11 +1048,15 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
                         </FormControl>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
+                        {/* Contra la entrada elegida, y sin piso cuando todavía
+                            no hay ninguna: el `new Date()` de antes dejaba hoy
+                            deshabilitado, así que una estadía de ayer a hoy no
+                            se podía armar si se elegía la salida primero. */}
                         <Calendar
                           mode="single"
                           selected={field.value}
                           onSelect={field.onChange}
-                          disabled={(date) => date <= (watchedCheckIn || new Date())}
+                          disabled={(date) => watchedCheckIn ? date <= watchedCheckIn : false}
                           initialFocus
                         />
                       </PopoverContent>
@@ -1059,6 +1066,24 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
                 )}
               />
             </div>
+
+            {/* Una entrada con fecha ya pasada es legítima —el que llegó pasada
+                la medianoche— pero también es lo que deja un click errado en el
+                calendario. Se permite y se avisa, en vez de prohibirla. */}
+            {watchedCheckIn && startOfDay(watchedCheckIn) < startOfDay(new Date()) && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-semibold">
+                    La entrada queda el {format(watchedCheckIn, "d 'de' MMMM", { locale: es })}, que ya pasó
+                  </p>
+                  <p className="text-[13px] leading-snug opacity-90">
+                    Es lo que corresponde si el pasajero entró pasada la medianoche: la noche
+                    que paga es la anterior. Si no es el caso, corregí la fecha.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Media estadía — la habitación por el día, sin pasar la noche */}
             <FormField

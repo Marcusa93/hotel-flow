@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInDays, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarIcon, AlertTriangle, Loader2, ArrowRight } from 'lucide-react';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
@@ -99,7 +99,15 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
    * es otra reserva, no una edición.
    */
   const isHalfDay = booking.isHalfDay === true;
-  const datesLocked = isCheckedIn || isHalfDay;
+  /**
+   * Con el pasajero ya adentro la entrada sí se corrige —entró pasada la
+   * medianoche y quedó cargado al día siguiente— pero la salida no se elige a
+   * mano: se corre sola con la entrada, más abajo. Estirar la estadía sigue
+   * siendo trabajo de Extender estadía, que cobra las noches nuevas como cargo
+   * aparte en vez de repisar lo que se cotizó al reservar.
+   */
+  const checkInLocked = isHalfDay;
+  const checkOutLocked = isCheckedIn || isHalfDay;
 
   const form = useForm<EditBookingFormData>({
     resolver: zodResolver(editBookingSchema),
@@ -161,6 +169,22 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
     new Date(booking.checkInDate)
   );
 
+  /**
+   * Con la estadía empezada, mover la entrada corre la salida los mismos días.
+   *
+   * El caso es el pasajero que entra pasada la medianoche: el sistema lo carga
+   * con la entrada del día que recién arranca y la salida un día más allá, así
+   * que la estadía entera quedó corrida. Lo que está mal es dónde cae, no
+   * cuánto dura — por eso se mueven las dos juntas y las noches no cambian.
+   */
+  useEffect(() => {
+    if (!isCheckedIn || isHalfDay || !watchedCheckIn) return;
+    const shifted = addDays(watchedCheckIn, originalNights);
+    if (!watchedCheckOut || format(shifted, 'yyyy-MM-dd') !== format(watchedCheckOut, 'yyyy-MM-dd')) {
+      form.setValue('checkOutDate', shifted, { shouldValidate: true });
+    }
+  }, [isCheckedIn, isHalfDay, watchedCheckIn, watchedCheckOut, originalNights, form]);
+
   // El precio sale del tramo que corresponde a la gente que entra, no del tipo
   // de la habitación. Los menores de 5 no cuentan. Si recepción eligió una
   // tarifa a mano —acá o al tomar la reserva— manda esa y no se recalcula.
@@ -198,15 +222,20 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
   const isSpecialRate = booking.specialRateAmount != null;
   const specialRateNightly = isSpecialRate ? booking.specialRateAmount! : null;
 
-  const datesChanged =
-    (!!watchedCheckIn && format(watchedCheckIn, 'yyyy-MM-dd') !== format(new Date(booking.checkInDate), 'yyyy-MM-dd')) ||
-    (!!watchedCheckOut && format(watchedCheckOut, 'yyyy-MM-dd') !== format(new Date(booking.checkOutDate), 'yyyy-MM-dd'));
+  /**
+   * De las fechas, lo único que mueve el precio es cuántas noches son: el total
+   * se arma desde `nights` y en ningún lado mira en qué días caen. Corriendo la
+   * estadía sin cambiarle la duración no hay nada que repreciar, y recalcular
+   * igual no era inofensivo —el techo por tarifa de lista le bajaba el total a
+   * la reserva que se había tomado por encima de la lista de hoy.
+   */
+  const nightsChanged = nights !== originalNights;
 
   // Qué toca la plata y qué no. Los menores de 5 no se cobran, y las notas y la
   // hora de llegada tampoco: corregir una nota no tiene por qué repreciar nada.
   const pricingChanged =
     watchedRoomId !== booking.roomId ||
-    datesChanged ||
+    nightsChanged ||
     watchedAdults !== booking.adults ||
     watchedChildren !== booking.children ||
     (chosenPricingTypeId ?? null) !== (booking.pricingRoomTypeId ?? null);
@@ -417,7 +446,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
                         <FormControl>
                           <Button
                             variant="outline"
-                            disabled={datesLocked}
+                            disabled={checkInLocked}
                             className={cn(
                               'pl-3 text-left font-normal',
                               !field.value && 'text-muted-foreground'
@@ -454,7 +483,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
                         <FormControl>
                           <Button
                             variant="outline"
-                            disabled={datesLocked}
+                            disabled={checkOutLocked}
                             className={cn(
                               'pl-3 text-left font-normal',
                               !field.value && 'text-muted-foreground'
@@ -500,7 +529,10 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
               </p>
             ) : isCheckedIn && (
               <p className="text-xs text-muted-foreground bg-muted px-3 py-2 rounded-md -mt-2">
-                Las fechas no se pueden cambiar desde acá porque la estadía ya comenzó. Para agregar noches usá <strong>Extender estadía</strong>.
+                La estadía ya comenzó, así que se corrige el <strong>día de entrada</strong> —el
+                pasajero que entró pasada la medianoche y quedó cargado al día siguiente— y la
+                salida se corre igual: siguen siendo {originalNights} noche{originalNights !== 1 ? 's' : ''} y
+                el precio no cambia. Para agregar noches usá <strong>Extender estadía</strong>.
               </p>
             )}
 

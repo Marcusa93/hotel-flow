@@ -503,7 +503,11 @@ export default function CierreCaja() {
       )}
 
       {/* Day selector */}
-      <div className="flex flex-wrap items-end gap-4 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl p-4 rounded-2xl border border-white/20 shadow-sm">
+      {/* items-start y no items-end: el bloque del fondo fijo lleva una línea de
+          ayuda debajo, y alineando por abajo esa línea empujaba su casillero más
+          arriba que el del día. Alineando por arriba —las dos etiquetas miden
+          igual— los casilleros quedan a la misma altura y la ayuda cuelga. */}
+      <div className="flex flex-wrap items-start gap-4 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl p-4 rounded-2xl border border-white/20 shadow-sm">
         <div>
           <Label className="text-xs mb-1 block flex items-center gap-1"><CalendarIcon className="w-3 h-3" /> Día</Label>
           <Input type="date" value={day} max={formatLocalDate(new Date())} onChange={(e) => setDay(e.target.value)} className="w-[180px]" />
@@ -536,7 +540,9 @@ export default function CierreCaja() {
               : `Heredado del habitual (${money(hotelSettings?.dailyCashFloat ?? 0)}).`}
           </p>
         </div>
-        <p className="text-sm text-muted-foreground capitalize ml-auto">{dayLabel}</p>
+        {/* first-letter y no capitalize: capitalize pone en mayúscula TODAS las
+            palabras y el día quedaba escrito "Lunes 3 De Agosto De 2026". */}
+        <p className="text-sm text-muted-foreground first-letter:uppercase ml-auto self-center">{dayLabel}</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

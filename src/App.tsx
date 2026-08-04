@@ -78,7 +78,8 @@ const AnimatedRoutes = () => {
         <Route path="/payments" element={<RoleGuard allowedRoles={['admin', 'reception', 'auditor']}><PageWrapper><Payments /></PageWrapper></RoleGuard>} />
         <Route path="/expenses" element={<RoleGuard allowedRoles={['admin', 'reception', 'auditor']}><PageWrapper><Expenses /></PageWrapper></RoleGuard>} />
         <Route path="/cierre" element={<RoleGuard allowedRoles={['admin', 'reception', 'auditor']}><PageWrapper><CierreCaja /></PageWrapper></RoleGuard>} />
-        <Route path="/balance" element={<RoleGuard allowedRoles={['admin', 'reception', 'auditor']}><PageWrapper><BalanceMensual /></PageWrapper></RoleGuard>} />
+        {/* El resumen del mes es del dueño: cómo le fue al hotel, no la operación del día */}
+        <Route path="/balance" element={<RoleGuard allowedRoles={['admin']}><PageWrapper><BalanceMensual /></PageWrapper></RoleGuard>} />
         <Route path="/billing" element={<Navigate to="/payments" replace />} />
         <Route path="/statistics" element={<Navigate to="/rates" replace />} />
         <Route path="/audit-log" element={<RoleGuard allowedRoles={['admin', 'auditor']}><PageWrapper><AuditLog /></PageWrapper></RoleGuard>} />

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  DEFAULT_CASH_SOURCE,
   cashToDeposit,
   companyCashBalance,
   defaultClosingDay,
@@ -109,6 +110,32 @@ describe('las dos cajas', () => {
 
     expect(cashToDeposit({ cashIncome: 100_000, cashFloat: 20_000, cashExpenses: result.cashRecaudacion }))
       .toBe(80_000);
+  });
+});
+
+describe('el supuesto de qué caja pagó', () => {
+  // De acá salió un faltante real en producción: el formulario arrancaba en
+  // EMPRESA por su cuenta mientras la lectura de gastos suponía RECAUDACION.
+  // Recepción pagaba del cajón sin tocar el desplegable, el gasto no bajaba el
+  // efectivo a rendir y el cierre pedía rendir plata que ya no estaba.
+
+  it('el default que usa el formulario es el mismo que lee el cierre', () => {
+    // Si alguien cambia uno de los dos, este test lo frena.
+    expect(expenseCashSource(gasto({ method: 'CASH' }))).toBe(DEFAULT_CASH_SOURCE);
+  });
+
+  it('el supuesto es recaudación, que es el que no genera faltante', () => {
+    // Errarle para el lado de la recaudación hace sobrar plata, que se ve.
+    // Errarle para el lado de la empresa la hace faltar, que es lo que pasó.
+    expect(DEFAULT_CASH_SOURCE).toBe('RECAUDACION');
+  });
+
+  it('un gasto en efectivo sin caja elegida baja el efectivo a rendir', () => {
+    const result = summarizeExpenses([gasto({ method: 'CASH', amount: 15_000 })]);
+
+    expect(
+      cashToDeposit({ cashIncome: 100_000, cashFloat: 20_000, cashExpenses: result.cashRecaudacion })
+    ).toBe(65_000);
   });
 });
 

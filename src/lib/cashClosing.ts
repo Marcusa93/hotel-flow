@@ -28,15 +28,31 @@ export interface ExpenseBreakdown {
 }
 
 /**
+ * De qué caja se supone que salió un gasto en efectivo cuando no lo dice.
+ *
+ * Vive acá y no en el formulario porque tiene que ser el MISMO supuesto en los
+ * tres lugares donde hace falta: el default al cargar un gasto, el fallback al
+ * editarlo y la lectura de los gastos viejos. Cuando el formulario tenía el suyo
+ * propio —arrancaba en EMPRESA— recepción pagaba del cajón sin tocar el
+ * desplegable, el gasto quedaba imputado a la empresa, no bajaba el efectivo a
+ * rendir y el cierre daba faltante.
+ *
+ * De los dos supuestos, este es el que no rompe: si acierta, el cierre cuadra;
+ * si se equivoca, el efectivo a rendir da de menos y sobra plata, que se ve
+ * enseguida y no genera un faltante.
+ */
+export const DEFAULT_CASH_SOURCE: CashSource = 'RECAUDACION';
+
+/**
  * De qué caja salió un gasto en efectivo.
  *
- * Sin `cashSource` se lee RECAUDACION: es como se venían contando los gastos en
- * efectivo antes de que existieran las dos cajas, y cambiarlo movería cierres ya
- * hechos. Los que no son en efectivo no salen de ninguna caja.
+ * Sin `cashSource` se lee el supuesto de arriba: es como se venían contando los
+ * gastos en efectivo antes de que existieran las dos cajas, y cambiarlo movería
+ * cierres ya hechos. Los que no son en efectivo no salen de ninguna caja.
  */
 export function expenseCashSource(expense: Expense): CashSource | null {
   if (expense.method !== 'CASH') return null;
-  return expense.cashSource ?? 'RECAUDACION';
+  return expense.cashSource ?? DEFAULT_CASH_SOURCE;
 }
 
 export function summarizeExpenses(expenses: Expense[]): ExpenseBreakdown {

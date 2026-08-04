@@ -1,4 +1,4 @@
-import type { CashSource, Expense, SettlementMethod } from '@/types/hotel';
+import type { CashClosing, CashSource, Expense, SettlementMethod } from '@/types/hotel';
 
 /**
  * Las cuentas del cierre de caja.
@@ -155,6 +155,58 @@ export function resolveCashFloat(
 ): number {
   // ?? y no ||: un fondo fijo de 0 puesto a propósito es un dato, no un vacío.
   return dayFloat ?? defaultFloat ?? 0;
+}
+
+/**
+ * Qué movimientos entran en el cierre de un día.
+ *
+ * Hoy: los que tienen la fecha de ese día. Es lo que el hotel eligió.
+ *
+ * La alternativa era "todo lo que se cargó y todavía no se cerró", sin mirar la
+ * fecha del movimiento. Esa versión arregla sola el desfase que reportaron —el
+ * cobro que entró al cajón el 30 y se carga el 31 a la mañana queda contado el
+ * 31, y el cierre del 30 da faltante—; con el criterio de acá ese cobro hay que
+ * corregirlo a mano, poniéndole la fecha real en el diálogo de cobro.
+ *
+ * Si al usarlo ven que la caja sigue sin cuadrar, es acá donde se cambia: esta
+ * función es el único lugar del sistema que decide la pertenencia.
+ */
+export function belongsToClosingDay(movementDay: string, closingDay: string): boolean {
+  return movementDay === closingDay;
+}
+
+/** Si el día está cerrado. Reabierto vuelve a contar como pendiente. */
+export function isDayClosed(closing: CashClosing | undefined | null): boolean {
+  return !!closing && !closing.reopenedAt;
+}
+
+/** Lo que cambió entre lo que se cerró y lo que dan los números hoy. */
+export interface ClosingDrift {
+  label: string;
+  closed: number;
+  now: number;
+}
+
+/**
+ * Si alguien tocó algo después de cerrar.
+ *
+ * Un cierre firmado tiene que seguir diciendo lo mismo, pero los movimientos
+ * abajo pueden cambiar: se corrige un gasto viejo, se carga un cobro que
+ * faltaba. Sin este contraste la pantalla mostraría números nuevos bajo el
+ * cartel de "cerrado" y nadie se enteraría de que ya no son los que se rindieron.
+ */
+export function closingDrift(
+  closing: CashClosing,
+  now: { cashIncome: number; cashExpenses: number; cashToDeposit: number; totalIncome: number; totalExpenses: number }
+): ClosingDrift[] {
+  const rows: ClosingDrift[] = [
+    { label: 'Efectivo cobrado', closed: closing.cashIncome, now: now.cashIncome },
+    { label: 'Gastos en efectivo', closed: closing.cashExpenses, now: now.cashExpenses },
+    { label: 'Efectivo a rendir', closed: closing.cashToDeposit, now: now.cashToDeposit },
+    { label: 'Total ingresos', closed: closing.totalIncome, now: now.totalIncome },
+    { label: 'Total gastos', closed: closing.totalExpenses, now: now.totalExpenses },
+  ];
+  return rows.filter(r => Math.round(r.closed) !== Math.round(r.now));
 }
 
 /** Los métodos que aparecen en el desglose de gastos, en orden fijo. */

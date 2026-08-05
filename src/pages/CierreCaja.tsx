@@ -28,6 +28,7 @@ import {
   resolveCashFloat,
   belongsToClosingDay,
   isDayClosed,
+  closingForDay,
   closingDrift,
   EXPENSE_METHOD_ORDER,
 } from '@/lib/cashClosing';
@@ -214,7 +215,7 @@ export default function CierreCaja() {
   const [confirmClose, setConfirmClose] = useState(false);
   const [closeNotes, setCloseNotes] = useState('');
 
-  const closing = allClosings.find((c) => formatLocalDate(c.closingDate) === day);
+  const closing = closingForDay(allClosings, day);
   const closed = isDayClosed(closing);
   const canClose = currentRole === 'admin' || currentRole === 'reception';
   const canReopen = currentRole === 'admin';
@@ -244,7 +245,7 @@ export default function CierreCaja() {
       dias.push({
         dia,
         etiqueta: format(d, 'EEE d/M', { locale: es }),
-        cerrado: isDayClosed(allClosings.find((c) => formatLocalDate(c.closingDate) === dia)),
+        cerrado: isDayClosed(closingForDay(allClosings, dia)),
       });
     }
     return dias;

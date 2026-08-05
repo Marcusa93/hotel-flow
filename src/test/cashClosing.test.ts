@@ -4,6 +4,7 @@ import {
   belongsToClosingDay,
   cashToDeposit,
   closingDrift,
+  closingForDay,
   isDayClosed,
   companyCashBalance,
   defaultClosingDay,
@@ -266,6 +267,24 @@ describe('belongsToClosingDay', () => {
     // hay que corregirle la fecha a mano para que caiga en el cierre del 3.
     expect(belongsToClosingDay('2026-08-04', '2026-08-03')).toBe(false);
   });
+
+  it('el cobro corregido cambia de caja: entra en la nueva y sale de la vieja', () => {
+    // Ni en las dos ni en ninguna. Es lo que hace que corregir la fecha no sea
+    // ni duplicar la plata ni perderla.
+    const corregido = '2026-08-03';
+    expect(belongsToClosingDay(corregido, '2026-08-03')).toBe(true);
+    expect(belongsToClosingDay(corregido, '2026-08-04')).toBe(false);
+  });
+});
+
+describe('closingForDay', () => {
+  it('encuentra el cierre por su día local', () => {
+    expect(closingForDay([cierre()], '2026-08-03')?.id).toBe('c-1');
+  });
+
+  it('un día sin cierre no devuelve nada', () => {
+    expect(closingForDay([cierre()], '2026-08-04')).toBeUndefined();
+  });
 });
 
 describe('isDayClosed', () => {
@@ -303,5 +322,13 @@ describe('closingDrift', () => {
   it('los centavos de redondeo no cuentan como cambio', () => {
     // Sin el redondeo, un total con decimales marcaría descuadre todos los días.
     expect(closingDrift(cierre(), { ...ahora, cashToDeposit: 75_000.4 })).toEqual([]);
+  });
+
+  it('dos movimientos opuestos del mismo monto no levantan nada', () => {
+    // Sacar un cobro de $10.000 del día y meter otro de $10.000 deja los cinco
+    // totales igual que antes: este detector compara sumas, no movimientos.
+    // Por eso corregir la fecha de un cobro se PROHÍBE sobre un día cerrado en
+    // vez de permitirse y confiar en que acá se vea.
+    expect(closingDrift(cierre(), ahora)).toEqual([]);
   });
 });

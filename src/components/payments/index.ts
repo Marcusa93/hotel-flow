@@ -8,3 +8,4 @@ export * from './PaymentReceipt';
 export * from './PaymentAttachments';
 export * from './PaymentReceiptBadge';
 export * from './ReceiptFilePicker';
+export * from './EditPaymentDateDialog';

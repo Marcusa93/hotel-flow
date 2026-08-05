@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { mapBooking, mapExpense, mapRate, mapInvoice, mapRoom, bookingToRow } from '@/lib/mappers';
+import { mapBooking, mapExpense, mapPayment, mapRate, mapInvoice, mapRoom, bookingToRow } from '@/lib/mappers';
+import { withLocalDay } from '@/lib/paymentDate';
 import { formatLocalDate } from '@/lib/utils';
 
 // DATE columns arrive from PostgREST as plain "YYYY-MM-DD" strings.
@@ -146,5 +147,37 @@ describe('mapRoom — habilitación de limpieza', () => {
     it('la nota vacía se lee como sin nota', () => {
         const room = mapRoom(fila({ housekeeping_note: '' }));
         expect(room.housekeepingNote).toBeUndefined();
+    });
+});
+
+// A diferencia de los gastos, la fecha de un cobro es TIMESTAMPTZ: lleva la hora
+// en que entró la plata. El día tiene que sobrevivir el viaje igual.
+describe('la fecha del cobro, de ida y de vuelta', () => {
+    const cobro = (date: string) => mapPayment({
+        id: 'p-1', booking_id: 'b-1', amount: '85000',
+        method: 'CASH', status: 'PAID', date,
+    });
+
+    it('no corre el día de un cobro de la noche', () => {
+        // Las 21:30 de acá ya son del día siguiente en Greenwich. El mapper guarda
+        // el instante; leerlo en el calendario local tiene que devolver el día que
+        // era acá.
+        //
+        // La fecha se arma con un Date local y no con un literal '...-03:00': un
+        // offset fijo hace que el resultado dependa del huso de la máquina que
+        // corre el test —en un runner en UTC este assert falla justo cuando el
+        // mapper está bien— y eso mide el CI, no el código.
+        const noche = new Date(2025, 7, 3, 21, 30);
+        expect(formatLocalDate(cobro(noche.toISOString()).date)).toBe('2025-08-03');
+    });
+
+    it('el cobro corregido vuelve de la base con el día que se le puso', () => {
+        // El viaje completo: corregir → toISOString() → TIMESTAMPTZ → mapPayment.
+        for (const mes of [0, 7, 11]) {
+            const dia = formatLocalDate(new Date(2025, mes, 3));
+            const corregido = withLocalDay(new Date(2025, mes, 4, 9, 30), dia);
+
+            expect(formatLocalDate(cobro(corregido.toISOString()).date)).toBe(dia);
+        }
     });
 });

@@ -80,8 +80,15 @@ async function resolveCurrentUser(params: CreateAuditLogParams) {
   return { userId, userEmail, userRole };
 }
 
-// Standalone fire-and-forget helper (same pattern as createNotification)
-export const logAuditEvent = async (params: CreateAuditLogParams) => {
+/**
+ * Standalone helper (same pattern as createNotification).
+ *
+ * Nunca tira: un rastro que no se pudo escribir no puede voltear la operación
+ * que lo generó. Pero devuelve si se escribió, porque hay operaciones —mover un
+ * cobro de una caja a otra— donde el rastro es toda la defensa y quien la hizo
+ * tiene que enterarse si quedó sin registrar.
+ */
+export const logAuditEvent = async (params: CreateAuditLogParams): Promise<{ ok: boolean }> => {
   const { userId, userEmail, userRole } = await resolveCurrentUser(params);
 
   const { error } = await supabase
@@ -102,4 +109,6 @@ export const logAuditEvent = async (params: CreateAuditLogParams) => {
   if (error) {
     console.error('Failed to create audit log:', error);
   }
+
+  return { ok: !error };
 };

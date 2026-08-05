@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { mapCashClosing } from '@/lib/mappers';
+import { closingForDay } from '@/lib/cashClosing';
 import { formatLocalDate } from '@/lib/utils';
 import { logAuditEvent } from './useCreateAuditLog';
 import type { CashClosing } from '@/types/hotel';
@@ -26,7 +27,7 @@ export const useCashClosings = () => {
 export const useClosingForDay = (day: string) => {
   const { data = [], isLoading } = useCashClosings();
   return {
-    closing: data.find(c => formatLocalDate(c.closingDate) === day),
+    closing: closingForDay(data, day),
     isLoading,
   };
 };

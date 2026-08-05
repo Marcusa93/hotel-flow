@@ -1,4 +1,5 @@
 import type { CashClosing, CashSource, Expense, SettlementMethod } from '@/types/hotel';
+import { formatLocalDate } from '@/lib/utils';
 
 /**
  * Las cuentas del cierre de caja.
@@ -170,6 +171,10 @@ export function resolveCashFloat(
  *
  * Si al usarlo ven que la caja sigue sin cuadrar, es acá donde se cambia: esta
  * función es el único lugar del sistema que decide la pertenencia.
+ *
+ * Y si el cobro ya quedó guardado con el día equivocado, se corrige desde el menú
+ * del cobro → "Corregir fecha", que le reescribe el día conservando la hora. Ver
+ * paymentDate.ts: es la vía que reemplaza al reembolsar-y-volver-a-cargar.
  */
 export function belongsToClosingDay(movementDay: string, closingDay: string): boolean {
   return movementDay === closingDay;
@@ -178,6 +183,19 @@ export function belongsToClosingDay(movementDay: string, closingDay: string): bo
 /** Si el día está cerrado. Reabierto vuelve a contar como pendiente. */
 export function isDayClosed(closing: CashClosing | undefined | null): boolean {
   return !!closing && !closing.reopenedAt;
+}
+
+/**
+ * El cierre de un día, buscado por su día calendario local.
+ *
+ * Por `formatLocalDate` y no comparando Date: `closingDate` viene de una columna
+ * DATE, y compararla cruda contra un 'YYYY-MM-DD' erra por el huso.
+ */
+export function closingForDay(
+  closings: CashClosing[],
+  day: string
+): CashClosing | undefined {
+  return closings.find(c => formatLocalDate(c.closingDate) === day);
 }
 
 /** Lo que cambió entre lo que se cerró y lo que dan los números hoy. */

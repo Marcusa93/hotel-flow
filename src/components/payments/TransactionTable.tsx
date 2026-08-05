@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/shared';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Eye, Smartphone, CreditCard, Banknote, QrCode, MoreHorizontal, CheckCircle2, XCircle, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Eye, Smartphone, CreditCard, Banknote, QrCode, MoreHorizontal, CheckCircle2, XCircle, Pencil, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -32,6 +32,8 @@ interface TransactionTableProps {
     getBookingInfo: (bookingId: string) => { guest: Guest | undefined; room: Room | undefined; checkIn?: string; checkOut?: string };
     onStatusChange?: (paymentId: string, newStatus: PaymentStatus) => void;
     onViewReceipt?: (payment: Payment) => void;
+    /** Sin handler no se ofrece corregir la fecha: es la forma en que este archivo dice "no podés". */
+    onEditDate?: (payment: Payment) => void;
 }
 
 const MethodIcon = ({ method }: { method: PaymentMethod }) => {
@@ -48,7 +50,7 @@ const MethodIcon = ({ method }: { method: PaymentMethod }) => {
 type SortKey = 'guest' | 'date' | 'method' | 'amount' | 'status';
 type SortDir = 'asc' | 'desc';
 
-export function TransactionTable({ payments, getBookingInfo, onStatusChange, onViewReceipt }: TransactionTableProps) {
+export function TransactionTable({ payments, getBookingInfo, onStatusChange, onViewReceipt, onEditDate }: TransactionTableProps) {
     const [sortKey, setSortKey] = useState<SortKey>('date');
     const [sortDir, setSortDir] = useState<SortDir>('desc');
 
@@ -205,6 +207,15 @@ export function TransactionTable({ payments, getBookingInfo, onStatusChange, onV
                                                         Marcar Pagado
                                                     </DropdownMenuItem>
                                                 )}
+                                                {/* Antes que Reembolsar a propósito: cuando el cobro cayó en
+                                                    el día equivocado, esto es lo que hay que hacer, y hasta
+                                                    ahora recepción llegaba primero al reembolso. */}
+                                                {payment.status === 'PAID' && onEditDate && (
+                                                    <DropdownMenuItem onClick={() => onEditDate(payment)}>
+                                                        <Pencil className="w-4 h-4 mr-2 text-blue-500" />
+                                                        Corregir fecha
+                                                    </DropdownMenuItem>
+                                                )}
                                                 {payment.status === 'PAID' && onStatusChange && (
                                                     <DropdownMenuItem onClick={() => onStatusChange(payment.id, 'REFUNDED')}>
                                                         <XCircle className="w-4 h-4 mr-2 text-rose-500" />
@@ -251,11 +262,27 @@ export function TransactionTable({ payments, getBookingInfo, onStatusChange, onV
                             </div>
 
                             <div className="flex items-center justify-between py-2 border-t border-b border-slate-100 dark:border-slate-800/50">
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Fecha</span>
-                                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                                        {format(new Date(payment.date), 'dd MMM yyyy', { locale: es })}
-                                    </span>
+                                {/* El lápiz también acá: el mostrador atiende con el celular en
+                                    la mano, y esta vista no tenía ninguna acción. Sin esto la
+                                    corrección no existe justo donde ocurre el error. */}
+                                <div className="flex items-center gap-1">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Fecha</span>
+                                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                                            {format(new Date(payment.date), 'dd MMM yyyy', { locale: es })}
+                                        </span>
+                                    </div>
+                                    {payment.status === 'PAID' && onEditDate && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-slate-400"
+                                            title="Corregir fecha"
+                                            onClick={() => onEditDate(payment)}
+                                        >
+                                            <Pencil className="w-4 h-4" />
+                                        </Button>
+                                    )}
                                 </div>
                                 <div className="flex flex-col items-end">
                                     <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Monto</span>

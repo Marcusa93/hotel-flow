@@ -308,3 +308,36 @@ describe('buildOutstandingTotals', () => {
         expect(totals.outstandingCount).toBe(1);
     });
 });
+
+describe('corregirle la fecha a un cobro', () => {
+    it('no toca el saldo de la reserva', () => {
+        // Es la ventaja decisiva sobre la maniobra vieja. Reembolsar y volver a
+        // cargar deja la reserva figurando impaga entre un paso y el otro,
+        // porque el saldo solo descuenta los PAID. Mover la fecha no lo roza:
+        // esta cuenta mira el estado, nunca el día.
+        const antes = buildBookingAccount({
+            booking: { totalAmount: 320_000 },
+            payments: [payment({ amount: 320_000, date: new Date(2026, 7, 4, 9, 30) })],
+        });
+        const despues = buildBookingAccount({
+            booking: { totalAmount: 320_000 },
+            payments: [payment({ amount: 320_000, date: new Date(2026, 7, 3, 9, 30) })],
+        });
+
+        expect(despues.balance).toBe(antes.balance);
+        expect(despues.paid).toBe(antes.paid);
+        expect(despues.isSettled).toBe(true);
+    });
+
+    it('reembolsar y volver a cargar sí deja a la reserva debiendo en el medio', () => {
+        // El paso intermedio de la maniobra que esto reemplaza: el cobro ya está
+        // reembolsado y el nuevo todavía no se cargó.
+        const enElMedio = buildBookingAccount({
+            booking: { totalAmount: 320_000 },
+            payments: [payment({ amount: 320_000, status: 'REFUNDED' })],
+        });
+
+        expect(enElMedio.balance).toBe(320_000);
+        expect(enElMedio.isSettled).toBe(false);
+    });
+});

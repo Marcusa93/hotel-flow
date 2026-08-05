@@ -40,7 +40,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { BookingStatus } from '@/types/hotel';
+import { BookingStatus, Payment } from '@/types/hotel';
 import { cn, formatLastNameFirst, getInitials, guestsLabel, stayLengthLabel } from '@/lib/utils';
 import {
   AlertDialog,
@@ -55,6 +55,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { RegisterPaymentDialog } from '@/components/payments/RegisterPaymentDialog';
 import { PaymentAttachments } from '@/components/payments/PaymentAttachments';
+import { EditPaymentDateDialog } from '@/components/payments/EditPaymentDateDialog';
 import { CheckoutDialog } from '@/components/bookings/CheckoutDialog';
 import { EditBookingDialog } from '@/components/bookings/EditBookingDialog';
 import { ExtendStayDialog } from '@/components/bookings/ExtendStayDialog';
@@ -63,6 +64,7 @@ import { BookingQRCode } from '@/components/bookings/BookingQRCode';
 import { useBookingCharges } from '@/hooks/useBookingCharges';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
 import { buildBookingAccount } from '@/lib/bookingAccount';
+import { useAppRole } from '@/context/AppRoleContext';
 import { toast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 
@@ -73,7 +75,10 @@ export default function BookingDetail() {
   const { guests } = useGuestOperations();
   const { rooms, roomTypes } = useRoomOperations();
   const { payments } = usePaymentOperations();
+  const { currentRole } = useAppRole();
+  const canWrite = currentRole === 'admin' || currentRole === 'reception';
   const isLoading = bookingsLoading;
+  const [editingDatePayment, setEditingDatePayment] = useState<Payment | null>(null);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -736,9 +741,25 @@ export default function BookingDetail() {
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className={cn("font-bold", style.amount)}>{style.sign}${payment.amount.toLocaleString('es-AR')}</p>
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{style.label}</span>
+                        <div className="flex items-center gap-2">
+                          {/* Acá es donde recepción mira el cobro cuando duda, y la
+                              única pantalla que muestra la hora: si la fecha está
+                              mal, se corrige desde donde se la ve. */}
+                          {canWrite && payment.status === 'PAID' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground"
+                              title="Corregir fecha"
+                              onClick={() => setEditingDatePayment(payment)}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                          <div className="text-right">
+                            <p className={cn("font-bold", style.amount)}>{style.sign}${payment.amount.toLocaleString('es-AR')}</p>
+                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{style.label}</span>
+                          </div>
                         </div>
                         </div>
 
@@ -761,6 +782,14 @@ export default function BookingDetail() {
         bookingId={booking.id}
         pendingAmount={pendingAmount}
       />
+
+      {editingDatePayment && (
+        <EditPaymentDateDialog
+          open
+          onOpenChange={(o) => !o && setEditingDatePayment(null)}
+          payment={editingDatePayment}
+        />
+      )}
 
       <CheckoutDialog
         open={isCheckoutDialogOpen}

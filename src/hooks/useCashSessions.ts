@@ -25,18 +25,22 @@ interface OpenSessionParams {
   openingAmount: number;
   openedBy?: string;
   openedByName?: string;
+  /** Permite abrir el turno desde una fecha pasada (retroactivo). */
+  openedAt?: Date;
 }
 
 export const useOpenCashSession = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ openingAmount, openedBy, openedByName }: OpenSessionParams) => {
+    mutationFn: async ({ openingAmount, openedBy, openedByName, openedAt }: OpenSessionParams) => {
       const { data, error } = await supabase
         .from('cash_sessions')
         .insert({
           opening_amount: openingAmount,
           opened_by: openedBy || null,
           opened_by_name: openedByName || null,
+          // Si no viene, la DB usa NOW(). Si viene, permite abrir desde ayer o antes.
+          ...(openedAt ? { opened_at: openedAt.toISOString() } : {}),
         })
         .select()
         .single();

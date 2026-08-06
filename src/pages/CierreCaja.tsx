@@ -98,6 +98,12 @@ export default function CierreCaja() {
 
   // ─── Formulario de apertura ───────────────────────────────────────────
   const [openingInput, setOpeningInput] = useState('');
+  // Por defecto arranca en ayer: el cierre habitual es a la mañana del día siguiente.
+  const [openingDate, setOpeningDate] = useState<string>(() => {
+    const ayer = new Date();
+    ayer.setDate(ayer.getDate() - 1);
+    return formatLocalDate(ayer);
+  });
   const [confirmClose, setConfirmClose] = useState(false);
   const [closeNotes, setCloseNotes] = useState('');
   const [newIncome, setNewIncome] = useState<{ description: string; method: PaymentMethod; amount: string }>(
@@ -204,57 +210,18 @@ export default function CierreCaja() {
     return diffs;
   }, [viewedSession, cashTotal, cashToDeposit, totalIngresos, expenses.total]);
 
-<<<<<<< HEAD
-  const author = { id: user?.id, name: profileName || user?.email || undefined };
-
-  // ─── El cierre del día ──────────────────────────────────────────────
-  const { data: allClosings = [] } = useCashClosings();
-  const closeDay = useCloseCashDay();
-  const reopenDay = useReopenCashDay();
-  const [confirmClose, setConfirmClose] = useState(false);
-  const [closeNotes, setCloseNotes] = useState('');
-
-  const closing = closingForDay(allClosings, day);
-  const closed = isDayClosed(closing);
-  const canClose = currentRole === 'admin' || currentRole === 'reception';
-  const canReopen = currentRole === 'admin';
-
-  // Lo que se cerró contra lo que dan los números ahora. Con algo acá, alguien
-  // tocó un movimiento después de cerrar y lo rendido ya no coincide.
-  const drift = useMemo(
-    () => (closing && closed
-      ? closingDrift(closing, {
-          cashIncome: cashTotal,
-          cashExpenses: expenses.cashRecaudacion,
-          cashToDeposit,
-          totalIncome: totalIngresos,
-          totalExpenses: expenses.total,
-        })
-      : []),
-    [closing, closed, cashTotal, expenses.cashRecaudacion, expenses.total, cashToDeposit, totalIngresos]
-  );
-
-  // Los últimos 7 días cerrables, hoy afuera: el cierre es del día que ya pasó.
-  const ultimosDias = useMemo(() => {
-    const dias: { dia: string; etiqueta: string; cerrado: boolean }[] = [];
-    for (let i = 0; i < 7; i++) {
-      const d = defaultClosingDay();
-      d.setDate(d.getDate() - i);
-      const dia = formatLocalDate(d);
-      dias.push({
-        dia,
-        etiqueta: format(d, 'EEE d/M', { locale: es }),
-        cerrado: isDayClosed(closingForDay(allClosings, dia)),
-=======
   // ─── Acciones ─────────────────────────────────────────────────────────
   const handleOpen = async () => {
     const amount = Number(openingInput) || 0;
+    // Arranca al inicio del día elegido (hora local 00:00) para que todos los
+    // movimientos de ese día queden dentro del turno.
+    const openedAt = new Date(openingDate + 'T00:00:00');
     try {
       await openSession.mutateAsync({
         openingAmount: amount,
         openedBy: author.id,
         openedByName: author.name,
->>>>>>> b3be821 (feat(caja): apertura y cierre manual de turno en vez de día calendario)
+        openedAt,
       });
       setOpeningInput('');
       toast({ title: '✅ Caja abierta', description: `Saldo inicial: ${money(amount)}` });
@@ -472,6 +439,15 @@ export default function CierreCaja() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-end gap-3">
+              <div className="w-[160px]">
+                <Label className="text-xs mb-1 block">Desde el día</Label>
+                <Input
+                  type="date"
+                  max={formatLocalDate(new Date())}
+                  value={openingDate}
+                  onChange={(e) => setOpeningDate(e.target.value)}
+                />
+              </div>
               <div className="w-[200px]">
                 <Label className="text-xs mb-1 block">Saldo inicial en cajón</Label>
                 <Input
@@ -485,6 +461,9 @@ export default function CierreCaja() {
                 <Play className="w-4 h-4 mr-2" /> Abrir turno
               </Button>
             </div>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              El turno captura todos los movimientos desde el día elegido hasta que lo cierres.
+            </p>
           </CardContent>
         </Card>
       )}

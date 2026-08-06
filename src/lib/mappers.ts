@@ -260,6 +260,24 @@ export const mapCashClosing = (row: DbRow): CashClosing => ({
   updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
 });
 
+export const mapCashSession = (row: DbRow): import('@/types/hotel').CashSession => ({
+  id: row.id,
+  openedAt: new Date(row.opened_at),
+  openedBy: row.opened_by || undefined,
+  openedByName: row.opened_by_name || undefined,
+  openingAmount: Number(row.opening_amount ?? 0),
+  closedAt: row.closed_at ? new Date(row.closed_at) : undefined,
+  closedBy: row.closed_by || undefined,
+  closedByName: row.closed_by_name || undefined,
+  notes: row.notes || undefined,
+  snapCashIncome: row.snap_cash_income != null ? Number(row.snap_cash_income) : undefined,
+  snapCashExpenses: row.snap_cash_expenses != null ? Number(row.snap_cash_expenses) : undefined,
+  snapCashToDeposit: row.snap_cash_to_deposit != null ? Number(row.snap_cash_to_deposit) : undefined,
+  snapTotalIncome: row.snap_total_income != null ? Number(row.snap_total_income) : undefined,
+  snapTotalExpenses: row.snap_total_expenses != null ? Number(row.snap_total_expenses) : undefined,
+  createdAt: new Date(row.created_at || new Date()),
+});
+
 export const mapInvoiceItem = (row: DbRow): InvoiceItem => ({
   id: row.id,
   invoiceId: row.invoice_id,

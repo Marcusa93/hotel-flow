@@ -430,6 +430,27 @@ export interface CashClosing {
   updatedAt?: Date;
 }
 
+/** Un turno de caja: desde que se abre hasta que se cierra. */
+export interface CashSession {
+  id: string;
+  openedAt: Date;
+  openedBy?: string;
+  openedByName?: string;
+  /** Efectivo en cajón al abrir el turno. Actúa como fondo inicial. */
+  openingAmount: number;
+  closedAt?: Date;
+  closedBy?: string;
+  closedByName?: string;
+  notes?: string;
+  /** Snapshot guardado al cerrar (para detectar si algo cambió después). */
+  snapCashIncome?: number;
+  snapCashExpenses?: number;
+  snapCashToDeposit?: number;
+  snapTotalIncome?: number;
+  snapTotalExpenses?: number;
+  createdAt: Date;
+}
+
 /** El fondo fijo que queda en la caja un día puntual. */
 export interface CashFloat {
   date: Date;

@@ -198,6 +198,40 @@ export function closingForDay(
   return closings.find(c => formatLocalDate(c.closingDate) === day);
 }
 
+/**
+ * Rango de fechas de un turno de caja.
+ *
+ * Un turno puede abarcar más de un día (turno noche: lunes 22h → martes 10h).
+ * El rango es la fecha de apertura hasta la fecha de cierre inclusive, en local.
+ * Si el turno sigue abierto, `end` es hoy.
+ */
+export function sessionDateRange(session: {
+  openedAt: Date;
+  closedAt?: Date;
+}): { start: string; end: string } {
+  return {
+    start: formatLocalDate(session.openedAt),
+    end: session.closedAt ? formatLocalDate(session.closedAt) : formatLocalDate(new Date()),
+  };
+}
+
+/**
+ * Si un movimiento (por su fecha 'YYYY-MM-DD') entra en el rango del turno.
+ *
+ * Strings en formato ISO ordenan lexicográficamente igual que por fecha,
+ * así que la comparación directa funciona.
+ */
+export function belongsToSession(movementDay: string, start: string, end: string): boolean {
+  return movementDay >= start && movementDay <= end;
+}
+
+/** Lo que cambió entre el snapshot guardado al cerrar y los números de ahora. */
+export interface SessionDrift {
+  label: string;
+  saved: number;
+  now: number;
+}
+
 /** Lo que cambió entre lo que se cerró y lo que dan los números hoy. */
 export interface ClosingDrift {
   label: string;

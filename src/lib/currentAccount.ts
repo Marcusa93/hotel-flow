@@ -31,8 +31,15 @@ export interface CurrentAccountSummary {
   payments: CurrentAccountPayment[];
 }
 
-/** Si este cobro carga a la cuenta corriente en vez de entrar a la caja. */
-export const isCurrentAccountPayment = (payment: Pick<Payment, 'method'>): boolean =>
+/**
+ * Si este cobro carga a la cuenta corriente en vez de entrar a la caja.
+ *
+ * Toma `{ method: string }` y no `Pick<Payment,'method'>` para que también la
+ * puedan llamar las listas que trabajan con el método suelto —el detalle del
+ * cierre, sin ir más lejos—. El criterio tiene que vivir en un solo lugar: es
+ * el que decide si un movimiento es plata o es deuda.
+ */
+export const isCurrentAccountPayment = (payment: { method: string }): boolean =>
   payment.method === CURRENT_ACCOUNT_METHOD;
 
 export function buildCurrentAccount({

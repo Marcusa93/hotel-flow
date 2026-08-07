@@ -32,7 +32,10 @@ import {
   companyCashBalance,
   cashToDeposit as computeCashToDeposit,
   belongsToSession,
+  belongsToSessionInterval,
+  nextSessionStart,
   sessionDateRange,
+  sessionIncomeRows,
   EXPENSE_METHOD_ORDER,
 } from '@/lib/cashClosing';
 import { formatLocalDate, escapeHtml } from '@/lib/utils';
@@ -98,6 +101,11 @@ export default function CierreCaja() {
 
   // ─── Formulario de apertura ───────────────────────────────────────────
   const [openingInput, setOpeningInput] = useState('');
+  // La caja nueva arranca donde terminó la última cerrada: así lo que se cargue
+  // entre un cierre y la apertura siguiente no queda huérfano. La fecha solo se
+  // elige a mano la primera vez de todas, cuando no hay ningún cierre del cual
+  // encadenarse.
+  const chainedStart = nextSessionStart(allSessions);
   // Por defecto arranca en ayer: el cierre habitual es a la mañana del día siguiente.
   const [openingDate, setOpeningDate] = useState<string>(() => {
     const ayer = new Date();
@@ -112,14 +120,22 @@ export default function CierreCaja() {
   const [newAporte, setNewAporte] = useState<{ notes: string; amount: string }>({ notes: '', amount: '' });
 
   // ─── Movimientos del turno ────────────────────────────────────────────
+  // El corte es por el instante de carga, no por día calendario: cerrar a las
+  // 10:30 corta a las 10:30. Los cobros van por su fecha-hora (que "Corregir
+  // fecha" mantiene con hora real); el resto va por cuándo se cargó, porque su
+  // columna de fecha es un día pelado sin hora.
   const otherIncomeSession = useMemo(
-    () => allOtherIncome.filter((o) => belongsToSession(formatLocalDate(new Date(o.date)), rangeStart, rangeEnd)),
-    [allOtherIncome, rangeStart, rangeEnd]
+    () => (viewedSession
+      ? allOtherIncome.filter((o) => belongsToSessionInterval(new Date(o.createdAt), viewedSession))
+      : []),
+    [allOtherIncome, viewedSession]
   );
 
   const accountPaymentsSession = useMemo(
-    () => allAccountPayments.filter((p) => belongsToSession(formatLocalDate(new Date(p.date)), rangeStart, rangeEnd)),
-    [allAccountPayments, rangeStart, rangeEnd]
+    () => (viewedSession
+      ? allAccountPayments.filter((p) => belongsToSessionInterval(new Date(p.createdAt), viewedSession))
+      : []),
+    [allAccountPayments, viewedSession]
   );
 
   const { byMethod, totalIngresos, cashTotal, aCuentaCorriente } = useMemo(() => {
@@ -129,7 +145,7 @@ export default function CierreCaja() {
     let aCuentaCorriente = 0;
 
     for (const p of payments) {
-      if (p.status !== 'PAID' || !belongsToSession(formatLocalDate(new Date(p.date)), rangeStart, rangeEnd)) continue;
+      if (p.status !== 'PAID' || !viewedSession || !belongsToSessionInterval(new Date(p.date), viewedSession)) continue;
       if (isCurrentAccountPayment(p)) {
         aCuentaCorriente += p.amount;
         continue;
@@ -147,15 +163,39 @@ export default function CierreCaja() {
     }
 
     return { byMethod, totalIngresos: total, cashTotal: byMethod['CASH'] || 0, aCuentaCorriente };
-  }, [payments, otherIncomeSession, accountPaymentsSession, rangeStart, rangeEnd]);
+  }, [payments, otherIncomeSession, accountPaymentsSession, viewedSession]);
+
+  // El detalle que permite controlar el total sin salir de la pantalla: las tres
+  // fuentes juntas y en orden. Ver sessionIncomeRows.
+  const incomeRows = useMemo(
+    () => sessionIncomeRows({
+      session: viewedSession,
+      payments,
+      otherIncome: allOtherIncome,
+      accountPayments: allAccountPayments,
+      paymentDetail: (p) => {
+        const b = bookings.find((x) => x.id === p.bookingId);
+        const guest = b ? guests.find((g) => g.id === b.guestId) : undefined;
+        const room = b ? rooms.find((r) => r.id === b.roomId) : undefined;
+        return [guest?.fullName || 'Cobro', room ? `Hab. ${room.roomNumber}` : null]
+          .filter(Boolean).join(' — ');
+      },
+      accountPaymentDetail: (p) => {
+        const guest = guests.find((g) => g.id === p.guestId);
+        return `${guest?.fullName || 'Huésped'} — pago de cuenta corriente`;
+      },
+    }),
+    [viewedSession, payments, allOtherIncome, allAccountPayments, bookings, guests, rooms]
+  );
 
   const { data: allExpenses = [] } = useExpenses();
   const expenses = useMemo(() => {
-    const list = allExpenses
-      .filter((e) => belongsToSession(formatLocalDate(new Date(e.date)), rangeStart, rangeEnd))
+    const list = (viewedSession
+      ? allExpenses.filter((e) => belongsToSessionInterval(new Date(e.createdAt), viewedSession))
+      : [])
       .sort((a, b) => b.amount - a.amount);
     return { list, ...summarizeExpenses(list) };
-  }, [allExpenses, rangeStart, rangeEnd]);
+  }, [allExpenses, viewedSession]);
 
   const deuda = useMemo(() => {
     const rows: { name: string; room: string; owed: number }[] = [];
@@ -187,8 +227,10 @@ export default function CierreCaja() {
   const totalDelDia = totalIngresos - expenses.total;
 
   const aportesSesion = useMemo(
-    () => allContributions.filter((c) => belongsToSession(formatLocalDate(new Date(c.date)), rangeStart, rangeEnd)),
-    [allContributions, rangeStart, rangeEnd]
+    () => (viewedSession
+      ? allContributions.filter((c) => belongsToSessionInterval(new Date(c.createdAt), viewedSession))
+      : []),
+    [allContributions, viewedSession]
   );
   const aportesSesionTotal = aportesSesion.reduce((sum, c) => sum + c.amount, 0);
   const saldoEmpresa = useMemo(
@@ -213,9 +255,10 @@ export default function CierreCaja() {
   // ─── Acciones ─────────────────────────────────────────────────────────
   const handleOpen = async () => {
     const amount = Number(openingInput) || 0;
-    // Arranca al inicio del día elegido (hora local 00:00) para que todos los
-    // movimientos de ese día queden dentro del turno.
-    const openedAt = new Date(openingDate + 'T00:00:00');
+    // Encadenada al último cierre para que no quede hueco. Solo la primera
+    // apertura de todas elige su comienzo: el inicio del día elegido, para que
+    // ese día entre completo.
+    const openedAt = chainedStart ?? new Date(openingDate + 'T00:00:00');
     try {
       await openSession.mutateAsync({
         openingAmount: amount,
@@ -268,13 +311,11 @@ export default function CierreCaja() {
       toast({ title: 'Datos incompletos', description: 'Ingresá descripción y monto válido', variant: 'destructive' });
       return;
     }
-    // El ingreso se carga en el día de apertura del turno (o hoy si sigue abierto)
-    const incomeDate = viewedSession
-      ? new Date(viewedSession.openedAt.toDateString())
-      : new Date();
+    // Con fecha de hoy: a qué turno va lo decide el instante de carga, no esta
+    // fecha, así que acá va el día real — es el que leen las estadísticas.
     try {
       await createOtherIncome.mutateAsync({
-        date: incomeDate,
+        date: new Date(),
         description: newIncome.description.trim(),
         method: newIncome.method,
         amount,
@@ -292,12 +333,10 @@ export default function CierreCaja() {
       toast({ title: 'Monto inválido', description: 'Ingresá cuánto puso la empresa', variant: 'destructive' });
       return;
     }
-    const aporteDate = viewedSession
-      ? new Date(viewedSession.openedAt.toDateString())
-      : new Date();
+    // Fecha de hoy por la misma razón que en los ingresos externos.
     try {
       await createContribution.mutateAsync({
-        date: aporteDate,
+        date: new Date(),
         amount,
         notes: newAporte.notes.trim() || undefined,
         createdBy: author.id,
@@ -357,6 +396,11 @@ export default function CierreCaja() {
     const otherIncomeRows = otherIncomeSession
       .map((o) => `<tr><td>${h(o.description)} (${h(PAYMENT_METHODS.find(m => m.value === o.method)?.label || o.method)})</td><td class="num">${money(o.amount)}</td></tr>`)
       .join('') || '<tr><td colspan="2">Sin ingresos externos</td></tr>';
+    // Va impreso porque es el papel con el que se rinde: sin el detalle, quien
+    // recibe la plata tiene un total y ninguna forma de controlarlo.
+    const incomeDetailRows = incomeRows
+      .map((r) => `<tr><td>${h(format(r.instant, 'd/M HH:mm', { locale: es }))} · ${h(r.detail)}<br><span class="muted">${h(PAYMENT_METHOD_LABELS[r.method] || r.method)}${r.source === 'EXTERNO' ? ' · ingreso externo' : r.source === 'CTA_CTE' ? ' · cuenta corriente' : ''}${r.toAccount ? ' · no ingresó' : ''}</span></td><td class="num">${r.toAccount ? `(${money(r.amount)})` : money(r.amount)}</td></tr>`)
+      .join('') || '<tr><td colspan="2">Sin movimientos</td></tr>';
     w.document.write(`<!DOCTYPE html><html><head><title>Cierre de Caja</title>
     ${PRINT_FONT_LINK}
     <style>
@@ -375,6 +419,8 @@ export default function CierreCaja() {
     <h2>Ingresos por método</h2><table>${methodRows}
       <tr class="tot"><td>Total ingresos</td><td class="num">${money(totalIngresos)}</td></tr>
       ${aCuentaCorriente > 0 ? `<tr><td>A cuenta corriente (no ingresó)</td><td class="num">${money(aCuentaCorriente)}</td></tr>` : ''}</table>
+    <h2>Detalle de ingresos</h2><table>${incomeDetailRows}
+      <tr class="tot"><td>Total ingresos</td><td class="num">${money(totalIngresos)}</td></tr></table>
     <h2>Caja (efectivo)</h2><table>
       <tr><td>Efectivo cobrado</td><td class="num">${money(cashTotal)}</td></tr>
       <tr><td>Menos saldo inicial</td><td class="num">-${money(cashFloat)}</td></tr>
@@ -398,7 +444,7 @@ export default function CierreCaja() {
     w.document.close();
     w.focus();
     setTimeout(() => w.print(), 250);
-  }, [byMethod, expenses, deuda, otherIncomeSession, aCuentaCorriente, cashFloat, cashTotal, cashToDeposit, totalIngresos, totalDelDia, hotelSettings, aportesSesion, aportesSesionTotal, saldoEmpresa, viewedSession]);
+  }, [byMethod, expenses, deuda, otherIncomeSession, incomeRows, aCuentaCorriente, cashFloat, cashTotal, cashToDeposit, totalIngresos, totalDelDia, hotelSettings, aportesSesion, aportesSesionTotal, saldoEmpresa, viewedSession]);
 
   // ─── Render ───────────────────────────────────────────────────────────
   const isClosed = !!viewedSession?.closedAt;
@@ -439,15 +485,20 @@ export default function CierreCaja() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-end gap-3">
-              <div className="w-[160px]">
-                <Label className="text-xs mb-1 block">Desde el día</Label>
-                <Input
-                  type="date"
-                  max={formatLocalDate(new Date())}
-                  value={openingDate}
-                  onChange={(e) => setOpeningDate(e.target.value)}
-                />
-              </div>
+              {/* El comienzo solo se elige la primera vez. Después, cada caja
+                  arranca donde terminó la anterior: si se pudiera elegir, el
+                  hueco o el solapamiento contarían plata de menos o dos veces. */}
+              {!chainedStart && (
+                <div className="w-[160px]">
+                  <Label className="text-xs mb-1 block">Desde el día</Label>
+                  <Input
+                    type="date"
+                    max={formatLocalDate(new Date())}
+                    value={openingDate}
+                    onChange={(e) => setOpeningDate(e.target.value)}
+                  />
+                </div>
+              )}
               <div className="w-[200px]">
                 <Label className="text-xs mb-1 block">Saldo inicial en cajón</Label>
                 <Input
@@ -462,7 +513,9 @@ export default function CierreCaja() {
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground mt-2">
-              El turno captura todos los movimientos desde el día elegido hasta que lo cierres.
+              {chainedStart
+                ? <>Arranca donde terminó el turno anterior ({format(chainedStart, "EEE d/M HH:mm", { locale: es })}): lo cargado desde ese momento cae en este turno.</>
+                : 'El turno toma todo lo que se cargue desde el día elegido hasta que lo cierres.'}
             </p>
           </CardContent>
         </Card>
@@ -610,6 +663,64 @@ export default function CierreCaja() {
                   Se gastó más efectivo del que entró: la diferencia salió del saldo inicial.
                 </p>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Detalle de ingresos: el que permite controlar el total */}
+          <Card className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border-white/20 shadow-sm lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-base">Detalle de ingresos del turno</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Todo lo que entró, en orden. Sumando estos renglones tiene que dar el total
+                de arriba: es con esto que se controla el cierre, y no sumando la tabla de
+                Finanzas, que muestra otra cosa.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {incomeRows.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">Sin movimientos en este turno</p>
+              ) : (
+                incomeRows.map((r) => (
+                  <div
+                    key={`${r.source}-${r.id}`}
+                    className={cn(
+                      'flex items-baseline gap-2 text-sm py-1 border-b border-slate-100 dark:border-slate-800 last:border-0',
+                      r.toAccount && 'opacity-60'
+                    )}
+                  >
+                    <span className="text-[11px] text-slate-400 tabular-nums shrink-0 w-[74px]">
+                      {format(r.instant, 'd/M HH:mm', { locale: es })}
+                    </span>
+                    <span className="flex-1 truncate">{r.detail}</span>
+                    {r.source !== 'COBRO' && (
+                      <span className="text-[10px] uppercase tracking-wide text-slate-400 shrink-0">
+                        {r.source === 'EXTERNO' ? 'externo' : 'cta. cte.'}
+                      </span>
+                    )}
+                    <span className="text-[11px] text-slate-400 shrink-0">
+                      {PAYMENT_METHOD_LABELS[r.method] || r.method}
+                    </span>
+                    <span
+                      className={cn(
+                        'font-medium tabular-nums shrink-0 w-[92px] text-right',
+                        r.toAccount && 'text-amber-600 dark:text-amber-400'
+                      )}
+                    >
+                      {r.toAccount ? `(${money(r.amount)})` : money(r.amount)}
+                    </span>
+                  </div>
+                ))
+              )}
+              {aCuentaCorriente > 0 && (
+                <p className="text-[11px] text-muted-foreground pt-1">
+                  Los renglones entre paréntesis se anotaron a la cuenta del huésped: no entró
+                  plata, así que no suman.
+                </p>
+              )}
+              <div className="flex justify-between pt-2 border-t font-bold">
+                <span>Total ingresos</span>
+                <span className="text-emerald-600 tabular-nums">{money(totalIngresos)}</span>
+              </div>
             </CardContent>
           </Card>
 
@@ -825,7 +936,10 @@ export default function CierreCaja() {
             <AlertDialogTitle>¿Cerrar la caja?</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <p>Se guarda el corte con los números de ahora:</p>
+                <p>
+                  El corte es este momento: lo que se cargue después va al turno
+                  siguiente. Se guardan los números de ahora:
+                </p>
                 <div className="rounded-xl border bg-muted/40 p-3 space-y-1 text-sm">
                   <div className="flex justify-between"><span>Efectivo cobrado</span><span className="tabular-nums">{money(cashTotal)}</span></div>
                   <div className="flex justify-between"><span>Menos saldo inicial</span><span className="tabular-nums">-{money(cashFloat)}</span></div>

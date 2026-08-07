@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { CashClosing, Payment } from '@/types/hotel';
-import { closingForDay, isDayClosed } from '@/lib/cashClosing';
+import type { CashClosing, CashSession, Payment } from '@/types/hotel';
+import { closingForDay, isDayClosed, sessionAt } from '@/lib/cashClosing';
 import { PAYMENT_METHOD_LABELS } from '@/lib/constants';
 import { formatLocalDate, parseLocalDate } from '@/lib/utils';
 
@@ -75,6 +75,30 @@ export function withLocalDay(instant: Date, day: string, now: Date = new Date())
 }
 
 /**
+ * La fecha que queda cuando se elige un día en el calendario del cobro.
+ *
+ * El calendario devuelve el día a medianoche. Guardar eso tal cual le pone al
+ * cobro una hora que no es la que entró la plata, y desde que el turno de caja
+ * corta por instante (`belongsToSessionInterval`) esa hora inventada decide en
+ * qué caja cae: recepción cobra a las 15, toca el calendario para confirmar
+ * "hoy", y el cobro queda a las 00:00 — antes de la apertura del turno, que
+ * arrancó a las 11 cuando se cerró el de la mañana. La plata está en el cajón y
+ * no figura en ningún cierre.
+ *
+ * Por eso el día se cambia conservando la hora: es el mismo criterio con el que
+ * "Corregir fecha" mueve un cobro ya registrado. Elegir el día de hoy tiene que
+ * devolver este momento, no el principio del día.
+ */
+export function pickedPaymentDate(
+  picked: Date | undefined,
+  current: Date,
+  now: Date = new Date()
+): Date {
+  if (!picked) return current;
+  return withLocalDay(current, formatLocalDate(picked), now);
+}
+
+/**
  * Qué día se puede elegir.
  *
  * Compara días y no instantes, que es la misma moneda con la que el cierre
@@ -129,20 +153,35 @@ export function resolvePaymentDateMove({
   payment,
   targetDay,
   closings,
+  sessions = [],
+  now = new Date(),
 }: {
   payment: Pick<Payment, 'date'>;
   targetDay: string;
   closings: CashClosing[];
+  /** Los turnos de caja. Conviven con los cierres por día: son dos épocas del mismo libro. */
+  sessions?: CashSession[];
+  now?: Date;
 }): PaymentDateMove {
-  const originDay = formatLocalDate(new Date(payment.date));
+  const origin = new Date(payment.date);
+  const originDay = formatLocalDate(origin);
 
   if (originDay === targetDay) {
     return { verdict: 'SIN_CAMBIO', originDay, targetDay, closedDays: [], crossesMonth: false };
   }
 
-  const closedDays = [originDay, targetDay].filter(day =>
-    isDayClosed(closingForDay(closings, day))
-  );
+  // Cerrado es cerrado, venga de la época que venga: los días firmados del
+  // sistema viejo (cash_closings) y los turnos cerrados del nuevo
+  // (cash_sessions). El turno se mira por el INSTANTE —el mismo corte con que
+  // el cierre decide qué entra—, así que el instante que importa del destino es
+  // el que el cobro tendría después de moverse, con su hora conservada.
+  const firmado = (day: string, instant: Date): boolean =>
+    isDayClosed(closingForDay(closings, day)) || !!sessionAt(sessions, instant)?.closedAt;
+
+  const closedDays = [
+    ...(firmado(originDay, origin) ? [originDay] : []),
+    ...(firmado(targetDay, withLocalDay(origin, targetDay, now)) ? [targetDay] : []),
+  ];
 
   return {
     verdict: closedDays.length > 0 ? 'BLOQUEADO' : 'LIBRE',

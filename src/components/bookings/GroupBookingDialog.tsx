@@ -15,8 +15,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { GuestPicker } from '@/components/guests/GuestPicker';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
-import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useCreateBookingGroup } from '@/hooks/useBookingGroups';
 import { useAppRole } from '@/context/AppRoleContext';
@@ -43,7 +43,6 @@ interface GroupBookingDialogProps {
  */
 export function GroupBookingDialog({ open, onOpenChange }: GroupBookingDialogProps) {
     const { addBooking, checkRoomAvailability } = useBookingOperations();
-    const { guests } = useGuestOperations();
     const { rooms, roomTypes } = useRoomOperations();
     const { profileName } = useAppRole();
     const { user } = useAuth();
@@ -207,23 +206,12 @@ export function GroupBookingDialog({ open, onOpenChange }: GroupBookingDialogPro
                         <DateField label="Hasta" value={to} onChange={setTo} min={from} />
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="gb-guest">A nombre de</Label>
-                        <select
-                            id="gb-guest"
-                            value={guestId}
-                            onChange={e => setGuestId(e.target.value)}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        >
-                            <option value="">Elegí el cliente…</option>
-                            {guests.map(g => (
-                                <option key={g.id} value={g.id}>{g.fullName}</option>
-                            ))}
-                        </select>
-                        <p className="text-xs text-muted-foreground">
-                            El equipo, la empresa o quien contrata. Si no está, cargalo desde Huéspedes.
-                        </p>
-                    </div>
+                    <GuestPicker
+                        value={guestId}
+                        onChange={setGuestId}
+                        hint="El equipo, la empresa o quien contrata. Todas las habitaciones quedan a este nombre."
+                        newNamePlaceholder="Ej: Grupo San Martín"
+                    />
 
                     {/* Habitaciones */}
                     <div className="space-y-2">

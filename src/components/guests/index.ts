@@ -6,3 +6,4 @@ export * from './GuestDetailsDrawer';
 export * from './GuestRatingBadge';
 export * from './GuestRatingSection';
 export * from './GuestRatingAlert';
+export * from './GuestPicker';

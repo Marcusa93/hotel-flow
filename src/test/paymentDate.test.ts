@@ -5,12 +5,14 @@ import {
   earliestPaymentDay,
   latestPaymentDay,
   paymentDaySchema,
+  pickedPaymentDate,
   readableDay,
   resolvePaymentDateMove,
   withLocalDay,
 } from '@/lib/paymentDate';
+import { belongsToSessionInterval } from '@/lib/cashClosing';
 import { formatLocalDate } from '@/lib/utils';
-import type { CashClosing, Payment } from '@/types/hotel';
+import type { CashClosing, CashSession, Payment } from '@/types/hotel';
 
 // El caso del hotel: recepción cobra a la mañana algo que corresponde al cajón de
 // ayer, el diálogo de cobro viene con la fecha de hoy y el cobro cae en la caja
@@ -102,6 +104,58 @@ describe('la fecha corregida del cobro', () => {
     const movido = withLocalDay(new Date(2025, 7, 4, 23, 40), '2025-08-03', ahora);
     expect(movido.getHours()).toBe(23);
     expect(movido.getMinutes()).toBe(40);
+  });
+});
+
+describe('el día elegido en el calendario del cobro', () => {
+  // El calendario entrega el día a medianoche. Antes se guardaba así, y desde que
+  // el turno corta por instante esa medianoche decidía en qué caja caía el cobro.
+  const medianoche = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  it('elegir hoy deja el cobro en este momento, no a las 00:00', () => {
+    const ahora = new Date(2025, 7, 4, 15, 20);
+    const elegido = pickedPaymentDate(medianoche(ahora), ahora, ahora);
+
+    expect(elegido.getHours()).toBe(15);
+    expect(elegido.getMinutes()).toBe(20);
+  });
+
+  it('el cobro de la tarde entra en el turno que se abrió a la mañana', () => {
+    // El circuito del hotel: cierran a las 11, abren de nuevo ahí mismo, cobran
+    // a las 15 y tocan el calendario para confirmar "hoy". Con medianoche ese
+    // cobro caía antes de la apertura: la plata quedaba en el cajón sin figurar
+    // en ningún cierre.
+    const ahora = new Date(2025, 7, 4, 15, 20);
+    const turno: CashSession = {
+      id: 's-1',
+      openedAt: new Date(2025, 7, 4, 11, 0),
+      openingAmount: 10_000,
+      createdAt: new Date(2025, 7, 4, 11, 0),
+    };
+
+    const elegido = pickedPaymentDate(medianoche(ahora), ahora, ahora);
+
+    expect(belongsToSessionInterval(elegido, turno)).toBe(true);
+    expect(belongsToSessionInterval(medianoche(ahora), turno)).toBe(false);
+  });
+
+  it('elegir ayer conserva la hora: sigue siendo una corrección, no medianoche', () => {
+    const ahora = new Date(2025, 7, 4, 15, 20);
+    const elegido = pickedPaymentDate(new Date(2025, 7, 3), ahora, ahora);
+
+    expect(formatLocalDate(elegido)).toBe('2025-08-03');
+    expect(elegido.getHours()).toBe(15);
+  });
+
+  it('cerrar el calendario sin elegir nada no toca la fecha', () => {
+    const actual = new Date(2025, 7, 4, 15, 20);
+    expect(pickedPaymentDate(undefined, actual).getTime()).toBe(actual.getTime());
+  });
+
+  it('no deja el cobro en el futuro', () => {
+    const ahora = new Date(2025, 7, 4, 9, 0);
+    const elegido = pickedPaymentDate(new Date(2025, 7, 5), ahora, ahora);
+    expect(elegido.getTime()).toBeLessThanOrEqual(ahora.getTime());
   });
 });
 
@@ -212,6 +266,79 @@ describe('mover un cobro de una caja a otra', () => {
     expect(
       resolvePaymentDateMove({ payment: cobro(), targetDay: '2025-08-03', closings: [] }).crossesMonth
     ).toBe(false);
+  });
+});
+
+describe('mover un cobro con turnos de caja de por medio', () => {
+  // El sistema nuevo: la caja se abre y se cierra a mano, y qué entra en cada
+  // una lo decide el instante, no el día. La guarda es la misma que con los
+  // días firmados: un turno cerrado es plata rendida y no se toca.
+
+  const turno = (over: Partial<CashSession> = {}): CashSession => ({
+    id: 't-1',
+    openedAt: new Date(2025, 7, 3, 0, 0),
+    openingAmount: 0,
+    createdAt: new Date(2025, 7, 3, 0, 0),
+    ...over,
+  });
+
+  it('no se le puede sacar un cobro a un turno cerrado', () => {
+    // El cobro (4/8 09:30) cae dentro del turno cerrado [3/8 00:00, 4/8 10:30).
+    const move = resolvePaymentDateMove({
+      payment: cobro(),
+      targetDay: '2025-08-05',
+      closings: [],
+      sessions: [turno({ closedAt: new Date(2025, 7, 4, 10, 30) })],
+    });
+    expect(move.verdict).toBe('BLOQUEADO');
+    expect(move.closedDays).toEqual(['2025-08-04']);
+  });
+
+  it('tampoco se le puede meter un cobro a un turno cerrado', () => {
+    // Turno cerrado que abarca el 2/8 entero; el cobro del 4/8 está libre pero
+    // el destino con su hora conservada (2/8 09:30) cae en plata rendida.
+    const move = resolvePaymentDateMove({
+      payment: cobro(),
+      targetDay: '2025-08-02',
+      closings: [],
+      sessions: [turno({ openedAt: new Date(2025, 7, 2, 0, 0), closedAt: new Date(2025, 7, 3, 10, 0) })],
+    });
+    expect(move.verdict).toBe('BLOQUEADO');
+    expect(move.closedDays).toEqual(['2025-08-02']);
+  });
+
+  it('el corte del turno es por hora: la tarde de un día con la mañana rendida queda libre', () => {
+    // El turno cerrado se llevó la mañana del 4/8 hasta las 10:30. Un cobro de
+    // las 15:00 movido a ese día cae después del corte: es del turno siguiente,
+    // que sigue abierto, y por eso se puede.
+    const sessions = [
+      turno({ openedAt: new Date(2025, 7, 3, 0, 0), closedAt: new Date(2025, 7, 4, 10, 30) }),
+      turno({ id: 't-2', openedAt: new Date(2025, 7, 4, 10, 30) }),
+    ];
+    const mañana = resolvePaymentDateMove({
+      payment: cobro({ date: new Date(2025, 7, 5, 9, 0) }),
+      targetDay: '2025-08-04',
+      closings: [],
+      sessions,
+    });
+    const tarde = resolvePaymentDateMove({
+      payment: cobro({ date: new Date(2025, 7, 5, 15, 0) }),
+      targetDay: '2025-08-04',
+      closings: [],
+      sessions,
+    });
+    expect(mañana.verdict).toBe('BLOQUEADO');
+    expect(tarde.verdict).toBe('LIBRE');
+  });
+
+  it('el turno abierto no bloquea nada', () => {
+    const move = resolvePaymentDateMove({
+      payment: cobro(),
+      targetDay: '2025-08-03',
+      closings: [],
+      sessions: [turno()],
+    });
+    expect(move.verdict).toBe('LIBRE');
   });
 });
 

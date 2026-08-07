@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_CASH_SOURCE,
   belongsToClosingDay,
+  belongsToSessionInterval,
   cashToDeposit,
   closingDrift,
   closingForDay,
@@ -9,10 +10,13 @@ import {
   companyCashBalance,
   defaultClosingDay,
   expenseCashSource,
+  nextSessionStart,
   resolveCashFloat,
+  sessionAt,
+  sessionIncomeRows,
   summarizeExpenses,
 } from '@/lib/cashClosing';
-import type { CashClosing, Expense } from '@/types/hotel';
+import type { CashClosing, CashSession, Expense, Payment } from '@/types/hotel';
 
 // El hotel cierra la caja de ayer, a la mañana siguiente. Lo que se rinde es lo
 // que quedó físicamente en el cajón: lo cobrado en efectivo, menos el fondo fijo
@@ -330,5 +334,244 @@ describe('closingDrift', () => {
     // Por eso corregir la fecha de un cobro se PROHÍBE sobre un día cerrado en
     // vez de permitirse y confiar en que acá se vea.
     expect(closingDrift(cierre(), ahora)).toEqual([]);
+  });
+});
+
+
+// ─── El turno de caja: corte por instante ─────────────────────────────
+// El circuito real del hotel: la caja del jueves se cierra el viernes a las
+// 10-11 de la mañana. Lo cargado hasta ese momento se rinde en ese cierre; lo
+// cargado después arranca la caja siguiente. Por día calendario, la mañana del
+// viernes caía en los dos cierres y se rendía dos veces.
+
+const turno = (over: Partial<CashSession> = {}): CashSession => ({
+  id: 't-1',
+  openedAt: new Date(2026, 7, 6, 11, 0),
+  openingAmount: 10_000,
+  createdAt: new Date(2026, 7, 6, 11, 0),
+  ...over,
+});
+
+describe('belongsToSessionInterval', () => {
+  const cerrado = turno({
+    openedAt: new Date(2026, 7, 6, 11, 0),   // jueves 6, 11:00
+    closedAt: new Date(2026, 7, 7, 10, 30),  // viernes 7, 10:30
+  });
+
+  it('lo cargado entre la apertura y el cierre entra, sin importar el día', () => {
+    // Jueves a la tarde y viernes a la mañana: días distintos, mismo turno.
+    expect(belongsToSessionInterval(new Date(2026, 7, 6, 18, 0), cerrado)).toBe(true);
+    expect(belongsToSessionInterval(new Date(2026, 7, 7, 9, 45), cerrado)).toBe(true);
+  });
+
+  it('el instante de la apertura ya es del turno', () => {
+    expect(belongsToSessionInterval(new Date(2026, 7, 6, 11, 0), cerrado)).toBe(true);
+  });
+
+  it('el instante del cierre ya NO: es del turno siguiente', () => {
+    // [apertura, cierre): como el siguiente arranca donde este terminó, un
+    // movimiento clavado en el instante del cierre iría a los dos turnos si
+    // este extremo fuera inclusivo. Es la mitad de la garantía de no duplicar.
+    expect(belongsToSessionInterval(new Date(2026, 7, 7, 10, 30), cerrado)).toBe(false);
+  });
+
+  it('lo cargado después del cierre no entra, aunque sea del mismo día', () => {
+    // El viernes a las 15:00 la caja del jueves ya está rendida: esa plata es
+    // de la caja nueva. Es exactamente lo que el corte por día hacía mal.
+    expect(belongsToSessionInterval(new Date(2026, 7, 7, 15, 0), cerrado)).toBe(false);
+  });
+
+  it('lo cargado antes de la apertura no entra', () => {
+    expect(belongsToSessionInterval(new Date(2026, 7, 6, 10, 59), cerrado)).toBe(false);
+  });
+
+  it('el turno abierto toma todo desde su apertura en adelante', () => {
+    const abierto = turno({ openedAt: new Date(2026, 7, 7, 10, 30) });
+    expect(belongsToSessionInterval(new Date(2026, 7, 7, 10, 30), abierto)).toBe(true);
+    expect(belongsToSessionInterval(new Date(2026, 7, 9, 23, 0), abierto)).toBe(true);
+  });
+
+  it('dos turnos encadenados se reparten todos los instantes sin superponerse', () => {
+    // La propiedad completa: el nuevo abre en el instante exacto del cierre
+    // anterior (nextSessionStart), así que cada instante cae en UNO solo.
+    const siguiente = turno({ id: 't-2', openedAt: cerrado.closedAt! });
+    const instantes = [
+      new Date(2026, 7, 7, 10, 29, 59),
+      new Date(2026, 7, 7, 10, 30),
+      new Date(2026, 7, 7, 11, 15),
+    ];
+    for (const t of instantes) {
+      const enAmbos = belongsToSessionInterval(t, cerrado) && belongsToSessionInterval(t, siguiente);
+      const enAlguno = belongsToSessionInterval(t, cerrado) || belongsToSessionInterval(t, siguiente);
+      expect(enAmbos).toBe(false);
+      expect(enAlguno).toBe(true);
+    }
+  });
+});
+
+describe('nextSessionStart', () => {
+  it('la caja nueva arranca donde terminó la última cerrada', () => {
+    const sesiones = [
+      turno({ id: 'a', closedAt: new Date(2026, 7, 5, 10, 0) }),
+      turno({ id: 'b', closedAt: new Date(2026, 7, 7, 10, 30) }),
+      turno({ id: 'c', closedAt: new Date(2026, 7, 6, 9, 45) }),
+    ];
+    expect(nextSessionStart(sesiones)?.getTime()).toBe(new Date(2026, 7, 7, 10, 30).getTime());
+  });
+
+  it('los turnos abiertos no cuentan como punto de partida', () => {
+    expect(nextSessionStart([turno()])).toBeNull();
+  });
+
+  it('sin ningún turno no hay de dónde encadenarse', () => {
+    // La primera apertura de todas elige su comienzo a mano.
+    expect(nextSessionStart([])).toBeNull();
+  });
+});
+
+describe('sessionAt', () => {
+  const viejo = turno({
+    id: 'viejo',
+    openedAt: new Date(2026, 7, 5, 0, 0),
+    closedAt: new Date(2026, 7, 7, 10, 30),
+  });
+  const nuevo = turno({ id: 'nuevo', openedAt: new Date(2026, 7, 7, 10, 30) });
+
+  it('encuentra el turno que contiene el instante', () => {
+    expect(sessionAt([nuevo, viejo], new Date(2026, 7, 6, 15, 0))?.id).toBe('viejo');
+    expect(sessionAt([nuevo, viejo], new Date(2026, 7, 7, 12, 0))?.id).toBe('nuevo');
+  });
+
+  it('un instante fuera de todo turno no pertenece a ninguno', () => {
+    expect(sessionAt([nuevo, viejo], new Date(2026, 7, 4, 12, 0))).toBeUndefined();
+  });
+
+  it('si dos turnos viejos se solapan gana el de apertura más reciente', () => {
+    // No debería pasar con las aperturas encadenadas, pero con datos viejos
+    // puede: el criterio es el mismo con que la pantalla elige qué mostrar.
+    const solapado = turno({ id: 'solapado', openedAt: new Date(2026, 7, 6, 8, 0) });
+    expect(sessionAt([viejo, solapado], new Date(2026, 7, 6, 9, 0))?.id).toBe('solapado');
+  });
+});
+
+// ─── El detalle con el que se controla el cierre ──────────────────────
+// El hotel no podía verificar el total: la pantalla mostraba los métodos y nada
+// más, así que iban a Finanzas y sumaban la tabla — que suma otra cosa. De ahí
+// los $740.500 a mano contra los $752.700 del sistema.
+
+const cobro = (over: Partial<Payment> = {}): Payment => ({
+  id: 'p-1',
+  bookingId: 'b-1',
+  date: new Date(2026, 7, 6, 15, 0),
+  method: 'CASH',
+  status: 'PAID',
+  amount: 50_000,
+  ...over,
+});
+
+describe('sessionIncomeRows', () => {
+  const abierto = turno({ openedAt: new Date(2026, 7, 6, 11, 0) });
+
+  it('junta las tres fuentes en una sola lista', () => {
+    const rows = sessionIncomeRows({
+      session: abierto,
+      payments: [cobro()],
+      otherIncome: [{
+        id: 'o-1', date: new Date(2026, 7, 6), description: 'Alquiler del salón',
+        method: 'TRANSFER', amount: 30_000, createdAt: new Date(2026, 7, 6, 16, 0),
+      }],
+      accountPayments: [{
+        id: 'a-1', guestId: 'g-1', date: new Date(2026, 7, 6), amount: 20_000,
+        method: 'CASH', createdAt: new Date(2026, 7, 6, 17, 0),
+      }],
+    });
+
+    expect(rows.map(r => r.source)).toEqual(['COBRO', 'EXTERNO', 'CTA_CTE']);
+  });
+
+  it('la suma de los renglones que entraron da el total del turno', () => {
+    // La propiedad que hace útil a la lista: si no cierra contra el total, el
+    // detalle no sirve para controlar nada.
+    const rows = sessionIncomeRows({
+      session: abierto,
+      payments: [
+        cobro({ id: 'p-1', amount: 50_000 }),
+        cobro({ id: 'p-2', amount: 12_200, method: 'TRANSFER' }),
+        cobro({ id: 'p-3', amount: 99_000, method: 'CUENTA_CORRIENTE' }),
+      ],
+      otherIncome: [{
+        id: 'o-1', date: new Date(2026, 7, 6), description: 'Salón',
+        method: 'CASH', amount: 30_000, createdAt: new Date(2026, 7, 6, 16, 0),
+      }],
+      accountPayments: [{
+        id: 'a-1', guestId: 'g-1', date: new Date(2026, 7, 6), amount: 20_000,
+        method: 'CASH', createdAt: new Date(2026, 7, 6, 17, 0),
+      }],
+    });
+
+    const entro = rows.filter(r => !r.toAccount).reduce((s, r) => s + r.amount, 0);
+    expect(entro).toBe(112_200);
+  });
+
+  it('lista lo anotado a cuenta corriente pero lo marca: no es plata', () => {
+    const rows = sessionIncomeRows({
+      session: abierto,
+      payments: [cobro({ method: 'CUENTA_CORRIENTE' })],
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].toAccount).toBe(true);
+  });
+
+  it('deja afuera los cobros que no están pagados', () => {
+    // Son los que inflan la suma a mano de Finanzas: la tabla los lista igual.
+    const rows = sessionIncomeRows({
+      session: abierto,
+      payments: [cobro({ status: 'PENDING' }), cobro({ id: 'p-2', status: 'REFUNDED' })],
+    });
+
+    expect(rows).toEqual([]);
+  });
+
+  it('deja afuera lo que cayó en otro turno', () => {
+    const rows = sessionIncomeRows({
+      session: abierto,
+      payments: [cobro({ date: new Date(2026, 7, 6, 10, 30) })],
+      otherIncome: [{
+        id: 'o-1', date: new Date(2026, 7, 6), description: 'De antes',
+        method: 'CASH', amount: 5_000, createdAt: new Date(2026, 7, 6, 9, 0),
+      }],
+    });
+
+    expect(rows).toEqual([]);
+  });
+
+  it('el ingreso externo entra por cuándo se cargó, no por la fecha que dice', () => {
+    // Su columna de fecha es un día pelado sin hora: por ahí el corte no existe.
+    const rows = sessionIncomeRows({
+      session: abierto,
+      otherIncome: [{
+        id: 'o-1', date: new Date(2026, 7, 1), description: 'Cargado hoy, fechado antes',
+        method: 'CASH', amount: 5_000, createdAt: new Date(2026, 7, 6, 16, 0),
+      }],
+    });
+
+    expect(rows).toHaveLength(1);
+  });
+
+  it('ordena por el instante, que es el orden en que entró la plata', () => {
+    const rows = sessionIncomeRows({
+      session: abierto,
+      payments: [
+        cobro({ id: 'tarde', date: new Date(2026, 7, 6, 20, 0) }),
+        cobro({ id: 'temprano', date: new Date(2026, 7, 6, 12, 0) }),
+      ],
+    });
+
+    expect(rows.map(r => r.id)).toEqual(['temprano', 'tarde']);
+  });
+
+  it('sin turno no hay nada que mostrar', () => {
+    expect(sessionIncomeRows({ session: null, payments: [cobro()] })).toEqual([]);
   });
 });

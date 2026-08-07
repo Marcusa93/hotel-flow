@@ -51,6 +51,7 @@ import { useAppRole } from '@/context/AppRoleContext';
 import { useAuth } from '@/context/AuthContext';
 import { useReceiptUploader } from '@/hooks/usePaymentAttachments';
 import { missingReceiptWarning } from '@/lib/paymentAttachments';
+import { pickedPaymentDate } from '@/lib/paymentDate';
 import { ReceiptFilePicker } from './ReceiptFilePicker';
 
 const MAX_PAYMENT_AMOUNT = 100_000_000; // $100M ARS sanity cap
@@ -534,10 +535,12 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                                                     </FormControl>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-auto p-0" align="start">
+                                                    {/* Conservando la hora: ver pickedPaymentDate.
+                                                        Medianoche mandaría el cobro al turno anterior. */}
                                                     <Calendar
                                                         mode="single"
                                                         selected={field.value}
-                                                        onSelect={field.onChange}
+                                                        onSelect={(d) => field.onChange(pickedPaymentDate(d, field.value))}
                                                         disabled={(date) => date.getTime() > Date.now() + 60_000}
                                                         initialFocus
                                                     />

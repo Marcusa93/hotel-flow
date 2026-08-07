@@ -1,4 +1,8 @@
-import type { CashClosing, CashSource, Expense, SettlementMethod } from '@/types/hotel';
+import type {
+  CashClosing, CashSession, CashSource, CurrentAccountPayment, Expense, OtherIncome,
+  Payment, SettlementMethod,
+} from '@/types/hotel';
+import { isCurrentAccountPayment } from '@/lib/currentAccount';
 import { formatLocalDate } from '@/lib/utils';
 
 /**
@@ -216,13 +220,181 @@ export function sessionDateRange(session: {
 }
 
 /**
- * Si un movimiento (por su fecha 'YYYY-MM-DD') entra en el rango del turno.
+ * Si un día calendario cae dentro del rango de días del turno.
+ *
+ * Es para las listas informativas (las deudas por día de check-in), no para la
+ * plata: los movimientos de plata entran por `belongsToSessionInterval`, que
+ * corta por instante. Este corte por día entero cuenta el día del cierre en los
+ * dos turnos que lo comparten, y para la plata eso es rendirla dos veces.
  *
  * Strings en formato ISO ordenan lexicográficamente igual que por fecha,
  * así que la comparación directa funciona.
  */
 export function belongsToSession(movementDay: string, start: string, end: string): boolean {
   return movementDay >= start && movementDay <= end;
+}
+
+/**
+ * Si un movimiento de plata entra en un turno: por el INSTANTE, no por el día.
+ *
+ * El intervalo es [apertura, cierre): el corte es el momento exacto en que se
+ * apretó "Cerrar caja". Lo cargado hasta ese instante se rinde en este turno;
+ * lo cargado desde ese instante (inclusive) es del siguiente. Como la caja
+ * nueva arranca en el mismo instante en que terminó la anterior (ver
+ * `nextSessionStart`), ningún movimiento cae en dos turnos ni queda afuera.
+ *
+ * Es lo que hace posible el circuito real del hotel: cierran a las 10-11 de la
+ * mañana la caja que viene de ayer. Con el corte por día calendario, la mañana
+ * del cierre quedaba adentro de los dos turnos y se rendía dos veces.
+ *
+ * Qué instante usar lo decide quien llama: los cobros van por su fecha-hora
+ * (`payment.date`, que "Corregir fecha" mantiene con hora real); los gastos,
+ * ingresos varios, aportes y pagos de cuenta corriente van por `createdAt`,
+ * porque su columna `date` es un día pelado sin hora.
+ */
+export function belongsToSessionInterval(
+  instant: Date,
+  session: Pick<CashSession, 'openedAt' | 'closedAt'>
+): boolean {
+  const t = instant.getTime();
+  if (t < session.openedAt.getTime()) return false;
+  return !session.closedAt || t < session.closedAt.getTime();
+}
+
+/**
+ * En qué instante arranca el próximo turno: donde terminó el último cerrado.
+ *
+ * Sin esto, entre el cierre y la apertura siguiente queda un hueco, y lo que se
+ * cargue en el medio no aparece en ningún turno. Devuelve null si no hay ningún
+ * turno cerrado: la primera apertura de todas sí elige su comienzo a mano.
+ */
+export function nextSessionStart(sessions: CashSession[]): Date | null {
+  let last: Date | null = null;
+  for (const s of sessions) {
+    if (s.closedAt && (!last || s.closedAt.getTime() > last.getTime())) {
+      last = s.closedAt;
+    }
+  }
+  return last;
+}
+
+/**
+ * El turno al que pertenece un instante, si hay alguno.
+ *
+ * Si por datos viejos dos turnos se solaparan, gana el de apertura más
+ * reciente, que es el mismo criterio con que la pantalla elige qué mostrar.
+ */
+export function sessionAt(
+  sessions: CashSession[],
+  instant: Date
+): CashSession | undefined {
+  return [...sessions]
+    .sort((a, b) => b.openedAt.getTime() - a.openedAt.getTime())
+    .find(s => belongsToSessionInterval(instant, s));
+}
+
+/** De dónde salió un renglón de ingreso del turno. */
+export type IncomeSource = 'COBRO' | 'EXTERNO' | 'CTA_CTE';
+
+/** Un movimiento de plata del turno, listo para mostrar. */
+export interface IncomeRow {
+  id: string;
+  /** El instante con el que entró al turno: el mismo con que se lo filtró. */
+  instant: Date;
+  /** Quién o qué: el huésped y la habitación, o la descripción del ingreso. */
+  detail: string;
+  source: IncomeSource;
+  method: string;
+  amount: number;
+  /** Anotado a la cuenta del huésped: se lista pero no suma. */
+  toAccount: boolean;
+}
+
+/**
+ * Todos los movimientos de plata de un turno, en una sola lista ordenada.
+ *
+ * Existe porque el hotel no podía verificar el cierre. La pantalla mostraba los
+ * totales por método y nada más, así que para controlarlos había que ir a
+ * Finanzas y sumar la tabla a mano — y esa tabla suma otra cosa: no muestra los
+ * ingresos externos ni los cobros de cuenta corriente, y sí muestra lo anotado
+ * a cuenta corriente y los cobros pendientes. Las dos sumas no daban igual y no
+ * había forma de saber si la diferencia era un error o el criterio.
+ *
+ * Por eso la lista trae las tres fuentes juntas y trae también lo anotado a
+ * cuenta corriente, marcado con `toAccount`: es el renglón que más se extraña
+ * cuando los números no cierran, justamente porque no suma. Sumando los que no
+ * están marcados tiene que dar el total del turno, exacto.
+ *
+ * Los instantes son los mismos con los que `belongsToSessionInterval` decide la
+ * pertenencia —los cobros por su fecha-hora, el resto por cuándo se cargó—, así
+ * que la hora que se ve en pantalla es la que puso el movimiento en este turno
+ * y no en el de al lado.
+ */
+export function sessionIncomeRows({
+  session,
+  payments = [],
+  otherIncome = [],
+  accountPayments = [],
+  paymentDetail = () => 'Cobro',
+  accountPaymentDetail = () => 'Cuenta corriente',
+}: {
+  session: Pick<CashSession, 'openedAt' | 'closedAt'> | null | undefined;
+  payments?: Payment[];
+  otherIncome?: OtherIncome[];
+  accountPayments?: CurrentAccountPayment[];
+  /** Cómo nombrar un cobro: quién pagó y en qué habitación. Lo resuelve la pantalla. */
+  paymentDetail?: (payment: Payment) => string;
+  accountPaymentDetail?: (payment: CurrentAccountPayment) => string;
+}): IncomeRow[] {
+  if (!session) return [];
+  const rows: IncomeRow[] = [];
+
+  for (const p of payments) {
+    // Los pendientes y los reembolsados no entraron: son los que inflan la suma
+    // a mano de Finanzas, que los lista igual que a los cobrados.
+    if (p.status !== 'PAID') continue;
+    const instant = new Date(p.date);
+    if (!belongsToSessionInterval(instant, session)) continue;
+    rows.push({
+      id: p.id,
+      instant,
+      detail: paymentDetail(p),
+      source: 'COBRO',
+      method: p.method,
+      amount: p.amount,
+      toAccount: isCurrentAccountPayment(p),
+    });
+  }
+
+  for (const o of otherIncome) {
+    const instant = new Date(o.createdAt);
+    if (!belongsToSessionInterval(instant, session)) continue;
+    rows.push({
+      id: o.id,
+      instant,
+      detail: o.description,
+      source: 'EXTERNO',
+      method: o.method,
+      amount: o.amount,
+      toAccount: false,
+    });
+  }
+
+  for (const p of accountPayments) {
+    const instant = new Date(p.createdAt);
+    if (!belongsToSessionInterval(instant, session)) continue;
+    rows.push({
+      id: p.id,
+      instant,
+      detail: accountPaymentDetail(p),
+      source: 'CTA_CTE',
+      method: p.method,
+      amount: p.amount,
+      toAccount: false,
+    });
+  }
+
+  return rows.sort((a, b) => a.instant.getTime() - b.instant.getTime());
 }
 
 /** Lo que cambió entre el snapshot guardado al cerrar y los números de ahora. */

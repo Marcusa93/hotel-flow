@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { EditPaymentDateDialog } from '@/components/payments/EditPaymentDateDialog';
 import { formatLocalDate } from '@/lib/utils';
-import type { CashClosing, Payment } from '@/types/hotel';
+import type { CashClosing, CashSession, Payment } from '@/types/hotel';
 
 // Lo que recepción ve al corregirle el día a un cobro. Las reglas están cubiertas
 // en paymentDate.test.ts; acá se verifica que el diálogo las respete: que muestre
@@ -11,10 +11,16 @@ import type { CashClosing, Payment } from '@/types/hotel';
 
 const mutateAsync = vi.fn();
 const refetch = vi.fn();
+const refetchSessions = vi.fn();
 let cierres: CashClosing[] = [];
+let turnos: CashSession[] = [];
 
 vi.mock('@/hooks/useCashClosings', () => ({
     useCashClosings: () => ({ data: cierres, isLoading: false, refetch }),
+}));
+
+vi.mock('@/hooks/useCashSessions', () => ({
+    useCashSessions: () => ({ data: turnos, isLoading: false, refetch: refetchSessions }),
 }));
 
 vi.mock('@/hooks/useUpdatePayment', () => ({
@@ -62,8 +68,10 @@ const boton = (re: RegExp) => screen.getByRole('button', { name: re });
 
 beforeEach(() => {
     cierres = [];
+    turnos = [];
     mutateAsync.mockReset().mockResolvedValue({ auditOk: true });
     refetch.mockReset().mockImplementation(() => Promise.resolve({ data: cierres }));
+    refetchSessions.mockReset().mockImplementation(() => Promise.resolve({ data: turnos }));
 });
 
 describe('el diálogo de corregir fecha', () => {
@@ -191,6 +199,58 @@ describe('cuando la caja ya está cerrada', () => {
 
     it('un día reabierto vuelve a dejarse tocar', () => {
         cierres = [cierre(AYER, { reopenedAt: new Date() })];
+        abrir();
+        elegirDia(ANTEAYER);
+
+        expect(screen.queryByText(/ya está cerrada y rendida/i)).not.toBeInTheDocument();
+        expect(boton(/^mover al/i)).toBeEnabled();
+    });
+});
+
+describe('cuando el que está cerrado es un turno', () => {
+    // El sistema nuevo: la caja se abre y se cierra a mano, y el corte es el
+    // instante del cierre. Un cobro cuyo instante cae dentro de un turno cerrado
+    // está tan rendido como uno de un día firmado del sistema viejo.
+
+    const instante = (diasAtras: number, hora: number): Date => {
+        const d = new Date();
+        d.setDate(d.getDate() - diasAtras);
+        d.setHours(hora, 0, 0, 0);
+        return d;
+    };
+
+    const turno = (over: Partial<CashSession> = {}): CashSession => ({
+        id: 't-1',
+        openedAt: instante(2, 0),
+        openingAmount: 0,
+        createdAt: new Date(),
+        ...over,
+    });
+
+    it('no deja meterle un cobro a un turno cerrado', () => {
+        // Turno cerrado que abarca anteayer entero. El cobro de ayer está libre,
+        // pero moverlo a anteayer lo metería en plata ya rendida.
+        turnos = [turno({ openedAt: instante(2, 0), closedAt: instante(1, 0) })];
+        abrir();
+        elegirDia(ANTEAYER);
+
+        expect(screen.getByText(/ya está cerrada y rendida/i)).toBeInTheDocument();
+        expect(boton(/^mover al/i)).toBeDisabled();
+    });
+
+    it('no deja sacarle un cobro a un turno cerrado', () => {
+        // El turno cerrado abarca ayer a las 9:30, que es el instante del cobro.
+        turnos = [turno({ openedAt: instante(1, 0), closedAt: instante(1, 11) })];
+        abrir();
+        elegirDia(ANTEAYER);
+
+        expect(screen.getByText(/ya está cerrada y rendida/i)).toBeInTheDocument();
+        expect(boton(/^mover al/i)).toBeDisabled();
+    });
+
+    it('dentro del turno abierto se puede corregir', () => {
+        // Turno abierto desde anteayer: origen y destino caen los dos adentro.
+        turnos = [turno({ openedAt: instante(2, 0) })];
         abrir();
         elegirDia(ANTEAYER);
 

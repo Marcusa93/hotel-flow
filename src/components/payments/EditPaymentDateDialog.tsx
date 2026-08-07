@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCashClosings } from '@/hooks/useCashClosings';
+import { useCashSessions } from '@/hooks/useCashSessions';
 import { useUpdatePayment } from '@/hooks/useUpdatePayment';
 import { isCurrentAccountPayment } from '@/lib/currentAccount';
 import { PAYMENT_METHOD_LABELS } from '@/lib/constants';
@@ -63,6 +64,13 @@ const diaAtras = (n: number): string => {
  */
 export function EditPaymentDateDialog({ open, onOpenChange, payment }: EditPaymentDateDialogProps) {
     const { data: closings = [], isLoading: isLoadingClosings, refetch } = useCashClosings();
+    // Los turnos también: un cobro dentro de un turno cerrado está tan rendido
+    // como uno de un día firmado del sistema viejo.
+    const {
+        data: sessions = [],
+        isLoading: isLoadingSessions,
+        refetch: refetchSessions,
+    } = useCashSessions();
     const updatePayment = useUpdatePayment();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
@@ -87,7 +95,7 @@ export function EditPaymentDateDialog({ open, onOpenChange, payment }: EditPayme
     // el botón deshabilitado el submit no llega a dispararse nunca, así que un
     // toast ahí adentro es un mensaje que el recepcionista no puede provocar.
     const errorDia = parsed.success ? null : parsed.error.errors[0]?.message ?? 'Elegí un día';
-    const move = resolvePaymentDateMove({ payment, targetDay: day, closings });
+    const move = resolvePaymentDateMove({ payment, targetDay: day, closings, sessions });
     const destino = parsed.success ? withLocalDay(original, day) : null;
     // La hora solo se pierde en un caso: mover a hoy un cobro de más tarde que ahora.
     const horaRecortada =
@@ -101,7 +109,11 @@ export function EditPaymentDateDialog({ open, onOpenChange, payment }: EditPayme
     const monto = `$${payment.amount.toLocaleString('es-AR')}`;
 
     const puedeGuardar =
-        parsed.success && move.verdict === 'LIBRE' && !isLoadingClosings && !isSubmitting;
+        parsed.success &&
+        move.verdict === 'LIBRE' &&
+        !isLoadingClosings &&
+        !isLoadingSessions &&
+        !isSubmitting;
 
     const ejecutar = async () => {
         if (!parsed.success || move.verdict !== 'LIBRE' || !destino) return;
@@ -111,11 +123,15 @@ export function EditPaymentDateDialog({ open, onOpenChange, payment }: EditPayme
             // Con el caché frío —entrar directo a Cobros sin pasar por Cierre de
             // Caja— la lista de cierres arranca vacía y la guarda de arriba diría
             // que todo está libre. Se relee antes de tocar la plata.
-            const { data: frescos } = await refetch();
+            const [{ data: frescos }, { data: turnosFrescos }] = await Promise.all([
+                refetch(),
+                refetchSessions(),
+            ]);
             const confirmado = resolvePaymentDateMove({
                 payment,
                 targetDay: day,
                 closings: frescos ?? closings,
+                sessions: turnosFrescos ?? sessions,
             });
 
             if (confirmado.verdict !== 'LIBRE') {

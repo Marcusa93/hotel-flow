@@ -122,6 +122,7 @@ export const mapBooking = (row: DbRow): Booking => ({
   // no es lo mismo que "descuento de 0".
   specialRateAmount: row.special_rate_amount == null ? undefined : Number(row.special_rate_amount),
   specialRateReason: row.special_rate_reason || undefined,
+  specialRatePending: row.special_rate_pending ?? false,
   pricingRoomTypeId: row.pricing_room_type_id || undefined,
   isFullHotel: row.is_full_hotel ?? false,
   groupId: row.group_id || undefined,
@@ -354,6 +355,7 @@ export const bookingToRow = (booking: Partial<Booking>): DbRow => {
   if (booking.infants !== undefined) row.infants = booking.infants;
   if (booking.specialRateAmount !== undefined) row.special_rate_amount = booking.specialRateAmount;
   if (booking.specialRateReason !== undefined) row.special_rate_reason = booking.specialRateReason;
+  if (booking.specialRatePending !== undefined) row.special_rate_pending = booking.specialRatePending;
   // '' es "volver a la tarifa automática": sin el || null se guardaría un id vacío.
   if (booking.pricingRoomTypeId !== undefined) row.pricing_room_type_id = booking.pricingRoomTypeId || null;
   if (booking.isFullHotel !== undefined) row.is_full_hotel = booking.isFullHotel;

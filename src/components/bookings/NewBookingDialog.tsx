@@ -335,12 +335,17 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
    * Lo de Configuración quedó como sugerido: precarga el campo y se pisa.
    */
   const specialRateSuggested = hotelSettings?.specialRateAmount ?? 0;
-  // Solo administración: una reserva en cero no genera deuda ni alerta, así que
-  // quien pueda marcarla puede regalar una habitación sin que quede rastro.
-  const specialRateAvailable = currentRole === 'admin';
+  // Marcarla la puede marcar cualquiera: no mueve plata, es decir "a esta hay
+  // que hacerle un precio". Poner el monto es de administración — una reserva en
+  // cero no genera deuda ni alerta, así que quien pueda ponerlo puede regalar
+  // una habitación sin que quede rastro.
+  const puedeTarifar = currentRole === 'admin';
   const specialRate = parsePesosInput(watchedSpecialRateAmount ?? '').value || 0;
   // La media estadía ya es un precio cerrado: la tarifa especial no se le encima.
-  const usesSpecialRate = specialRateAvailable && watchedSpecialRate === true && !watchedHalfDay;
+  const marcaSpecialRate = watchedSpecialRate === true && !watchedHalfDay;
+  // Solo pisa el precio cuando además tiene monto. Marcada por recepción, la
+  // reserva queda a tarifar y no cambia el cálculo todavía.
+  const usesSpecialRate = marcaSpecialRate && puedeTarifar;
 
   // Al marcarla se precarga el sugerido de Configuración, que es el precio de
   // siempre. Se pisa escribiendo otro, y borrarlo es cero — que es un precio
@@ -560,7 +565,9 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
         // El monto aplicado, no una marca: el configurado va a cambiar y la
         // reserva tiene que seguir diciendo a qué precio se tomó.
         specialRateAmount: usesSpecialRate ? specialRate : undefined,
-        specialRateReason: usesSpecialRate ? data.specialRateReason?.trim() || undefined : undefined,
+        // Marcada sin monto: queda a tarifar y le aparece a administración.
+        specialRatePending: marcaSpecialRate && !puedeTarifar ? true : undefined,
+        specialRateReason: marcaSpecialRate ? data.specialRateReason?.trim() || undefined : undefined,
         // Solo cuando recepción la eligió: sin esto la reserva quedaría atada a
         // un tramo que en realidad se calculó solo, y dejaría de seguir a la
         // gente si la ocupación cambia en el check-in.
@@ -1456,12 +1463,12 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
               )}
             </div>
 
-            {/* Tarifa especial — el precio lo decide administración, así que
-                recepción no ve ni el casillero. Una reserva en cero no genera
-                deuda ni alerta: quien pueda marcarla puede regalar una
+            {/* Tarifa especial. El casillero lo ve todo el mundo: marcarla no
+                mueve plata, es decir "a esta hay que hacerle un precio". El
+                monto solo lo ve administración — una reserva en cero no genera
+                deuda ni alerta, así que quien pueda ponerlo puede regalar una
                 habitación sin que quede nada que mirar. */}
-            {specialRateAvailable && (
-              <div className="p-4 rounded-xl border border-violet-200 dark:border-violet-900/50 bg-violet-50/50 dark:bg-violet-950/20 space-y-3">
+            <div className="p-4 rounded-xl border border-violet-200 dark:border-violet-900/50 bg-violet-50/50 dark:bg-violet-950/20 space-y-3">
                 <FormField
                   control={form.control}
                   name="useSpecialRate"
@@ -1485,52 +1492,64 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
                 />
 
                 {watchedSpecialRate && (
-                  <div className="grid gap-3 sm:grid-cols-2 pl-7">
-                    <FormField
-                      control={form.control}
-                      name="specialRateAmount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Precio por noche</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">$</span>
-                              <Input
-                                inputMode="decimal"
-                                className="pl-7 tabular-nums"
-                                placeholder="0"
-                                value={field.value ?? ''}
-                                onChange={e => field.onChange(parsePesosInput(e.target.value).display)}
-                              />
-                            </div>
-                          </FormControl>
-                          <FormDescription className="text-[11px]">
-                            Puede ser 0: el huésped no paga nada.
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
+                  <div className="space-y-3 pl-7">
+                    <div className={cn('grid gap-3', puedeTarifar && 'sm:grid-cols-2')}>
+                      {/* El monto solo lo pone administración. Recepción marca y
+                          sigue: el precio llega después. */}
+                      {puedeTarifar && (
+                        <FormField
+                          control={form.control}
+                          name="specialRateAmount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Precio por noche</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">$</span>
+                                  <Input
+                                    inputMode="decimal"
+                                    className="pl-7 tabular-nums"
+                                    placeholder="0"
+                                    value={field.value ?? ''}
+                                    onChange={e => field.onChange(parsePesosInput(e.target.value).display)}
+                                  />
+                                </div>
+                              </FormControl>
+                              <FormDescription className="text-[11px]">
+                                Puede ser 0: el huésped no paga nada.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="specialRateReason"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Motivo</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Dueño, cortesía, amigo de..." {...field} value={field.value ?? ''} />
-                          </FormControl>
-                          <FormDescription className="text-[11px]">
-                            Para saber después por qué esa habitación no generó plata.
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                      <FormField
+                        control={form.control}
+                        name="specialRateReason"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Motivo</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Dueño, cortesía, amigo de..." {...field} value={field.value ?? ''} />
+                            </FormControl>
+                            <FormDescription className="text-[11px]">
+                              Para saber después por qué esa habitación no generó plata.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {!puedeTarifar && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                        La reserva queda <strong>a tarifar</strong>: administración le pone el
+                        precio. El huésped puede llegar y hacer check-in igual.
+                      </p>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
+            </div>
 
             {/* La tarifa la propone la ocupación; el mostrador puede elegir otra */}
             {!usesSpecialRate && selectedRoomType && tierOptions.length > 1 && (

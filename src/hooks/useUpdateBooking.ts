@@ -23,6 +23,11 @@ interface UpdateBookingParams {
     needsReview?: boolean;
     /** Tramo de tarifa elegido a mano. '' vuelve a la tarifa por ocupación. */
     pricingRoomTypeId?: string;
+    /** Precio por noche pactado. Cero es un precio válido, no un campo vacío. */
+    specialRateAmount?: number;
+    /** Marcada con tarifa especial y todavía sin precio. */
+    specialRatePending?: boolean;
+    specialRateReason?: string;
 }
 
 /**
@@ -76,6 +81,11 @@ export const useUpdateBooking = () => {
             if (fields.needsReview !== undefined) updateData.needs_review = fields.needsReview;
             // '' es "volver al automático": se guarda NULL y no un id vacío.
             if (fields.pricingRoomTypeId !== undefined) updateData.pricing_room_type_id = fields.pricingRoomTypeId || null;
+            // Tarifa especial. El monto va tal cual, incluido el 0: acá cero es
+            // un precio decidido —el dueño no paga— y no un campo vacío.
+            if (fields.specialRateAmount !== undefined) updateData.special_rate_amount = fields.specialRateAmount;
+            if (fields.specialRatePending !== undefined) updateData.special_rate_pending = fields.specialRatePending;
+            if (fields.specialRateReason !== undefined) updateData.special_rate_reason = fields.specialRateReason || null;
 
             const { data, error } = await supabase
                 .from('bookings')

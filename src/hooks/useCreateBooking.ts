@@ -37,6 +37,11 @@ export const useCreateBooking = () => {
                     // que la media estadía: mandar la columna siempre rompería
                     // la reserva normal si el código sale antes que la migración.
                     ...(bookingData.groupId ? { group_id: bookingData.groupId } : {}),
+                    // Igual: solo cuando quedó marcada a tarifar.
+                    ...(bookingData.specialRatePending ? { special_rate_pending: true } : {}),
+                    ...(bookingData.specialRateReason
+                        ? { special_rate_reason: bookingData.specialRateReason }
+                        : {}),
                     status: bookingData.status,
                     total_amount: bookingData.totalAmount,
                     notes: bookingData.notes,
@@ -85,6 +90,8 @@ export const useCreateBooking = () => {
                 isFullHotel: data.is_full_hotel ?? false,
                 isHalfDay: data.is_half_day ?? false,
                 groupId: data.group_id || undefined,
+                specialRateReason: data.special_rate_reason || undefined,
+                specialRatePending: data.special_rate_pending ?? false,
                 status: data.status,
                 totalAmount: data.total_amount,
                 notes: data.notes,

@@ -60,6 +60,23 @@ import { PRINT_FONT_LINK, PRINT_FONT_CSS } from '@/lib/printStyles';
 
 const money = (n: number) => `$${n.toLocaleString('es-AR')}`;
 
+/**
+ * Qué decirle a quien apretó el botón cuando la caja no se movió.
+ *
+ * El "No se pudo cerrar la caja" a secas costó una mañana: recepción rebotaba
+ * contra la política de permisos y el cartel no lo decía, así que desde afuera
+ * parecía que el sistema no se había actualizado. Un error de permisos tiene que
+ * nombrarse: es el único que se arregla con una llamada y no tocando el botón
+ * otra vez.
+ */
+const cajaError = (e: unknown, accion: string): string => {
+  const msg = e instanceof Error ? e.message : String(e ?? '');
+  if (/row-level security|permission denied|42501/i.test(msg)) {
+    return `Tu usuario no tiene permiso para ${accion}. Avisale a administración.`;
+  }
+  return msg ? `No se pudo ${accion}: ${msg}` : `No se pudo ${accion}`;
+};
+
 export default function CierreCaja() {
   const { payments } = usePaymentOperations();
   const { bookings } = useBookingOperations();
@@ -268,8 +285,8 @@ export default function CierreCaja() {
       });
       setOpeningInput('');
       toast({ title: '✅ Caja abierta', description: `Saldo inicial: ${money(amount)}` });
-    } catch {
-      toast({ title: 'Error', description: 'No se pudo abrir la caja', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Error', description: cajaError(e, 'abrir la caja'), variant: 'destructive' });
     }
   };
 
@@ -290,8 +307,8 @@ export default function CierreCaja() {
       setCloseNotes('');
       setConfirmClose(false);
       toast({ title: '🔒 Caja cerrada', description: `A rendir: ${money(cashToDeposit)}` });
-    } catch {
-      toast({ title: 'Error', description: 'No se pudo cerrar la caja', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Error', description: cajaError(e, 'cerrar la caja'), variant: 'destructive' });
     }
   };
 
@@ -300,8 +317,8 @@ export default function CierreCaja() {
     try {
       await reopenSession.mutateAsync({ sessionId: viewedSession.id });
       toast({ title: 'Caja reabierta', description: 'El turno volvió a estar abierto' });
-    } catch {
-      toast({ title: 'Error', description: 'No se pudo reabrir. Solo administración puede.', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Error', description: cajaError(e, 'reabrir la caja'), variant: 'destructive' });
     }
   };
 

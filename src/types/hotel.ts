@@ -168,6 +168,13 @@ export interface Booking {
    */
   specialRateAmount?: number;
   /**
+   * Por qué se le hizo ese precio: "dueño", "cortesía", "amigo de X".
+   *
+   * Una reserva en cero no genera deuda ni alerta, así que sin esto queda una
+   * habitación ocupada que no generó un peso y nada que explique por qué.
+   */
+  specialRateReason?: string;
+  /**
    * Tramo de tarifa elegido a mano en el mostrador. Ausente —la enorme
    * mayoría— significa el que corresponde por la gente que entra. Cuando está,
    * manda: ni la edición ni el check-in lo recalculan.

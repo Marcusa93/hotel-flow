@@ -62,7 +62,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { cn, guestsLabel } from '@/lib/utils';
+import { cn, guestsLabel, formatPesosInput, parsePesosInput } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Rate } from '@/types/hotel';
 
@@ -84,6 +84,9 @@ const bookingSchema = z.object({
   notes: z.string().optional(),
   receptionist: z.string().optional(),
   useSpecialRate: z.boolean().default(false),
+  /** El precio acordado, como texto agrupado ("30.000"). Vacío vale: es cero. */
+  specialRateAmount: z.string().optional(),
+  specialRateReason: z.string().max(120, 'Motivo demasiado largo').optional(),
   isHalfDay: z.boolean().default(false),
   pricingRoomTypeId: z.string().optional(),
   promoCode: z.string().optional(),
@@ -152,7 +155,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
   const { data: hotelSettings } = useHotelSettings();
   // Con quién se llena "Recepcionista a cargo". El email es la misma reserva que
   // usa Usuarios cuando alguien no tiene el nombre cargado.
-  const { profileName } = useAppRole();
+  const { profileName, currentRole } = useAppRole();
   const { user } = useAuth();
   const currentUserName = profileName || user?.email || '';
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -174,6 +177,8 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
       notes: '',
       receptionist: '',
       useSpecialRate: false,
+      specialRateAmount: '',
+      specialRateReason: '',
       isHalfDay: false,
       pricingRoomTypeId: TARIFA_AUTOMATICA,
       promoCode: '',
@@ -199,6 +204,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
   const watchedInfants = Number(form.watch('infants')) || 0;
   const watchedPricingTypeId = form.watch('pricingRoomTypeId');
   const watchedSpecialRate = form.watch('useSpecialRate');
+  const watchedSpecialRateAmount = form.watch('specialRateAmount');
   const watchedHalfDay = form.watch('isHalfDay');
   const watchedCheckIn = form.watch('checkInDate');
   const watchedCheckOut = form.watch('checkOutDate');
@@ -316,13 +322,34 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
     });
   }, [rates, selectedRoom, pricingTypeId, watchedCheckIn, watchedCheckOut, nights]);
 
-  // La tarifa especial: un precio por noche fijo para el cliente que el hotel
-  // elija, cualquiera sea la habitación y entre la gente que entre. Pisa el
-  // tramo por ocupación, que es justamente lo que no se quiere acá.
-  const specialRate = hotelSettings?.specialRateAmount ?? 0;
-  const specialRateAvailable = specialRate > 0;
+  /**
+   * La tarifa especial: el precio por noche que administración le hace a quien
+   * quiera, cualquiera sea la habitación y entre la gente que entre. Pisa el
+   * tramo por ocupación, que es justamente lo que no se quiere acá.
+   *
+   * El monto sale del campo y no de Configuración. Cuando era uno solo para todo
+   * el hotel había que ir a Ajustes y cambiarlo entre una reserva y la otra, y
+   * en cero la opción directamente desaparecía — el caso de los dueños, que se
+   * alojan y no pagan, era el único que no se podía cargar.
+   *
+   * Lo de Configuración quedó como sugerido: precarga el campo y se pisa.
+   */
+  const specialRateSuggested = hotelSettings?.specialRateAmount ?? 0;
+  // Solo administración: una reserva en cero no genera deuda ni alerta, así que
+  // quien pueda marcarla puede regalar una habitación sin que quede rastro.
+  const specialRateAvailable = currentRole === 'admin';
+  const specialRate = parsePesosInput(watchedSpecialRateAmount ?? '').value || 0;
   // La media estadía ya es un precio cerrado: la tarifa especial no se le encima.
   const usesSpecialRate = specialRateAvailable && watchedSpecialRate === true && !watchedHalfDay;
+
+  // Al marcarla se precarga el sugerido de Configuración, que es el precio de
+  // siempre. Se pisa escribiendo otro, y borrarlo es cero — que es un precio
+  // válido: el dueño se aloja y no paga.
+  useEffect(() => {
+    if (watchedSpecialRate && !form.getValues('specialRateAmount') && specialRateSuggested > 0) {
+      form.setValue('specialRateAmount', formatPesosInput(specialRateSuggested));
+    }
+  }, [watchedSpecialRate, specialRateSuggested, form]);
 
   const halfDayCheckIn = hotelSettings?.halfDayCheckInTime || '10:00';
   const halfDayCheckOut = hotelSettings?.halfDayCheckOutTime || '18:00';
@@ -533,6 +560,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
         // El monto aplicado, no una marca: el configurado va a cambiar y la
         // reserva tiene que seguir diciendo a qué precio se tomó.
         specialRateAmount: usesSpecialRate ? specialRate : undefined,
+        specialRateReason: usesSpecialRate ? data.specialRateReason?.trim() || undefined : undefined,
         // Solo cuando recepción la eligió: sin esto la reserva quedaría atada a
         // un tramo que en realidad se calculó solo, y dejaría de seguir a la
         // gente si la ocupación cambia en el check-in.
@@ -1428,29 +1456,80 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
               )}
             </div>
 
-            {/* Tarifa especial — solo si el hotel la tiene configurada */}
+            {/* Tarifa especial — el precio lo decide administración, así que
+                recepción no ve ni el casillero. Una reserva en cero no genera
+                deuda ni alerta: quien pueda marcarla puede regalar una
+                habitación sin que quede nada que mirar. */}
             {specialRateAvailable && (
-              <FormField
-                control={form.control}
-                name="useSpecialRate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start gap-3 space-y-0 p-4 rounded-xl border border-violet-200 dark:border-violet-900/50 bg-violet-50/50 dark:bg-violet-950/20">
-                    <FormControl>
-                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                    <div className="space-y-0.5">
-                      <FormLabel className="flex items-center gap-2 cursor-pointer">
-                        <Sparkles className="w-4 h-4 text-violet-500" />
-                        Tarifa especial — ${specialRate.toLocaleString('es-AR')}/noche
-                      </FormLabel>
-                      <FormDescription className="text-xs">
-                        Precio fijo por noche, cualquiera sea la habitación y la cantidad de
-                        personas. Reemplaza la tarifa por ocupación y no acumula promociones.
-                      </FormDescription>
-                    </div>
-                  </FormItem>
+              <div className="p-4 rounded-xl border border-violet-200 dark:border-violet-900/50 bg-violet-50/50 dark:bg-violet-950/20 space-y-3">
+                <FormField
+                  control={form.control}
+                  name="useSpecialRate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start gap-3 space-y-0">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-0.5">
+                        <FormLabel className="flex items-center gap-2 cursor-pointer">
+                          <Sparkles className="w-4 h-4 text-violet-500" />
+                          Tarifa especial
+                        </FormLabel>
+                        <FormDescription className="text-xs">
+                          El precio que vos digas, cualquiera sea la habitación y la cantidad de
+                          personas. Reemplaza la tarifa por ocupación y no acumula promociones.
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                {watchedSpecialRate && (
+                  <div className="grid gap-3 sm:grid-cols-2 pl-7">
+                    <FormField
+                      control={form.control}
+                      name="specialRateAmount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Precio por noche</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">$</span>
+                              <Input
+                                inputMode="decimal"
+                                className="pl-7 tabular-nums"
+                                placeholder="0"
+                                value={field.value ?? ''}
+                                onChange={e => field.onChange(parsePesosInput(e.target.value).display)}
+                              />
+                            </div>
+                          </FormControl>
+                          <FormDescription className="text-[11px]">
+                            Puede ser 0: el huésped no paga nada.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="specialRateReason"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Motivo</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Dueño, cortesía, amigo de..." {...field} value={field.value ?? ''} />
+                          </FormControl>
+                          <FormDescription className="text-[11px]">
+                            Para saber después por qué esa habitación no generó plata.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 )}
-              />
+              </div>
             )}
 
             {/* La tarifa la propone la ocupación; el mostrador puede elegir otra */}

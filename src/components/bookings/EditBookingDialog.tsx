@@ -708,7 +708,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
                     {isHalfDay
                       ? `Media estadía — 50% de ${guestsLabel(occupancyPricing?.pricingType.maxGuests ?? selectedRoomType.maxGuests)}`
                       : isSpecialRate
-                        ? 'Tarifa especial'
+                        ? `Tarifa especial${booking.specialRateReason ? ` — ${booking.specialRateReason}` : ''}`
                         : `Tarifa ${guestsLabel(occupancyPricing?.pricingType.maxGuests ?? selectedRoomType.maxGuests)}`}
                     {!isHalfDay && ` x ${nights} noche${nights !== 1 ? 's' : ''}`}
                   </span>

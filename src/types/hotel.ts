@@ -102,6 +102,32 @@ export interface CurrentAccountPayment {
   createdAt: Date;
 }
 
+/**
+ * Una reserva masiva: un contingente que toma varias habitaciones.
+ *
+ * No es una reserva: es lo que une a varias. Cada habitación conserva su reserva
+ * normal —con su check-in, su limpieza y su lugar en el tablero— y el grupo
+ * agrega lo único que no existía, que es un precio para el conjunto.
+ */
+export interface BookingGroup {
+  id: string;
+  /** A nombre de quién: la empresa, el equipo, quien contrata. */
+  guestId?: string;
+  notes?: string;
+  /**
+   * Lo acordado por todo el paquete. `null` es "a tarifar", y es un estado real:
+   * la reserva nace así porque el precio de un grupo lo cierra administración.
+   * Null y no cero — en cero el grupo figuraría sin deuda.
+   */
+  totalAmount?: number | null;
+  pricedAt?: Date;
+  pricedBy?: string;
+  pricedByName?: string;
+  createdAt: Date;
+  createdBy?: string;
+  createdByName?: string;
+}
+
 export interface Booking {
   id: string;
   guestId: string;
@@ -158,6 +184,13 @@ export interface Booking {
    * tramo. No admite promoción ni tarifa especial.
    */
   isHalfDay?: boolean;
+  /**
+   * La reserva masiva a la que pertenece, si es de un contingente.
+   *
+   * La reserva sigue siendo de UNA habitación: el grupo solo la une con las
+   * demás para ponerles un precio en común. Ver bookingGroup.ts.
+   */
+  groupId?: string;
   createdAt: Date;
   updatedAt?: Date;
 }

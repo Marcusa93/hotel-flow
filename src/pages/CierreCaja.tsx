@@ -15,11 +15,6 @@ import { useCurrentAccountPayments } from '@/hooks/useCurrentAccount';
 import { isCurrentAccountPayment } from '@/lib/currentAccount';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
 import {
-  useCashContributions,
-  useCreateCashContribution,
-  useDeleteCashContribution,
-} from '@/hooks/useCashContributions';
-import {
   useCashSessions,
   useOpenCashSession,
   useCloseCashSession,
@@ -29,8 +24,8 @@ import { useAppRole } from '@/context/AppRoleContext';
 import { useAuth } from '@/context/AuthContext';
 import {
   summarizeExpenses,
-  companyCashBalance,
   cashToDeposit as computeCashToDeposit,
+  belongsToDailyCash,
   belongsToSession,
   belongsToSessionInterval,
   nextSessionStart,
@@ -87,9 +82,6 @@ export default function CierreCaja() {
   const { data: allAccountPayments = [] } = useCurrentAccountPayments();
   const createOtherIncome = useCreateOtherIncome();
   const deleteOtherIncome = useDeleteOtherIncome();
-  const { data: allContributions = [] } = useCashContributions();
-  const createContribution = useCreateCashContribution();
-  const deleteContribution = useDeleteCashContribution();
   const { data: allSessions = [] } = useCashSessions();
   const openSession = useOpenCashSession();
   const closeSession = useCloseCashSession();
@@ -134,7 +126,6 @@ export default function CierreCaja() {
   const [newIncome, setNewIncome] = useState<{ description: string; method: PaymentMethod; amount: string }>(
     { description: '', method: 'CASH', amount: '' }
   );
-  const [newAporte, setNewAporte] = useState<{ notes: string; amount: string }>({ notes: '', amount: '' });
 
   // ─── Movimientos del turno ────────────────────────────────────────────
   // El corte es por el instante de carga, no por día calendario: cerrar a las
@@ -206,9 +197,14 @@ export default function CierreCaja() {
   );
 
   const { data: allExpenses = [] } = useExpenses();
+  // Solo los del cajón. Los que paga administración de la caja de la empresa no
+  // son plata de recepción y no tienen nada que hacer en este cierre: ver
+  // belongsToDailyCash.
   const expenses = useMemo(() => {
     const list = (viewedSession
-      ? allExpenses.filter((e) => belongsToSessionInterval(new Date(e.createdAt), viewedSession))
+      ? allExpenses.filter(
+          (e) => belongsToDailyCash(e) && belongsToSessionInterval(new Date(e.createdAt), viewedSession)
+        )
       : [])
       .sort((a, b) => b.amount - a.amount);
     return { list, ...summarizeExpenses(list) };
@@ -242,18 +238,6 @@ export default function CierreCaja() {
     cashExpenses: expenses.cashRecaudacion,
   });
   const totalDelDia = totalIngresos - expenses.total;
-
-  const aportesSesion = useMemo(
-    () => (viewedSession
-      ? allContributions.filter((c) => belongsToSessionInterval(new Date(c.createdAt), viewedSession))
-      : []),
-    [allContributions, viewedSession]
-  );
-  const aportesSesionTotal = aportesSesion.reduce((sum, c) => sum + c.amount, 0);
-  const saldoEmpresa = useMemo(
-    () => companyCashBalance(allContributions, allExpenses),
-    [allContributions, allExpenses]
-  );
 
   // Deriva del snapshot: si algo cambió después de cerrar, se ve aquí.
   const drift = useMemo(() => {
@@ -344,28 +328,6 @@ export default function CierreCaja() {
     }
   };
 
-  const addAporte = async () => {
-    const amount = Number(newAporte.amount);
-    if (!amount || amount <= 0) {
-      toast({ title: 'Monto inválido', description: 'Ingresá cuánto puso la empresa', variant: 'destructive' });
-      return;
-    }
-    // Fecha de hoy por la misma razón que en los ingresos externos.
-    try {
-      await createContribution.mutateAsync({
-        date: new Date(),
-        amount,
-        notes: newAporte.notes.trim() || undefined,
-        createdBy: author.id,
-        createdByName: author.name,
-      });
-      setNewAporte({ notes: '', amount: '' });
-      toast({ title: 'Aporte registrado', description: `${money(amount)} a la caja de la empresa` });
-    } catch {
-      toast({ title: 'Error', description: 'No se pudo registrar el aporte', variant: 'destructive' });
-    }
-  };
-
   // ─── Etiquetas de un turno para la lista ──────────────────────────────
   const sessionLabel = (s: typeof allSessions[number]) => {
     const open = format(s.openedAt, "EEE d/M HH:mm", { locale: es });
@@ -404,9 +366,6 @@ export default function CierreCaja() {
     const expenseDetailRows = expenses.list
       .map((e) => `<tr><td>${h(EXPENSE_TYPE_LABELS[e.expenseType] || e.expenseType)}${e.description ? ` — ${h(e.description)}` : ''}<br><span class="muted">${h((e.method ? PAYMENT_METHOD_LABELS[e.method] || e.method : 'sin especificar') + cajaLabel(e))}</span></td><td class="num">${money(e.amount)}</td></tr>`)
       .join('') || '<tr><td colspan="2">Sin gastos</td></tr>';
-    const aporteRows = aportesSesion
-      .map((c) => `<tr><td>${h(c.notes || 'Aporte a la caja')}${c.createdByName ? `<br><span class="muted">${h(c.createdByName)}</span>` : ''}</td><td class="num">${money(c.amount)}</td></tr>`)
-      .join('') || '<tr><td colspan="2">Sin aportes este turno</td></tr>';
     const deudaRows = deuda.rows
       .map((r) => `<tr><td>${h(r.name)} — Hab. ${h(r.room)}</td><td class="num">${money(r.owed)}</td></tr>`)
       .join('') || '<tr><td colspan="2">Sin deudas</td></tr>';
@@ -447,11 +406,6 @@ export default function CierreCaja() {
       <tr class="tot"><td>Total gastos</td><td class="num">${money(expenses.total)}</td></tr></table>
     <h2>Gastos por cuenta</h2><table>${expenseMethodRows}</table>
     <h2>Detalle de gastos</h2><table>${expenseDetailRows}</table>
-    <h2>Caja de la empresa</h2><table>
-      <tr><td>Aportes de este turno</td><td class="num">${money(aportesSesionTotal)}</td></tr>
-      <tr><td>Gastado de esta caja</td><td class="num">-${money(expenses.cashEmpresa)}</td></tr>
-      <tr class="tot"><td>Saldo disponible</td><td class="num">${money(saldoEmpresa)}</td></tr></table>
-    <table>${aporteRows}</table>
     <h2>Ingresos externos</h2><table>${otherIncomeRows}</table>
     <h2>Deudas (DEBE)</h2><table>${deudaRows}
       <tr class="tot"><td>Total deuda</td><td class="num">${money(deuda.total)}</td></tr></table>
@@ -461,7 +415,7 @@ export default function CierreCaja() {
     w.document.close();
     w.focus();
     setTimeout(() => w.print(), 250);
-  }, [byMethod, expenses, deuda, otherIncomeSession, incomeRows, aCuentaCorriente, cashFloat, cashTotal, cashToDeposit, totalIngresos, totalDelDia, hotelSettings, aportesSesion, aportesSesionTotal, saldoEmpresa, viewedSession]);
+  }, [byMethod, expenses, deuda, otherIncomeSession, incomeRows, aCuentaCorriente, cashFloat, cashTotal, cashToDeposit, totalIngresos, totalDelDia, hotelSettings, viewedSession]);
 
   // ─── Render ───────────────────────────────────────────────────────────
   const isClosed = !!viewedSession?.closedAt;
@@ -818,69 +772,9 @@ export default function CierreCaja() {
             </CardContent>
           </Card>
 
-          {/* Caja de la empresa */}
-          <Card className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border-white/20 shadow-sm lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-base">Caja de la empresa</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Efectivo que pone el hotel para las compras. No es un ingreso y no se rinde.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid gap-2 sm:grid-cols-3">
-                <div className="rounded-xl border p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Aportes de este turno</p>
-                  <p className="text-lg font-bold tabular-nums text-emerald-600">{money(aportesSesionTotal)}</p>
-                </div>
-                <div className="rounded-xl border p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Gastado de esta caja</p>
-                  <p className="text-lg font-bold tabular-nums text-rose-600">{money(expenses.cashEmpresa)}</p>
-                </div>
-                <div className="rounded-xl border p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Saldo disponible</p>
-                  <p className={cn('text-lg font-bold tabular-nums', saldoEmpresa < 0 ? 'text-rose-600' : 'text-slate-800 dark:text-slate-100')}>
-                    {money(saldoEmpresa)}
-                  </p>
-                </div>
-              </div>
-              {saldoEmpresa < 0 && (
-                <p className="text-xs text-rose-600 dark:text-rose-400">
-                  Se gastó más de lo que la empresa puso: hay que reponer la caja.
-                </p>
-              )}
-              {aportesSesion.length > 0 && (
-                <div>
-                  {aportesSesion.map((c) => (
-                    <div key={c.id} className="flex items-center justify-between text-sm py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
-                      <span className="text-muted-foreground flex-1">{c.notes || 'Aporte a la caja'}</span>
-                      <span className="text-xs text-slate-400 mr-3">{c.createdByName || ''}</span>
-                      <span className="font-medium tabular-nums mr-2">{money(c.amount)}</span>
-                      {!isClosed && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-rose-500" onClick={() => deleteContribution.mutate(c)}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {!isClosed && (
-                <div className="flex flex-wrap items-end gap-2 pt-2 border-t">
-                  <div className="flex-1 min-w-[160px]">
-                    <Label className="text-xs mb-1 block">Detalle (opcional)</Label>
-                    <Input value={newAporte.notes} onChange={(e) => setNewAporte((p) => ({ ...p, notes: e.target.value }))} placeholder="Ej: reposición para compras" />
-                  </div>
-                  <div className="w-[140px]">
-                    <Label className="text-xs mb-1 block">Monto</Label>
-                    <Input type="number" min={0} value={newAporte.amount} onChange={(e) => setNewAporte((p) => ({ ...p, amount: e.target.value }))} />
-                  </div>
-                  <Button onClick={addAporte} disabled={createContribution.isPending}>
-                    <Plus className="w-4 h-4 mr-1" /> Registrar aporte
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* La caja de la empresa se fue al Balance Mensual: es la plata
+              acumulada del hotel y de ahí paga administración, así que no es
+              asunto de esta pantalla, que es la de recepción. */}
 
           {/* Ingresos externos */}
           <Card className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border-white/20 shadow-sm lg:col-span-2">

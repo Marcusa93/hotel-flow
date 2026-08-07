@@ -25,6 +25,14 @@ export interface ExpenseBreakdown {
   /** Efectivo salido de la plata que puso la empresa. No toca lo que se rinde. */
   cashEmpresa: number;
   /**
+   * Todo lo que salió de la caja de la empresa, con cualquier medio de pago.
+   *
+   * Aparte de `cashEmpresa` porque son dos preguntas: cuánto salió de esa caja
+   * —que incluye la luz pagada por transferencia— y cuánto de eso fue en
+   * efectivo, que es lo único que puede confundirse con el cajón del día.
+   */
+  empresa: number;
+  /**
    * Gastos anteriores a la columna `method`. No se suponen en efectivo: dar por
    * hecho que salieron de la caja movería el cierre de días ya cerrados.
    */
@@ -49,15 +57,42 @@ export interface ExpenseBreakdown {
 export const DEFAULT_CASH_SOURCE: CashSource = 'RECAUDACION';
 
 /**
- * De qué caja salió un gasto en efectivo.
+ * De qué caja salió un gasto, sin mirar con qué se pagó.
  *
- * Sin `cashSource` se lee el supuesto de arriba: es como se venían contando los
- * gastos en efectivo antes de que existieran las dos cajas, y cambiarlo movería
- * cierres ya hechos. Los que no son en efectivo no salen de ninguna caja.
+ * Son dos preguntas distintas y hasta acá estaban pegadas: `cashSource` nació
+ * para repartir los gastos en EFECTIVO entre las dos cajas, así que para todo lo
+ * demás valía "ninguna". Con eso, la luz pagada por transferencia no podía
+ * imputarse a la caja de la empresa —no había dónde decirlo— y es justamente el
+ * caso más común de los pagos que hace administración.
+ *
+ * Sin `cashSource` se lee RECAUDACION, que es como se venían contando los gastos
+ * antes de que existieran las dos cajas: cambiarlo movería cierres ya hechos.
+ */
+export function expenseSource(expense: Pick<Expense, 'cashSource'>): CashSource {
+  return expense.cashSource ?? DEFAULT_CASH_SOURCE;
+}
+
+/**
+ * Si este gasto le toca al cierre de recepción.
+ *
+ * Los de la empresa no: los paga administración de la plata acumulada del hotel,
+ * no del cajón. Aparecían igual en el cierre —sin bajar el efectivo a rendir,
+ * pero a la vista— y no son plata de recepción: un pago de luz de $300.000 en la
+ * lista de gastos del turno solo hace dudar de un número que estaba bien.
+ */
+export function belongsToDailyCash(expense: Pick<Expense, 'cashSource'>): boolean {
+  return expenseSource(expense) === 'RECAUDACION';
+}
+
+/**
+ * De qué caja salió un gasto pagado en EFECTIVO. Null si no fue en efectivo.
+ *
+ * Es lo que decide qué baja el efectivo a rendir, y por eso mira el medio de
+ * pago: una transferencia no saca plata del cajón, salga de la caja que salga.
  */
 export function expenseCashSource(expense: Expense): CashSource | null {
   if (expense.method !== 'CASH') return null;
-  return expense.cashSource ?? DEFAULT_CASH_SOURCE;
+  return expenseSource(expense);
 }
 
 export function summarizeExpenses(expenses: Expense[]): ExpenseBreakdown {
@@ -66,12 +101,17 @@ export function summarizeExpenses(expenses: Expense[]): ExpenseBreakdown {
   let cash = 0;
   let cashRecaudacion = 0;
   let cashEmpresa = 0;
+  let empresa = 0;
   let unspecified = 0;
   let total = 0;
 
   for (const e of expenses) {
     byType[e.expenseType] = (byType[e.expenseType] || 0) + e.amount;
     total += e.amount;
+
+    // De qué caja salió no depende del medio de pago: la luz por transferencia
+    // sale de la empresa igual que el súper en efectivo.
+    if (expenseSource(e) === 'EMPRESA') empresa += e.amount;
 
     if (!e.method) {
       unspecified += e.amount;
@@ -90,7 +130,7 @@ export function summarizeExpenses(expenses: Expense[]): ExpenseBreakdown {
     }
   }
 
-  return { byType, byMethod, cash, cashRecaudacion, cashEmpresa, unspecified, total };
+  return { byType, byMethod, cash, cashRecaudacion, cashEmpresa, empresa, unspecified, total };
 }
 
 /**

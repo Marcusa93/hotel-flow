@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_CASH_SOURCE,
   belongsToClosingDay,
+  belongsToDailyCash,
   belongsToSessionInterval,
   cashToDeposit,
   closingDrift,
@@ -10,6 +11,7 @@ import {
   companyCashBalance,
   defaultClosingDay,
   expenseCashSource,
+  expenseSource,
   nextSessionStart,
   resolveCashFloat,
   sessionAt,
@@ -74,7 +76,7 @@ describe('summarizeExpenses', () => {
     const result = summarizeExpenses([]);
     expect(result).toEqual({
       byType: {}, byMethod: {},
-      cash: 0, cashRecaudacion: 0, cashEmpresa: 0,
+      cash: 0, cashRecaudacion: 0, cashEmpresa: 0, empresa: 0,
       unspecified: 0, total: 0,
     });
   });
@@ -573,5 +575,55 @@ describe('sessionIncomeRows', () => {
 
   it('sin turno no hay nada que mostrar', () => {
     expect(sessionIncomeRows({ session: null, payments: [cobro()] })).toEqual([]);
+  });
+});
+
+// ─── De qué caja sale, sin mirar con qué se pagó ──────────────────────
+// El dueño paga la luz por transferencia y el súper en efectivo, y las dos cosas
+// salen de lo acumulado del hotel. Antes `cashSource` solo valía para los gastos
+// en efectivo, así que la luz no tenía dónde imputarse.
+
+describe('expenseSource', () => {
+  it('un gasto por transferencia también puede salir de la caja de la empresa', () => {
+    const luz = gasto({ method: 'TRANSFER', cashSource: 'EMPRESA' });
+    expect(expenseSource(luz)).toBe('EMPRESA');
+    // Pero no baja el efectivo a rendir: no salió plata del cajón.
+    expect(expenseCashSource(luz)).toBe(null);
+  });
+
+  it('sin marcar sale de la recaudación, como se venía contando', () => {
+    expect(expenseSource(gasto({ cashSource: undefined }))).toBe('RECAUDACION');
+  });
+});
+
+describe('belongsToDailyCash', () => {
+  it('los del cajón le tocan al cierre de recepción', () => {
+    expect(belongsToDailyCash(gasto({ cashSource: 'RECAUDACION' }))).toBe(true);
+    expect(belongsToDailyCash(gasto({ cashSource: undefined }))).toBe(true);
+  });
+
+  it('los de la empresa no, ni siquiera pagados en efectivo', () => {
+    // Un pago de luz de $300.000 en la lista de gastos del turno solo hace
+    // dudar de un número que estaba bien: no es plata de recepción.
+    expect(belongsToDailyCash(gasto({ cashSource: 'EMPRESA' }))).toBe(false);
+    expect(belongsToDailyCash(gasto({ method: 'CASH', cashSource: 'EMPRESA' }))).toBe(false);
+  });
+});
+
+describe('lo que salió de la caja de la empresa', () => {
+  it('suma los de la empresa con cualquier medio de pago', () => {
+    const { empresa, cashEmpresa } = summarizeExpenses([
+      gasto({ amount: 300_000, method: 'TRANSFER', cashSource: 'EMPRESA' }),  // la luz
+      gasto({ amount: 80_000, method: 'CASH', cashSource: 'EMPRESA' }),       // el súper
+      gasto({ amount: 20_000, method: 'CASH', cashSource: 'RECAUDACION' }),   // el panadero
+    ]);
+
+    expect(empresa).toBe(380_000);
+    // El efectivo de la empresa es un subconjunto: sirve para otra pregunta.
+    expect(cashEmpresa).toBe(80_000);
+  });
+
+  it('el gasto del cajón no cuenta como de la empresa', () => {
+    expect(summarizeExpenses([gasto({ amount: 20_000 })]).empresa).toBe(0);
   });
 });

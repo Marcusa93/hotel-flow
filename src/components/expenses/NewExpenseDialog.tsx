@@ -19,9 +19,9 @@ import {
 } from '@/components/ui/select';
 import { useCreateExpense } from '@/hooks/useCreateExpense';
 import { useUpdateExpense } from '@/hooks/useUpdateExpense';
-import { useExpenses } from '@/hooks/useExpenses';
-import { useCashContributions } from '@/hooks/useCashContributions';
-import { companyCashBalance, DEFAULT_CASH_SOURCE } from '@/lib/cashClosing';
+import { useCompanyCashBalance } from '@/hooks/useCompanyCashBalance';
+import { useAppRole } from '@/context/AppRoleContext';
+import { DEFAULT_CASH_SOURCE } from '@/lib/cashClosing';
 import { CashSource, Expense, ExpenseType, SettlementMethod } from '@/types/hotel';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { Receipt, Loader2, AlertTriangle } from 'lucide-react';
@@ -82,46 +82,38 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
     // Efectivo por defecto: es de donde sale la mayoría de los gastos del día.
     const [method, setMethod] = useState<SettlementMethod>('CASH');
     /**
-     * Recaudación por defecto, y no la caja de la empresa.
+     * De qué caja sale, según quién lo esté cargando.
      *
-     * Arrancaba en EMPRESA y eso rompía el cierre: recepción le pagaba al
-     * panadero sacando del cajón, no tocaba este desplegable, y el gasto quedaba
-     * como si hubiera salido del fondo de la empresa. Como ese fondo no baja el
-     * efectivo a rendir, el sistema pedía rendir plata que ya no estaba en el
-     * cajón — y el cierre daba faltante.
+     * Recepción no elige: sus gastos salen del cajón siempre, y sin desplegable
+     * no hay forma de equivocarlo. Fue el error que rompió el cierre — con el
+     * default en EMPRESA, recepción le pagaba al panadero del cajón sin tocar
+     * nada, el gasto no bajaba el efectivo a rendir y el cierre daba faltante.
      *
-     * De los dos supuestos posibles este es el que no rompe nada: si el gasto
-     * salió del cajón, el número cierra; y si en realidad salió del fondo de la
-     * empresa, lo peor que pasa es que el efectivo a rendir dé de menos y sobre
-     * plata, que se ve enseguida y no genera un faltante.
-     *
-     * Es además el mismo supuesto que ya usaban expenseCashSource() para los
-     * gastos viejos y el modo edición de acá abajo. Antes eran tres criterios
-     * para el mismo dato faltante.
+     * Administración arranca en EMPRESA, que es lo que carga: la luz, internet,
+     * el supermercado. Sale de lo acumulado del hotel y no toca la caja diaria.
      */
-    const [cashSource, setCashSource] = useState<CashSource>(DEFAULT_CASH_SOURCE);
+    const { currentRole } = useAppRole();
+    const esAdmin = currentRole === 'admin';
+    const [cashSource, setCashSource] = useState<CashSource>(
+        esAdmin ? 'EMPRESA' : DEFAULT_CASH_SOURCE
+    );
 
     const createExpense = useCreateExpense();
     const updateExpense = useUpdateExpense();
 
     /**
-     * Cuánto queda en la caja de la empresa, para avisar antes de gastar de una
-     * caja vacía.
+     * Cuánto queda en la caja de la empresa, para avisar antes de cargar un
+     * gasto más grande que todo lo acumulado — que casi siempre es un monto mal
+     * tecleado.
      *
-     * Es el guardarraíl del error que rompió el cierre: decir que un gasto salió
-     * del fondo de la empresa cuando la empresa no puso nada significa, casi
-     * siempre, que salió del cajón. El default ya no lleva a ese error, pero
-     * alguien lo puede elegir a mano igual.
+     * Solo administración: la función de la base rechaza al resto, y recepción
+     * tampoco ve este desplegable.
      */
-    const { data: allExpenses = [] } = useExpenses();
-    const { data: contributions = [] } = useCashContributions();
-    const saldoEmpresa = companyCashBalance(contributions, allExpenses);
+    const { data: saldoEmpresaRaw } = useCompanyCashBalance({ enabled: esAdmin });
+    const saldoEmpresa = saldoEmpresaRaw ?? 0;
     const montoActual = parsePesosInput(amount).value || 0;
     // Al editar, lo ya imputado a la empresa por ESTE gasto no se cuenta dos veces.
-    const yaImputado =
-        expense && expense.method === 'CASH' && expense.cashSource === 'EMPRESA'
-            ? expense.amount
-            : 0;
+    const yaImputado = expense && expense.cashSource === 'EMPRESA' ? expense.amount : 0;
     const alcanzaLaCajaEmpresa = saldoEmpresa + yaImputado >= montoActual;
     const isPending = createExpense.isPending || updateExpense.isPending;
 
@@ -278,9 +270,12 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
                         </Select>
                     </div>
 
-                    {/* De cuál de las dos cajas salió. Solo en efectivo: una
-                        transferencia no sale de ninguna. */}
-                    {method === 'CASH' && (
+                    {/* De cuál de las dos cajas salió. Solo lo elige
+                        administración: los gastos de recepción salen del cajón
+                        siempre, y sin desplegable no hay forma de equivocarlo.
+                        Ya no depende del medio de pago: la luz se paga por
+                        transferencia y sale de la caja de la empresa igual. */}
+                    {esAdmin && (
                         <div className="space-y-2">
                             <Label htmlFor="cashSource">¿De qué caja salió?</Label>
                             <Select value={cashSource} onValueChange={(v) => setCashSource(v as CashSource)}>
@@ -288,21 +283,22 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {/* La recaudación va primero porque es el default:
-                                        que el orden no sugiera otra cosa que la elegida. */}
+                                    {/* La de la empresa va primero porque es el default
+                                        de administración: que el orden no sugiera otra
+                                        cosa que la elegida. */}
+                                    <SelectItem value="EMPRESA">Caja de la empresa (lo acumulado)</SelectItem>
                                     <SelectItem value="RECAUDACION">Recaudación del día (el cajón)</SelectItem>
-                                    <SelectItem value="EMPRESA">Caja de la empresa (para gastos)</SelectItem>
                                 </SelectContent>
                             </Select>
                             <p className="text-xs text-muted-foreground">
                                 {cashSource === 'EMPRESA'
-                                    ? 'Sale del fondo que puso la empresa. No toca el efectivo a rendir.'
-                                    : 'Sale de lo cobrado a huéspedes: se descuenta del efectivo a rendir del día.'}
+                                    ? 'Sale de lo acumulado del hotel. No toca la caja diaria y recepción no lo ve.'
+                                    : 'Sale del cajón de recepción: se descuenta del efectivo a rendir del día.'}
                             </p>
 
-                            {/* No bloquea: puede haber un aporte que todavía no
-                                cargaron. Pero si la plata salió del cajón y se
-                                marca acá, el cierre del día va a dar faltante. */}
+                            {/* No bloquea: el saldo puede estar por debajo y el gasto
+                                ser real igual. Pero un pago más grande que todo lo
+                                acumulado casi siempre es un monto mal tecleado. */}
                             {cashSource === 'EMPRESA' && !alcanzaLaCajaEmpresa && (
                                 <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/30 p-2.5 text-xs text-amber-800 dark:text-amber-200">
                                     <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
@@ -310,8 +306,7 @@ export function NewExpenseDialog({ open, onOpenChange, expense }: NewExpenseDial
                                         La caja de la empresa tiene{' '}
                                         <strong>${saldoEmpresa.toLocaleString('es-AR')}</strong>
                                         {montoActual > 0 ? ` y este gasto es de $${montoActual.toLocaleString('es-AR')}` : ''}.
-                                        {' '}Si la plata salió del cajón, elegí <strong>Recaudación del día</strong>:
-                                        marcarlo acá deja el cierre con faltante.
+                                        {' '}Revisá el monto antes de guardar.
                                     </span>
                                 </div>
                             )}

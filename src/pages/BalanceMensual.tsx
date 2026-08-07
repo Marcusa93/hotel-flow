@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useMonthlySummary, type MonthlyMovements } from '@/hooks/useMonthlySummary';
 import { useExpenses } from '@/hooks/useExpenses';
-import { useCashContributions } from '@/hooks/useCashContributions';
+import { useCompanyCashBalance } from '@/hooks/useCompanyCashBalance';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
 import {
@@ -65,7 +65,6 @@ export default function BalanceMensual() {
     startDate: range.start,
     endDate: range.monthEnd,
   });
-  const { data: allContributions = [] } = useCashContributions();
   const { rooms, roomTypes } = useRoomOperations();
   const { data: hotelSettings } = useHotelSettings();
 
@@ -82,19 +81,10 @@ export default function BalanceMensual() {
 
   const resultado = income.total - expenses.total;
 
-  // La caja de la empresa, solo por sus movimientos del mes. El saldo disponible
-  // es un número histórico —lo que pusieron en marzo sigue estando hoy— así que
-  // no es del mes y vive en el Cierre de Caja, que es donde se repone.
-  const aportesDelMes = useMemo(
-    () =>
-      allContributions
-        .filter(c => {
-          const d = formatLocalDate(new Date(c.date));
-          return d >= formatLocalDate(range.start) && d <= formatLocalDate(range.monthEnd);
-        })
-        .reduce((sum, c) => sum + c.amount, 0),
-    [allContributions, range.start, range.monthEnd]
-  );
+  // El saldo de la caja de la empresa: lo recaudado desde siempre menos lo
+  // gastado. Viene de la base y no se suma acá — es un acumulado sin recorte de
+  // fecha y PostgREST corta en mil filas. Ver useCompanyCashBalance.
+  const { data: saldoEmpresa } = useCompanyCashBalance();
 
   /* ───────────────────────── Ocupación ───────────────────────── */
 
@@ -196,10 +186,9 @@ export default function BalanceMensual() {
 
     <h2>Gastos por cuenta</h2><table>${expenseMethodRows}</table>
 
-    <h2>Caja de la empresa — movimientos del mes</h2><table>
-      <tr><td>Aportes</td><td class="num">${money(aportesDelMes)}</td></tr>
-      <tr><td>Gastado de esa caja</td><td class="num">-${money(expenses.cashEmpresa)}</td></tr>
-      <tr class="tot"><td>Neto del mes</td><td class="num">${money(aportesDelMes - expenses.cashEmpresa)}</td></tr></table>
+    <h2>Caja de la empresa</h2><table>
+      <tr><td>Pagado de esta caja en el mes</td><td class="num">${money(expenses.empresa)}</td></tr>
+      <tr class="tot"><td>Saldo disponible hoy</td><td class="num">${saldoEmpresa == null ? '—' : money(saldoEmpresa)}</td></tr></table>
 
     <h2>Resultado</h2><table>
       <tr class="tot grand"><td>Resultado del mes (entró − gastos)</td><td class="num">${money(resultado)}</td></tr></table>
@@ -207,7 +196,7 @@ export default function BalanceMensual() {
     w.document.close();
     w.focus();
     setTimeout(() => w.print(), 250);
-  }, [income, expenses, byType, occupancy, aportesDelMes, resultado, month, monthLabel, periodNote, hotelName]);
+  }, [income, expenses, byType, occupancy, saldoEmpresa, resultado, month, monthLabel, periodNote, hotelName]);
 
   /* ─────────────────────────── Pantalla ─────────────────────────── */
 
@@ -530,41 +519,40 @@ export default function BalanceMensual() {
       <Card className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border-white/20 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-violet-500" /> Caja de la empresa — movimientos del mes
+            <Building2 className="w-4 h-4 text-violet-500" /> Caja de la empresa
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Lo que la empresa puso y lo que se gastó de esa caja durante el mes. No es un ingreso del
-            hotel: es plata propia para las compras. El saldo disponible de hoy está en Cierre de Caja.
+            Todo lo que el hotel recaudó desde siempre, menos todo lo que se gastó. Es de acá
+            que salen los pagos grandes —luz, internet, supermercado—, y por eso no tocan la
+            caja diaria de recepción. Recepción no ve ni este saldo ni esos gastos.
           </p>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border p-3">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
-                Aportes del mes
-              </p>
-              <p className="text-lg font-bold tabular-nums text-emerald-600">{money(aportesDelMes)}</p>
-            </div>
-            <div className="rounded-xl border p-3">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
-                Gastado de esa caja
-              </p>
-              <p className="text-lg font-bold tabular-nums text-rose-600">{money(expenses.cashEmpresa)}</p>
-            </div>
-            <div className="rounded-xl border p-3">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
-                Neto del mes
-              </p>
-              <p
-                className={cn(
-                  'text-lg font-bold tabular-nums',
-                  aportesDelMes - expenses.cashEmpresa < 0 ? 'text-rose-600' : 'text-slate-800 dark:text-slate-100'
-                )}
-              >
-                {money(aportesDelMes - expenses.cashEmpresa)}
-              </p>
-            </div>
+        <CardContent className="space-y-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
+              Saldo disponible hoy
+            </p>
+            <p
+              className={cn(
+                'num-display text-4xl font-semibold mt-1',
+                saldoEmpresa != null && saldoEmpresa < 0
+                  ? 'text-rose-600'
+                  : 'text-slate-800 dark:text-slate-100'
+              )}
+            >
+              {saldoEmpresa == null ? '—' : money(saldoEmpresa)}
+            </p>
           </div>
+          <div className="flex justify-between text-sm pt-2 border-t">
+            <span className="text-muted-foreground">Pagado de esta caja en {monthLabel}</span>
+            <span className="font-medium tabular-nums text-rose-600">{money(expenses.empresa)}</span>
+          </div>
+          {saldoEmpresa != null && saldoEmpresa < 0 && (
+            <p className="text-xs text-rose-600 dark:text-rose-400">
+              Se gastó más de lo que el hotel recaudó. Si el número no es el esperado, revisá
+              que no haya gastos cargados dos veces.
+            </p>
+          )}
         </CardContent>
       </Card>
 

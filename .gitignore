@@ -43,3 +43,9 @@ vite.config.ts.timestamp-*.mjs
 
 # Estado local del CLI de Supabase (a qué proyecto está linkeada esta copia)
 supabase/.temp/
+
+# Artefactos de generar el manual de usuario: los renders de página y el PDF
+# armado. Se rehacen corriendo los scripts, así que guardarlos sería subir
+# megabytes de imágenes que se regeneran solas.
+output/
+tmp/

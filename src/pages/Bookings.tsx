@@ -23,7 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn, formatLastNameFirst, getInitials } from '@/lib/utils';
 import {
   LayoutGrid, List,
-  Calendar, BedDouble, CalendarRange, CalendarDays, ArrowDownUp,
+  Calendar, BedDouble, CalendarRange, CalendarDays, ArrowDownUp, Tag,
 } from 'lucide-react';
 import type { BoardOrder } from '@/lib/reservationBoard';
 import { BookingTimeline } from '@/components/bookings/BookingTimeline';
@@ -34,6 +34,12 @@ import { useCheckInOccupancy } from '@/hooks/useCheckInOccupancy';
 import { getRoomCheckInWarning, checkInConfirmLabel, type RoomCheckInWarning } from '@/lib/roomReadiness';
 import { RoomStatusWarning } from '@/components/shared';
 import { CheckInOccupancy } from '@/components/bookings/CheckInOccupancy';
+import { GroupBookingDialog } from '@/components/bookings/GroupBookingDialog';
+import { PriceGroupDialog } from '@/components/bookings/PriceGroupDialog';
+import { useBookingGroups } from '@/hooks/useBookingGroups';
+import { useAppRole } from '@/context/AppRoleContext';
+import { bookingsOfGroup, groupsPendingPrice, isPendingAndInHouse } from '@/lib/bookingGroup';
+import type { BookingGroup } from '@/types/hotel';
 import { toast } from '@/hooks/use-toast';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -49,6 +55,9 @@ export default function Bookings() {
   const { payments } = usePaymentOperations();
   const { data: charges = [] } = useAllBookingCharges();
   const { data: housekeepingTasks = [] } = useHousekeepingTasks();
+  const { data: bookingGroups = [] } = useBookingGroups();
+  const { currentRole } = useAppRole();
+  const esAdmin = currentRole === 'admin';
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -66,6 +75,9 @@ export default function Bookings() {
   const [boardOrder, setBoardOrder] = useState<BoardOrder>('asc');
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
   const [isFullHotelOpen, setIsFullHotelOpen] = useState(false);
+  const [isGroupBookingOpen, setIsGroupBookingOpen] = useState(false);
+  /** El grupo que se está tarifando. Null cuando el diálogo está cerrado. */
+  const [pricingGroup, setPricingGroup] = useState<BookingGroup | null>(null);
   const [preselectedRoomId, setPreselectedRoomId] = useState<string | undefined>(undefined);
   /** Check-in arrastrado al tablero, esperando que se confirme */
   const [pendingCheckIn, setPendingCheckIn] = useState<{
@@ -76,6 +88,21 @@ export default function Bookings() {
   } | null>(null);
   const checkInOccupancy = useCheckInOccupancy(
     bookings.find(b => b.id === pendingCheckIn?.bookingId)
+  );
+
+  // Los grupos esperando precio, con lo necesario para nombrarlos en el aviso.
+  const gruposSinTarifar = useMemo(
+    () =>
+      groupsPendingPrice(bookingGroups).map(group => {
+        const delGrupo = bookingsOfGroup(bookings, group.id);
+        return {
+          group,
+          guestName: guests.find(g => g.id === group.guestId)?.fullName ?? 'Grupo',
+          habitaciones: delGrupo.length,
+          urgente: isPendingAndInHouse(group, delGrupo),
+        };
+      }),
+    [bookingGroups, bookings, guests]
   );
 
   // Handle query params from Dashboard
@@ -214,8 +241,42 @@ export default function Bookings() {
           onNewBooking={() => setIsNewDialogOpen(true)}
           onScanQR={() => setIsQRScannerOpen(true)}
           onRentFullHotel={() => setIsFullHotelOpen(true)}
+          onGroupBooking={() => setIsGroupBookingOpen(true)}
           stats={stats}
         />
+
+        {/* Reservas masivas esperando precio. Solo administración las tarifa, y
+            solo administración las ve: para recepción sería un cartel sobre algo
+            que no puede resolver. Las que ya entraron van marcadas aparte —la
+            gente está adentro y el sistema dice que no debe nada. */}
+        {esAdmin && gruposSinTarifar.length > 0 && (
+          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/30 p-3">
+            <p className="flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-200">
+              <Tag className="w-4 h-4 shrink-0" />
+              {gruposSinTarifar.length === 1
+                ? 'Hay una reserva masiva sin precio'
+                : `Hay ${gruposSinTarifar.length} reservas masivas sin precio`}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {gruposSinTarifar.map(({ group, guestName, habitaciones, urgente }) => (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => setPricingGroup(group)}
+                  className={cn(
+                    'rounded-xl border px-3 py-1.5 text-xs transition-colors hover:bg-white/60 dark:hover:bg-slate-900/60',
+                    urgente
+                      ? 'border-rose-300 text-rose-800 dark:border-rose-800 dark:text-rose-200 font-semibold'
+                      : 'border-amber-300 text-amber-800 dark:border-amber-800/60 dark:text-amber-200'
+                  )}
+                >
+                  {guestName} · {habitaciones} hab.
+                  {urgente && ' · ya entraron'}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="mt-3">
           <ReservationsFilters
@@ -367,6 +428,8 @@ export default function Bookings() {
       <QRScannerDialog open={isQRScannerOpen} onOpenChange={setIsQRScannerOpen} />
 
       <FullHotelRentalDialog open={isFullHotelOpen} onOpenChange={setIsFullHotelOpen} />
+      <GroupBookingDialog open={isGroupBookingOpen} onOpenChange={setIsGroupBookingOpen} />
+      <PriceGroupDialog group={pricingGroup} onOpenChange={(o) => !o && setPricingGroup(null)} />
 
       <AlertDialog open={!!pendingCheckIn} onOpenChange={(open) => { if (!open) setPendingCheckIn(null); }}>
         <AlertDialogContent>

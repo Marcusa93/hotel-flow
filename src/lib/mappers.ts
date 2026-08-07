@@ -81,6 +81,21 @@ export const mapCurrentAccountPayment = (row: DbRow): CurrentAccountPayment => (
   createdAt: new Date(row.created_at || new Date()),
 });
 
+export const mapBookingGroup = (row: DbRow): import('@/types/hotel').BookingGroup => ({
+  id: row.id,
+  guestId: row.guest_id || undefined,
+  notes: row.notes || undefined,
+  // ?? y no ||: null es "a tarifar" y cero es un precio acordado. Aplastar los
+  // dos a lo mismo dejaría una cortesía apareciendo como pendiente para siempre.
+  totalAmount: row.total_amount == null ? null : Number(row.total_amount),
+  pricedAt: row.priced_at ? new Date(row.priced_at) : undefined,
+  pricedBy: row.priced_by || undefined,
+  pricedByName: row.priced_by_name || undefined,
+  createdAt: new Date(row.created_at || new Date()),
+  createdBy: row.created_by || undefined,
+  createdByName: row.created_by_name || undefined,
+});
+
 export const mapBooking = (row: DbRow): Booking => ({
   id: row.id,
   guestId: row.guest_id,
@@ -108,6 +123,7 @@ export const mapBooking = (row: DbRow): Booking => ({
   specialRateAmount: row.special_rate_amount == null ? undefined : Number(row.special_rate_amount),
   pricingRoomTypeId: row.pricing_room_type_id || undefined,
   isFullHotel: row.is_full_hotel ?? false,
+  groupId: row.group_id || undefined,
   isHalfDay: row.is_half_day ?? false,
   baseAmount: row.base_amount == null ? undefined : Number(row.base_amount),
   discountAmount: row.discount_amount == null ? undefined : Number(row.discount_amount),
@@ -339,6 +355,7 @@ export const bookingToRow = (booking: Partial<Booking>): DbRow => {
   // '' es "volver a la tarifa automática": sin el || null se guardaría un id vacío.
   if (booking.pricingRoomTypeId !== undefined) row.pricing_room_type_id = booking.pricingRoomTypeId || null;
   if (booking.isFullHotel !== undefined) row.is_full_hotel = booking.isFullHotel;
+  if (booking.groupId !== undefined) row.group_id = booking.groupId;
   if (booking.isHalfDay !== undefined) row.is_half_day = booking.isHalfDay;
   if (booking.status !== undefined) row.status = booking.status;
   if (booking.totalAmount !== undefined) row.total_amount = booking.totalAmount;

@@ -1,4 +1,4 @@
-import { Plus, CalendarCheck, Clock, LogIn, XCircle, ScanLine, Building2 } from 'lucide-react';
+import { Plus, CalendarCheck, Clock, LogIn, XCircle, ScanLine, Building2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -6,6 +6,8 @@ interface ReservationsHeaderProps {
     onNewBooking: () => void;
     onScanQR?: () => void;
     onRentFullHotel?: () => void;
+    /** Reserva masiva: varias habitaciones para un mismo grupo, sin cerrar el hotel. */
+    onGroupBooking?: () => void;
     stats?: {
         total: number;
         pending: number;
@@ -14,7 +16,7 @@ interface ReservationsHeaderProps {
     };
 }
 
-export function ReservationsHeader({ onNewBooking, onScanQR, onRentFullHotel, stats }: ReservationsHeaderProps) {
+export function ReservationsHeader({ onNewBooking, onScanQR, onRentFullHotel, onGroupBooking, stats }: ReservationsHeaderProps) {
     return (
         <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
@@ -27,6 +29,20 @@ export function ReservationsHeader({ onNewBooking, onScanQR, onRentFullHotel, st
                     </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                    {/* Va antes que "Hotel completo" porque es el caso más
+                        frecuente: un contingente que toma unas habitaciones,
+                        no uno que se lleva el hotel entero. */}
+                    {onGroupBooking && (
+                        <Button
+                            variant="outline"
+                            onClick={onGroupBooking}
+                            className="rounded-xl"
+                            title="Varias habitaciones para un mismo grupo"
+                        >
+                            <Users className="w-4 h-4 mr-1.5" />
+                            <span className="hidden lg:inline">Reserva masiva</span>
+                        </Button>
+                    )}
                     {onRentFullHotel && (
                         <Button
                             variant="outline"

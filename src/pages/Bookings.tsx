@@ -23,7 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn, formatLastNameFirst, getInitials } from '@/lib/utils';
 import {
   LayoutGrid, List,
-  Calendar, BedDouble, CalendarRange, CalendarDays, ArrowDownUp, Tag,
+  Calendar, BedDouble, CalendarRange, CalendarDays, ArrowDownUp, Tag, Sparkles,
 } from 'lucide-react';
 import type { BoardOrder } from '@/lib/reservationBoard';
 import { BookingTimeline } from '@/components/bookings/BookingTimeline';
@@ -36,9 +36,11 @@ import { RoomStatusWarning } from '@/components/shared';
 import { CheckInOccupancy } from '@/components/bookings/CheckInOccupancy';
 import { GroupBookingDialog } from '@/components/bookings/GroupBookingDialog';
 import { PriceGroupDialog } from '@/components/bookings/PriceGroupDialog';
+import { PriceSpecialRateDialog } from '@/components/bookings/PriceSpecialRateDialog';
 import { useBookingGroups } from '@/hooks/useBookingGroups';
 import { useAppRole } from '@/context/AppRoleContext';
-import { bookingsOfGroup, groupsPendingPrice, isPendingAndInHouse } from '@/lib/bookingGroup';
+import { bookingsOfGroup, groupsPendingPrice, isPendingAndInHouse as groupPendingInHouse } from '@/lib/bookingGroup';
+import { bookingsPendingRate, isPendingAndInHouse } from '@/lib/specialRate';
 import type { BookingGroup } from '@/types/hotel';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -78,6 +80,8 @@ export default function Bookings() {
   const [isGroupBookingOpen, setIsGroupBookingOpen] = useState(false);
   /** El grupo que se está tarifando. Null cuando el diálogo está cerrado. */
   const [pricingGroup, setPricingGroup] = useState<BookingGroup | null>(null);
+  /** La estadía con tarifa especial que se está tarifando. */
+  const [pricingBooking, setPricingBooking] = useState<Booking | null>(null);
   const [preselectedRoomId, setPreselectedRoomId] = useState<string | undefined>(undefined);
   /** Check-in arrastrado al tablero, esperando que se confirme */
   const [pendingCheckIn, setPendingCheckIn] = useState<{
@@ -90,6 +94,9 @@ export default function Bookings() {
     bookings.find(b => b.id === pendingCheckIn?.bookingId)
   );
 
+  // Las estadías marcadas con tarifa especial que todavía no tienen precio.
+  const reservasSinTarifar = useMemo(() => bookingsPendingRate(bookings), [bookings]);
+
   // Los grupos esperando precio, con lo necesario para nombrarlos en el aviso.
   const gruposSinTarifar = useMemo(
     () =>
@@ -99,7 +106,7 @@ export default function Bookings() {
           group,
           guestName: guests.find(g => g.id === group.guestId)?.fullName ?? 'Grupo',
           habitaciones: delGrupo.length,
-          urgente: isPendingAndInHouse(group, delGrupo),
+          urgente: groupPendingInHouse(group, delGrupo),
         };
       }),
     [bookingGroups, bookings, guests]
@@ -249,6 +256,45 @@ export default function Bookings() {
             solo administración las ve: para recepción sería un cartel sobre algo
             que no puede resolver. Las que ya entraron van marcadas aparte —la
             gente está adentro y el sistema dice que no debe nada. */}
+        {/* Estadías marcadas con tarifa especial que esperan precio. Mismo
+            criterio que las masivas: recepción marcó, administración cierra el
+            número. */}
+        {esAdmin && reservasSinTarifar.length > 0 && (
+          <div className="mt-3 rounded-2xl border border-violet-200 bg-violet-50 dark:border-violet-800/50 dark:bg-violet-950/30 p-3">
+            <p className="flex items-center gap-2 text-sm font-semibold text-violet-800 dark:text-violet-200">
+              <Sparkles className="w-4 h-4 shrink-0" />
+              {reservasSinTarifar.length === 1
+                ? 'Hay una estadía con tarifa especial sin precio'
+                : `Hay ${reservasSinTarifar.length} estadías con tarifa especial sin precio`}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {reservasSinTarifar.map((b) => {
+                const g = guests.find(x => x.id === b.guestId);
+                const r = rooms.find(x => x.id === b.roomId);
+                const urgente = isPendingAndInHouse(b);
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => setPricingBooking(b)}
+                    className={cn(
+                      'rounded-xl border px-3 py-1.5 text-xs transition-colors hover:bg-white/60 dark:hover:bg-slate-900/60',
+                      urgente
+                        ? 'border-rose-300 text-rose-800 dark:border-rose-800 dark:text-rose-200 font-semibold'
+                        : 'border-violet-300 text-violet-800 dark:border-violet-800/60 dark:text-violet-200'
+                    )}
+                  >
+                    {g?.fullName ?? 'Huésped'}
+                    {r && ` · Hab. ${r.roomNumber}`}
+                    {b.specialRateReason && ` · ${b.specialRateReason}`}
+                    {urgente && ' · ya entró'}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {esAdmin && gruposSinTarifar.length > 0 && (
           <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/30 p-3">
             <p className="flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-200">
@@ -430,6 +476,7 @@ export default function Bookings() {
       <FullHotelRentalDialog open={isFullHotelOpen} onOpenChange={setIsFullHotelOpen} />
       <GroupBookingDialog open={isGroupBookingOpen} onOpenChange={setIsGroupBookingOpen} />
       <PriceGroupDialog group={pricingGroup} onOpenChange={(o) => !o && setPricingGroup(null)} />
+      <PriceSpecialRateDialog booking={pricingBooking} onOpenChange={(o) => !o && setPricingBooking(null)} />
 
       <AlertDialog open={!!pendingCheckIn} onOpenChange={(open) => { if (!open) setPendingCheckIn(null); }}>
         <AlertDialogContent>

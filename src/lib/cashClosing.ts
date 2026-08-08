@@ -475,5 +475,5 @@ export function closingDrift(
 
 /** Los métodos que aparecen en el desglose de gastos, en orden fijo. */
 export const EXPENSE_METHOD_ORDER: SettlementMethod[] = [
-  'CASH', 'TRANSFER', 'DEBIT', 'CREDIT', 'QR', 'OTHER',
+  'CASH', 'TRANSFER', 'DEBIT', 'CREDIT', 'QR', 'CHEQUE', 'OTHER',
 ];

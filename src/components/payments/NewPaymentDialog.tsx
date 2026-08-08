@@ -44,7 +44,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn, formatPesosInput, parsePesosInput } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
-import { PAYMENT_METHODS, CURRENT_ACCOUNT_METHOD } from '@/lib/constants';
+import { PAYMENT_METHODS, CURRENT_ACCOUNT_METHOD, CHEQUE_METHOD } from '@/lib/constants';
 import { buildAccountsByBooking } from '@/lib/bookingAccount';
 import { useAllBookingCharges } from '@/hooks/useAllBookingCharges';
 import { useAppRole } from '@/context/AppRoleContext';
@@ -60,12 +60,13 @@ const paymentSchema = z.object({
     bookingId: z.string().min(1, 'Selecciona una reserva'),
     date: z.date({ required_error: 'Fecha requerida' })
         .refine(d => d.getTime() <= Date.now() + 60_000, 'La fecha no puede ser futura'),
-    method: z.enum(['CASH', 'CREDIT', 'DEBIT', 'TRANSFER', 'QR', 'OTHER', 'CUENTA_CORRIENTE'] as const),
+    method: z.enum(['CASH', 'CREDIT', 'DEBIT', 'TRANSFER', 'QR', 'CHEQUE', 'OTHER', 'CUENTA_CORRIENTE'] as const),
     amount: z.coerce.number()
         .positive('Monto debe ser mayor a 0')
         .max(MAX_PAYMENT_AMOUNT, 'Monto excede el límite permitido')
         .finite('Monto inválido'),
     reference: z.string().max(200, 'Referencia demasiado larga').optional(),
+    chequeHolder: z.string().max(120, 'Nombre demasiado largo').optional(),
     comment: z.string().max(500, 'Comentario demasiado largo').optional(),
     status: z.enum(['PENDING', 'PAID', 'FAILED', 'REFUNDED'] as const),
 });
@@ -111,6 +112,7 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
             method: 'CASH',
             amount: 0,
             reference: '',
+            chequeHolder: '',
             comment: '',
             status: 'PAID',
         },
@@ -118,6 +120,7 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
 
     const selectedBookingId = form.watch('bookingId');
     const receiptWarning = missingReceiptWarning(form.watch('method'), receiptFiles.length);
+    const esCheque = form.watch('method') === CHEQUE_METHOD;
 
     // La cuenta corriente es del huésped, no de la reserva: hay que llegar hasta él.
     const selectedGuestHasAccount = useMemo(() => {
@@ -237,6 +240,9 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                 method: data.method,
                 amount: data.amount,
                 reference: data.reference,
+                // Solo en el cheque: arrastrar lo tipeado antes de cambiar de
+                // método guardaría un dato que no corresponde.
+                chequeHolder: esCheque ? data.chequeHolder?.trim() || undefined : undefined,
                 comment: data.comment,
                 status: data.status,
             });
@@ -557,14 +563,34 @@ export function NewPaymentDialog({ open, onOpenChange }: NewPaymentDialogProps) 
                                     name="reference"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Referencia (opcional)</FormLabel>
+                                            {/* En un cheque la referencia ES su número. */}
+                                            <FormLabel>{esCheque ? 'Número de cheque (opcional)' : 'Referencia (opcional)'}</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="Nro. de transacción, comprobante..." {...field} />
+                                                <Input
+                                                    placeholder={esCheque ? 'Ej: 00123456' : 'Nro. de transacción, comprobante...'}
+                                                    {...field}
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
+
+                                {esCheque && (
+                                    <FormField
+                                        control={form.control}
+                                        name="chequeHolder"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>A nombre de (opcional)</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Quién firma el cheque" {...field} value={field.value ?? ''} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                )}
 
                                 {/* Comment */}
                                 <FormField

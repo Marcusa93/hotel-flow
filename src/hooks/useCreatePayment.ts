@@ -25,6 +25,10 @@ export const useCreatePayment = () => {
                         : paymentData.date,
                     reference: paymentData.reference || null,
                     comment: paymentData.comment || null,
+                    // Solo cuando el cobro es con cheque, por lo mismo que la
+                    // promo: si el código sale antes que la migración, mandar la
+                    // columna en todo cobro rompería también los normales.
+                    ...(paymentData.chequeHolder ? { cheque_holder: paymentData.chequeHolder } : {}),
                     // Solo cuando hay promo: ver la nota en useCreateBooking sobre
                     // el orden entre la migración y el deploy del cliente.
                     ...(paymentData.rateId || paymentData.promoLabel
@@ -52,6 +56,7 @@ export const useCreatePayment = () => {
                 status: data.status,
                 date: new Date(data.date),
                 reference: data.reference,
+                chequeHolder: data.cheque_holder || undefined,
                 comment: data.comment,
                 rateId: data.rate_id || undefined,
                 promoCode: data.promo_code || undefined,

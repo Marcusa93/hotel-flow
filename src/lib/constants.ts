@@ -67,6 +67,7 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   DEBIT: 'T. Débito',
   TRANSFER: 'Transferencia',
   QR: 'QR',
+  CHEQUE: 'Cheque',
   OTHER: 'Otro',
   CUENTA_CORRIENTE: 'Cuenta corriente',
   // Legacy value kept so old rows/labels don't render blank
@@ -88,8 +89,19 @@ export const PAYMENT_METHODS: { value: string; label: string }[] = [
   { value: 'DEBIT', label: 'T. Débito' },
   { value: 'TRANSFER', label: 'Transferencia' },
   { value: 'QR', label: 'QR' },
+  { value: 'CHEQUE', label: 'Cheque' },
   { value: 'OTHER', label: 'Otro' },
 ];
+
+/**
+ * El cheque es un papel que queda en el mostrador.
+ *
+ * Los demás métodos que no son efectivo se van solos —la transferencia al banco,
+ * la tarjeta a la liquidación—, pero el cheque hay que entregarlo a mano. El
+ * cierre lo muestra aparte por eso: sin ese renglón el papel puede quedarse en
+ * el cajón sin que nadie sepa que había algo más que rendir.
+ */
+export const CHEQUE_METHOD = 'CHEQUE';
 
 /** El método que no cobra: carga la estadía a la cuenta del huésped. */
 export const CURRENT_ACCOUNT_METHOD = 'CUENTA_CORRIENTE';

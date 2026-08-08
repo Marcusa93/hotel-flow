@@ -45,7 +45,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { cn, formatPesosInput, parsePesosInput } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
-import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, CURRENT_ACCOUNT_METHOD } from '@/lib/constants';
+import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, CURRENT_ACCOUNT_METHOD, CHEQUE_METHOD } from '@/lib/constants';
 import { useAppRole } from '@/context/AppRoleContext';
 import { useAuth } from '@/context/AuthContext';
 import { useReceiptUploader } from '@/hooks/usePaymentAttachments';
@@ -56,9 +56,10 @@ import { Rate } from '@/types/hotel';
 
 const paymentSchema = z.object({
   date: z.date({ required_error: 'Fecha requerida' }),
-  method: z.enum(['CASH', 'CREDIT', 'DEBIT', 'TRANSFER', 'QR', 'OTHER', 'CUENTA_CORRIENTE'] as const),
+  method: z.enum(['CASH', 'CREDIT', 'DEBIT', 'TRANSFER', 'QR', 'CHEQUE', 'OTHER', 'CUENTA_CORRIENTE'] as const),
   amount: z.coerce.number().positive('Monto debe ser mayor a 0'),
   reference: z.string().optional(),
+  chequeHolder: z.string().max(120, 'Nombre demasiado largo').optional(),
   comment: z.string().optional(),
   status: z.enum(['PENDING', 'PAID', 'FAILED', 'REFUNDED'] as const),
 });
@@ -111,6 +112,7 @@ export function RegisterPaymentDialog({
       method: 'CASH',
       amount: pendingAmount > 0 ? pendingAmount : 0,
       reference: '',
+      chequeHolder: '',
       comment: '',
       status: 'PAID',
     },
@@ -155,6 +157,7 @@ export function RegisterPaymentDialog({
 
   const originalAmount = form.watch('amount') || 0;
   const selectedMethod = form.watch('method');
+  const esCheque = selectedMethod === CHEQUE_METHOD;
   const isToCurrentAccount = selectedMethod === CURRENT_ACCOUNT_METHOD;
   const receiptWarning = missingReceiptWarning(selectedMethod, receiptFiles.length);
   const discount = appliedPromo ? calculateDiscount(appliedPromo, originalAmount) : 0;
@@ -230,6 +233,10 @@ export function RegisterPaymentDialog({
         method: data.method,
         amount: paymentAmount,
         reference: data.reference,
+        // Solo en el cheque: en los demás métodos el campo ni se muestra, y
+        // arrastrar lo tipeado antes de cambiar de método guardaría un dato que
+        // no corresponde.
+        chequeHolder: esCheque ? data.chequeHolder?.trim() || undefined : undefined,
         comment,
         status: data.status,
         rateId: appliedPromo?.id,
@@ -501,14 +508,38 @@ export function RegisterPaymentDialog({
               name="reference"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Referencia (opcional)</FormLabel>
+                  {/* En un cheque la referencia ES su número, así que el campo
+                      lo dice con todas las letras en vez de hacérselo deducir. */}
+                  <FormLabel>{esCheque ? 'Número de cheque (opcional)' : 'Referencia (opcional)'}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Nro. de transacción, comprobante..." {...field} />
+                    <Input
+                      placeholder={esCheque ? 'Ej: 00123456' : 'Nro. de transacción, comprobante...'}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            {/* A nombre de quién viene el cheque. Opcional: si el recepcionista
+                tiene el papel en la mano, el cobro no puede quedar sin registrar
+                porque falte un dato que se completa después mirándolo. */}
+            {esCheque && (
+              <FormField
+                control={form.control}
+                name="chequeHolder"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>A nombre de (opcional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Quién firma el cheque" {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {/* Comment */}
             <FormField

@@ -48,7 +48,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import type { PaymentMethod } from '@/types/hotel';
-import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, EXPENSE_TYPE_LABELS } from '@/lib/constants';
+import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, EXPENSE_TYPE_LABELS, CHEQUE_METHOD } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { PRINT_FONT_LINK, PRINT_FONT_CSS } from '@/lib/printStyles';
@@ -231,6 +231,21 @@ export default function CierreCaja() {
     return { rows, total };
   }, [bookings, payments, guests, rooms, rangeStart, rangeEnd]);
 
+  /**
+   * Los cheques del turno: cuántos y por cuánto.
+   *
+   * Van aparte del total porque son lo único que no se va solo. La transferencia
+   * llega al banco y la tarjeta entra en la liquidación; el cheque es un papel
+   * que queda en el mostrador y alguien tiene que entregarlo. Sin este renglón,
+   * el cierre lo suma a los ingresos y no lo vuelve a nombrar — y el papel se
+   * queda en el cajón sin que nadie sepa que había algo más que rendir.
+   */
+  const cheques = useMemo(
+    () => incomeRows.filter((r) => !r.toAccount && r.method === CHEQUE_METHOD),
+    [incomeRows]
+  );
+  const chequesTotal = cheques.reduce((sum, r) => sum + r.amount, 0);
+
   const cashFloat = viewedSession?.openingAmount ?? 0;
   const cashToDeposit = computeCashToDeposit({
     cashIncome: cashTotal,
@@ -401,7 +416,10 @@ export default function CierreCaja() {
       <tr><td>Efectivo cobrado</td><td class="num">${money(cashTotal)}</td></tr>
       <tr><td>Menos saldo inicial</td><td class="num">-${money(cashFloat)}</td></tr>
       <tr><td>Menos gastos pagados de la recaudación</td><td class="num">-${money(expenses.cashRecaudacion)}</td></tr>
-      <tr class="tot"><td>Efectivo a rendir</td><td class="num">${money(cashToDeposit)}</td></tr></table>
+      <tr class="tot"><td>Efectivo a rendir</td><td class="num">${money(cashToDeposit)}</td></tr>
+      ${cheques.length > 0
+        ? `<tr class="tot"><td>Además, ${cheques.length} cheque${cheques.length > 1 ? 's' : ''} a entregar</td><td class="num">${money(chequesTotal)}</td></tr>`
+        : ''}</table>
     <h2>Gastos por rubro</h2><table>${expenseTypeRows}
       <tr class="tot"><td>Total gastos</td><td class="num">${money(expenses.total)}</td></tr></table>
     <h2>Gastos por cuenta</h2><table>${expenseMethodRows}</table>
@@ -415,7 +433,7 @@ export default function CierreCaja() {
     w.document.close();
     w.focus();
     setTimeout(() => w.print(), 250);
-  }, [byMethod, expenses, deuda, otherIncomeSession, incomeRows, aCuentaCorriente, cashFloat, cashTotal, cashToDeposit, totalIngresos, totalDelDia, hotelSettings, viewedSession]);
+  }, [byMethod, expenses, deuda, otherIncomeSession, incomeRows, cheques, chequesTotal, aCuentaCorriente, cashFloat, cashTotal, cashToDeposit, totalIngresos, totalDelDia, hotelSettings, viewedSession]);
 
   // ─── Render ───────────────────────────────────────────────────────────
   const isClosed = !!viewedSession?.closedAt;
@@ -633,6 +651,20 @@ export default function CierreCaja() {
                 <p className="text-xs text-rose-600 dark:text-rose-400">
                   Se gastó más efectivo del que entró: la diferencia salió del saldo inicial.
                 </p>
+              )}
+              {cheques.length > 0 && (
+                <div className="mt-3 pt-3 border-t">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium">
+                      Además, {cheques.length} cheque{cheques.length > 1 ? 's' : ''} a entregar
+                    </span>
+                    <span className="font-bold tabular-nums">{money(chequesTotal)}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    No son efectivo y no entran en lo de arriba, pero son papeles que están
+                    en el mostrador y hay que entregarlos.
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>

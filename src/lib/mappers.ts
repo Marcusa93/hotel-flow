@@ -161,6 +161,7 @@ export const mapPayment = (row: DbRow): Payment => ({
   status: row.status,
   date: new Date(row.date),
   reference: row.reference,
+  chequeHolder: row.cheque_holder || undefined,
   comment: row.comment,
   rateId: row.rate_id || undefined,
   promoCode: row.promo_code || undefined,
@@ -448,6 +449,7 @@ export const paymentToRow = (payment: Partial<Payment>): DbRow => {
   if (payment.date !== undefined) row.date = payment.date instanceof Date ? payment.date.toISOString() : payment.date;
   if (payment.reference !== undefined) row.reference = payment.reference;
   if (payment.comment !== undefined) row.comment = payment.comment;
+  if (payment.chequeHolder !== undefined) row.cheque_holder = payment.chequeHolder;
   return row;
 };
 

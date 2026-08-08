@@ -3,7 +3,7 @@
 export type RoomStatus = 'AVAILABLE' | 'OCCUPIED' | 'DIRTY' | 'MAINTENANCE' | 'OUT_OF_ORDER';
 export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED' | 'NO_SHOW';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
-export type PaymentMethod = 'CASH' | 'CREDIT' | 'DEBIT' | 'TRANSFER' | 'QR' | 'OTHER' | 'CUENTA_CORRIENTE';
+export type PaymentMethod = 'CASH' | 'CREDIT' | 'DEBIT' | 'TRANSFER' | 'QR' | 'CHEQUE' | 'OTHER' | 'CUENTA_CORRIENTE';
 
 /** Los métodos con los que entra plata de verdad. Excluye la cuenta corriente. */
 export type SettlementMethod = Exclude<PaymentMethod, 'CUENTA_CORRIENTE'>;
@@ -226,7 +226,10 @@ export interface Payment {
   bookingId: string;
   date: Date;
   method: PaymentMethod;
+  /** Identificador externo del cobro. En un cheque, su número. */
   reference?: string;
+  /** A nombre de quién viene el cheque. Solo con method CHEQUE, y opcional. */
+  chequeHolder?: string;
   comment?: string;
   status: PaymentStatus;
   amount: number;

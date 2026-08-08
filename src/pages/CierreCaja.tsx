@@ -565,8 +565,12 @@ export default function CierreCaja() {
             </p>
             <p className="text-xs text-amber-700/80 dark:text-amber-300/80">
               {viewedSession.openedByName ? `${viewedSession.openedByName} · ` : ''}
+              {/* "hasta hoy" era de cuando el corte iba por día calendario, y
+                  desde que corta por instante decía algo falso: el turno no
+                  termina hoy, termina cuando lo cierren — mañana a las 10 o
+                  pasado a las 15. La hora del cierre es el corte. */}
               Desde {format(viewedSession.openedAt, "d 'de' MMMM, HH:mm", { locale: es })}
-              {rangeStart !== rangeEnd ? ` hasta hoy` : ''}
+              {' · toma todo hasta el momento en que lo cierres'}
             </p>
           </div>
         </div>

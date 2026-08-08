@@ -627,3 +627,55 @@ describe('lo que salió de la caja de la empresa', () => {
     expect(summarizeExpenses([gasto({ amount: 20_000 })]).empresa).toBe(0);
   });
 });
+
+// ─── El cheque ────────────────────────────────────────────────────────
+// Un método más para los ingresos, pero con algo que ningún otro tiene: es un
+// papel que queda en el mostrador. La transferencia se va sola al banco; el
+// cheque hay que entregarlo.
+
+describe('los cheques del turno', () => {
+  const abierto = turno({ openedAt: new Date(2026, 7, 6, 11, 0) });
+
+  const conCheques = () =>
+    sessionIncomeRows({
+      session: abierto,
+      payments: [
+        cobro({ id: 'efectivo', amount: 50_000, method: 'CASH' }),
+        cobro({ id: 'cheque-1', amount: 120_000, method: 'CHEQUE' }),
+        cobro({ id: 'cheque-2', amount: 60_000, method: 'CHEQUE' }),
+        cobro({ id: 'transfer', amount: 30_000, method: 'TRANSFER' }),
+      ],
+    });
+
+  it('suman a los ingresos del turno como cualquier otro método', () => {
+    const total = conCheques().reduce((s, r) => s + r.amount, 0);
+    expect(total).toBe(260_000);
+  });
+
+  it('no son efectivo: no tocan lo que hay que rendir del cajón', () => {
+    // Es la propiedad que importa. Si el cheque contara como efectivo, el cierre
+    // pediría rendir plata que nunca estuvo en el cajón.
+    const enEfectivo = conCheques()
+      .filter(r => r.method === 'CASH')
+      .reduce((s, r) => s + r.amount, 0);
+
+    expect(enEfectivo).toBe(50_000);
+    expect(cashToDeposit({ cashIncome: enEfectivo, cashFloat: 10_000, cashExpenses: 0 })).toBe(40_000);
+  });
+
+  it('se pueden separar para el renglón de "a entregar"', () => {
+    const cheques = conCheques().filter(r => r.method === 'CHEQUE');
+    expect(cheques).toHaveLength(2);
+    expect(cheques.reduce((s, r) => s + r.amount, 0)).toBe(180_000);
+  });
+
+  it('un cheque a cuenta corriente no cuenta: no entró ningún papel', () => {
+    // Método CUENTA_CORRIENTE es no cobrar todavía, así que no hay cheque que
+    // entregar aunque el huésped después lo pague con uno.
+    const rows = sessionIncomeRows({
+      session: abierto,
+      payments: [cobro({ method: 'CUENTA_CORRIENTE' })],
+    });
+    expect(rows.filter(r => !r.toAccount && r.method === 'CHEQUE')).toEqual([]);
+  });
+});

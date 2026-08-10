@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, differenceInDays, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, AlertTriangle, Loader2, ArrowRight } from 'lucide-react';
+import { CalendarIcon, AlertTriangle, Loader2, ArrowRight, Wallet } from 'lucide-react';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import type { BookingWithDetails } from '@/types/hotel';
@@ -42,7 +42,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { cn, formatLastNameFirst, guestsLabel } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { cn, formatLastNameFirst, guestsLabel, formatPesosInput, parsePesosInput } from '@/lib/utils';
+import { useAppRole } from '@/context/AppRoleContext';
 import { useRates } from '@/hooks/useRates';
 import {
   getBookingPricing,
@@ -90,7 +93,20 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
   const { updateBooking, checkRoomAvailability } = useBookingOperations();
   const { rooms, roomTypes, updateRoomStatus } = useRoomOperations();
   const { data: rates = [] } = useRates();
+  const { currentRole } = useAppRole();
+  const isAdmin = currentRole === 'admin';
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  /**
+   * Precio a mano: solo administración. Escribe el total de la estadía que quiera
+   * y ese manda por sobre lo que salga por ocupación. Se guarda por el canal de
+   * la tarifa especial —un precio por noche pactado— porque es el único que el
+   * resto del sistema respeta y no recalcula: check-in, corregir ocupación y las
+   * ediciones siguientes lo dejan quieto. La base, además, ya prohíbe por trigger
+   * que alguien que no sea admin toque la tarifa especial.
+   */
+  const [manualPriceEnabled, setManualPriceEnabled] = useState(false);
+  const [manualPriceText, setManualPriceText] = useState('');
 
   const isCheckedIn = booking.status === 'CHECKED_IN';
   /**
@@ -140,6 +156,10 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
         pricingRoomTypeId: booking.pricingRoomTypeId || TARIFA_AUTOMATICA,
         isHalfDay: booking.isHalfDay === true,
       });
+      // El precio a mano arranca apagado cada vez: es una decisión puntual de
+      // esta edición, no un estado que arrastrar de la reserva anterior.
+      setManualPriceEnabled(false);
+      setManualPriceText('');
     }
   }, [open, booking, form]);
 
@@ -266,6 +286,24 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
   /** Lo que se cobra por noche de verdad, ya con la promo o la tarifa especial. */
   const effectiveNightly = nights > 0 ? Math.round(newTotalAmount / nights) : 0;
 
+  // El total que escribió administración a mano, si está usando esa opción.
+  const manualTotal = Math.round(parsePesosInput(manualPriceText).value || 0);
+  const useManualPrice = isAdmin && manualPriceEnabled;
+  /**
+   * El total que va a quedar guardado. Con el precio a mano manda ese; si no, el
+   * que salió por ocupación/promo/tarifa. Este es el número que ve el resto del
+   * diálogo —el diff, la caja de precio y el submit— para que todos digan lo mismo.
+   */
+  const finalTotalAmount = useManualPrice ? manualTotal : newTotalAmount;
+
+  /**
+   * El precio por noche que se guarda como tarifa especial cuando administración
+   * pone el total a mano. Es lo que hace que el total quede pegado. En media
+   * estadía no hay noches: se guarda el total tal cual (la tarifa especial no se
+   * aplica a la media estadía, pero el total sí queda escrito).
+   */
+  const manualNightly = nights > 0 ? Math.round(manualTotal / nights) : manualTotal;
+
   /** Si esta reserva trae un descuento que hay que preservar, para decirlo. */
   const keepsPromo = !!promo || bookingDiscountRatio(booking) > 0;
 
@@ -353,16 +391,16 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
       });
     }
 
-    if (newTotalAmount !== booking.totalAmount) {
+    if (finalTotalAmount !== booking.totalAmount) {
       diffs.push({
         label: 'Monto total',
         from: `$${booking.totalAmount.toLocaleString('es-AR')}`,
-        to: `$${newTotalAmount.toLocaleString('es-AR')}`,
+        to: `$${finalTotalAmount.toLocaleString('es-AR')}`,
       });
     }
 
     return diffs;
-  }, [watchedRoomId, watchedCheckIn, watchedCheckOut, watchedAdults, watchedChildren, watchedInfants, watchedNotes, watchedArrival, newTotalAmount, booking, rooms]);
+  }, [watchedRoomId, watchedCheckIn, watchedCheckOut, watchedAdults, watchedChildren, watchedInfants, watchedNotes, watchedArrival, finalTotalAmount, booking, rooms]);
 
   const hasChanges = changes.length > 0;
 
@@ -394,7 +432,19 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
         ...(chosenPricingTypeId || booking.pricingRoomTypeId
           ? { pricingRoomTypeId: chosenPricingTypeId ?? '' }
           : {}),
-        totalAmount: newTotalAmount,
+        totalAmount: finalTotalAmount,
+        // Precio a mano de administración: se graba como tarifa especial para que
+        // quede pegado —el resto del sistema no recalcula un precio pactado— y con
+        // un motivo, que en cero una reserva no genera deuda ni alerta y sin esto
+        // no habría cómo auditarla. Solo cuando de verdad se usó la opción.
+        ...(useManualPrice
+          ? {
+              specialRateAmount: manualNightly,
+              specialRatePending: false,
+              specialRateReason:
+                booking.specialRateReason || 'Precio puesto a mano por administración',
+            }
+          : {}),
       });
 
       // Si el huésped ya hizo check-in y se cambió de habitación, actualizar
@@ -700,25 +750,82 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
               />
             )}
 
+            {/* Precio a mano — solo administración. Escribe el total que quiera y
+                ese manda sobre la tarifa. Recepción no ve esto: la base, además,
+                rechaza por trigger que le toque la tarifa especial. */}
+            {isAdmin && (
+              <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="manual-price" className="flex items-center gap-2 text-sm font-medium">
+                      <Wallet className="w-4 h-4 text-violet-500" />
+                      Poner el precio a mano
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      El total que escribas manda sobre la tarifa y queda pactado.
+                    </p>
+                  </div>
+                  <Switch
+                    id="manual-price"
+                    checked={manualPriceEnabled}
+                    onCheckedChange={(next) => {
+                      setManualPriceEnabled(next);
+                      // Al prenderlo arranca del total actual, para editar desde
+                      // ahí y no desde cero —cero es un precio válido y no
+                      // queremos guardarlo sin querer.
+                      if (next) setManualPriceText(formatPesosInput(newTotalAmount));
+                    }}
+                  />
+                </div>
+
+                {manualPriceEnabled && (
+                  <div className="space-y-2">
+                    <Label htmlFor="manual-price-amount" className="text-xs">Total de la estadía</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">$</span>
+                      <Input
+                        id="manual-price-amount"
+                        inputMode="decimal"
+                        className="pl-7 tabular-nums"
+                        placeholder="0"
+                        value={manualPriceText}
+                        onChange={(e) => setManualPriceText(parsePesosInput(e.target.value).display)}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {nights > 0
+                        ? `${nights} noche${nights !== 1 ? 's' : ''} · queda en $${manualNightly.toLocaleString('es-AR')}/noche`
+                        : 'Media estadía'}
+                      {manualTotal === 0 && ' · en cero la estadía no se cobra'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Price recalculation */}
             {selectedRoomType && (nights > 0 || isHalfDay) && (
               <div className="p-4 rounded-xl bg-background/60 backdrop-blur border space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {isHalfDay
-                      ? `Media estadía — 50% de ${guestsLabel(occupancyPricing?.pricingType.maxGuests ?? selectedRoomType.maxGuests)}`
-                      : isSpecialRate
-                        ? `Tarifa especial${booking.specialRateReason ? ` — ${booking.specialRateReason}` : ''}`
-                        : `Tarifa ${guestsLabel(occupancyPricing?.pricingType.maxGuests ?? selectedRoomType.maxGuests)}`}
-                    {!isHalfDay && ` x ${nights} noche${nights !== 1 ? 's' : ''}`}
+                    {useManualPrice
+                      ? `Precio a mano${!isHalfDay ? ` x ${nights} noche${nights !== 1 ? 's' : ''}` : ''}`
+                      : isHalfDay
+                        ? `Media estadía — 50% de ${guestsLabel(occupancyPricing?.pricingType.maxGuests ?? selectedRoomType.maxGuests)}`
+                        : isSpecialRate
+                          ? `Tarifa especial${booking.specialRateReason ? ` — ${booking.specialRateReason}` : ''}`
+                          : `Tarifa ${guestsLabel(occupancyPricing?.pricingType.maxGuests ?? selectedRoomType.maxGuests)}` +
+                            ` x ${nights} noche${nights !== 1 ? 's' : ''}`}
                   </span>
                   {/* El precio por noche que se está cobrando de verdad. Antes
                       acá iba el del tramo, que en una reserva con promoción no
                       es lo que paga el huésped y no daba con el total de abajo. */}
                   <span className="font-medium">
-                    {isHalfDay
-                      ? `$${(occupancyPricing?.nightlyPrice ?? 0).toLocaleString('es-AR')} / 2`
-                      : `$${effectiveNightly.toLocaleString('es-AR')} x ${nights}`}
+                    {useManualPrice
+                      ? (isHalfDay ? `$${manualTotal.toLocaleString('es-AR')}` : `$${manualNightly.toLocaleString('es-AR')} x ${nights}`)
+                      : isHalfDay
+                        ? `$${(occupancyPricing?.nightlyPrice ?? 0).toLocaleString('es-AR')} / 2`
+                        : `$${effectiveNightly.toLocaleString('es-AR')} x ${nights}`}
                   </span>
                 </div>
 
@@ -753,21 +860,26 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
                     {watchedInfants} menor{watchedInfants > 1 ? 'es' : ''} de 5 años sin cargo.
                   </p>
                 )}
+                {useManualPrice && (
+                  <p className="text-xs text-violet-600 dark:text-violet-400">
+                    Precio puesto a mano por administración: manda sobre la tarifa.
+                  </p>
+                )}
                 <Separator />
                 <div className="flex justify-between font-semibold">
                   <span>Total</span>
                   <span className={cn(
-                    newTotalAmount !== booking.totalAmount && 'text-primary'
+                    finalTotalAmount !== booking.totalAmount && 'text-primary'
                   )}>
-                    ${newTotalAmount.toLocaleString('es-AR')}
+                    ${finalTotalAmount.toLocaleString('es-AR')}
                   </span>
                 </div>
-                {newTotalAmount !== booking.totalAmount && (
+                {finalTotalAmount !== booking.totalAmount && (
                   <p className="text-xs text-muted-foreground">
                     Antes: ${booking.totalAmount.toLocaleString('es-AR')}
-                    {newTotalAmount > booking.totalAmount
-                      ? ` (+$${(newTotalAmount - booking.totalAmount).toLocaleString('es-AR')})`
-                      : ` (-$${(booking.totalAmount - newTotalAmount).toLocaleString('es-AR')})`
+                    {finalTotalAmount > booking.totalAmount
+                      ? ` (+$${(finalTotalAmount - booking.totalAmount).toLocaleString('es-AR')})`
+                      : ` (-$${(booking.totalAmount - finalTotalAmount).toLocaleString('es-AR')})`
                     }
                   </p>
                 )}

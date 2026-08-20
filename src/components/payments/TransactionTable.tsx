@@ -34,6 +34,8 @@ interface TransactionTableProps {
     onViewReceipt?: (payment: Payment) => void;
     /** Sin handler no se ofrece corregir la fecha: es la forma en que este archivo dice "no podés". */
     onEditDate?: (payment: Payment) => void;
+    /** Lo mismo para el medio de pago: sin handler, el menú no lo ofrece. */
+    onEditMethod?: (payment: Payment) => void;
 }
 
 const MethodIcon = ({ method }: { method: PaymentMethod }) => {
@@ -50,7 +52,7 @@ const MethodIcon = ({ method }: { method: PaymentMethod }) => {
 type SortKey = 'guest' | 'date' | 'method' | 'amount' | 'status';
 type SortDir = 'asc' | 'desc';
 
-export function TransactionTable({ payments, getBookingInfo, onStatusChange, onViewReceipt, onEditDate }: TransactionTableProps) {
+export function TransactionTable({ payments, getBookingInfo, onStatusChange, onViewReceipt, onEditDate, onEditMethod }: TransactionTableProps) {
     const [sortKey, setSortKey] = useState<SortKey>('date');
     const [sortDir, setSortDir] = useState<SortDir>('desc');
 
@@ -216,6 +218,15 @@ export function TransactionTable({ payments, getBookingInfo, onStatusChange, onV
                                                         Corregir fecha
                                                     </DropdownMenuItem>
                                                 )}
+                                                {/* También antes que Reembolsar, por lo mismo: el cobro
+                                                    cargado con el método equivocado se corrige, no se
+                                                    reembolsa. */}
+                                                {payment.status === 'PAID' && onEditMethod && (
+                                                    <DropdownMenuItem onClick={() => onEditMethod(payment)}>
+                                                        <CreditCard className="w-4 h-4 mr-2 text-blue-500" />
+                                                        Corregir medio de pago
+                                                    </DropdownMenuItem>
+                                                )}
                                                 {payment.status === 'PAID' && onStatusChange && (
                                                     <DropdownMenuItem onClick={() => onStatusChange(payment.id, 'REFUNDED')}>
                                                         <XCircle className="w-4 h-4 mr-2 text-rose-500" />
@@ -298,6 +309,20 @@ export function TransactionTable({ payments, getBookingInfo, onStatusChange, onV
                                         <MethodIcon method={payment.method} />
                                     </div>
                                     <span>{PAYMENT_METHOD_LABELS[payment.method] || payment.method}</span>
+                                    {/* El lápiz al lado del método, por lo mismo que el de la
+                                        fecha: el error se comete con el celular en la mano y la
+                                        corrección tiene que existir donde se ve el dato. */}
+                                    {payment.status === 'PAID' && onEditMethod && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 text-slate-400"
+                                            title="Corregir medio de pago"
+                                            onClick={() => onEditMethod(payment)}
+                                        >
+                                            <Pencil className="w-3.5 h-3.5" />
+                                        </Button>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-1">
                                     {payment.reference && (

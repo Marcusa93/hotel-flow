@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Payment, PaymentStatus, PaymentMethod } from '@/types/hotel';
-import { PaymentStats, TransactionTable, NewPaymentDialog, PaymentReceipt, EditPaymentDateDialog } from '@/components/payments';
+import { PaymentStats, TransactionTable, NewPaymentDialog, PaymentReceipt, EditPaymentDateDialog, EditPaymentMethodDialog } from '@/components/payments';
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, PAYMENT_METHODS } from '@/lib/constants';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
@@ -62,6 +62,7 @@ export default function Payments() {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [editingDatePayment, setEditingDatePayment] = useState<Payment | null>(null);
+  const [editingMethodPayment, setEditingMethodPayment] = useState<Payment | null>(null);
 
   const filteredPayments = useMemo(() => {
     return payments
@@ -110,6 +111,14 @@ export default function Payments() {
       return;
     }
     setEditingDatePayment(payment);
+  };
+
+  const handleEditPaymentMethod = (payment: Payment) => {
+    if (!canWrite) {
+      toast({ title: 'Acción no permitida', description: 'Tu rol no puede modificar pagos', variant: 'destructive' });
+      return;
+    }
+    setEditingMethodPayment(payment);
   };
 
   const handleViewReceipt = (payment: Payment) => {
@@ -281,6 +290,7 @@ export default function Payments() {
               onStatusChange={canWrite ? handlePaymentStatusChange : undefined}
               onViewReceipt={handleViewReceipt}
               onEditDate={canWrite ? handleEditPaymentDate : undefined}
+              onEditMethod={canWrite ? handleEditPaymentMethod : undefined}
             />
           )}
         </TabsContent>
@@ -301,6 +311,14 @@ export default function Payments() {
           open
           onOpenChange={(o) => !o && setEditingDatePayment(null)}
           payment={editingDatePayment}
+        />
+      )}
+
+      {editingMethodPayment && (
+        <EditPaymentMethodDialog
+          open
+          onOpenChange={(o) => !o && setEditingMethodPayment(null)}
+          payment={editingMethodPayment}
         />
       )}
     </div>

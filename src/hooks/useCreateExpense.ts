@@ -12,7 +12,7 @@ interface CreateExpenseInput {
     description?: string;
     /** Con qué se pagó. Sin esto la caja no cuadra: un gasto en efectivo sale del cajón. */
     method?: SettlementMethod;
-    /** Solo cuando se pagó en efectivo: de cuál de las dos cajas salió. */
+    /** De cuál de las dos cajas salió, con cualquier medio de pago. */
     cashSource?: CashSource;
 }
 
@@ -29,9 +29,13 @@ export const useCreateExpense = () => {
                     amount: input.amount,
                     description: input.description || null,
                     method: input.method || null,
-                    // Solo tiene sentido en efectivo: una transferencia no sale
-                    // de ninguna de las dos cajas.
-                    cash_source: input.method === 'CASH' ? input.cashSource || 'RECAUDACION' : null,
+                    // De qué caja salió NO depende de con qué se pagó: la luz
+                    // pagada por transferencia sale de la caja de la empresa
+                    // igual que el súper en efectivo. Cuando esto miraba el
+                    // método, el gasto que administración imputaba a la empresa
+                    // se guardaba en null —que se lee RECAUDACION— y aparecía en
+                    // el cierre de recepción de ese día.
+                    cash_source: input.cashSource || 'RECAUDACION',
                 })
                 .select()
                 .single();

@@ -48,7 +48,9 @@ export const expenseSchema = z.object({
     description: z.string().max(500, 'Descripción demasiado larga').optional(),
     // Obligatorio de acá en adelante: sin esto la caja no cuadra. Los gastos ya
     // cargados quedan sin método y el cierre los muestra como "sin especificar".
-    method: z.enum(['CASH', 'CREDIT', 'DEBIT', 'TRANSFER', 'QR', 'OTHER'] as const, {
+    // CHEQUE incluido: el desplegable lo ofrece (PAYMENT_METHODS) y la base lo
+    // acepta, así que sin él acá elegir "Cheque" tiraba "Datos inválidos".
+    method: z.enum(['CASH', 'CREDIT', 'DEBIT', 'TRANSFER', 'QR', 'CHEQUE', 'OTHER'] as const, {
         required_error: 'Elegí con qué se pagó',
     }),
     cashSource: z.enum(['RECAUDACION', 'EMPRESA'] as const),

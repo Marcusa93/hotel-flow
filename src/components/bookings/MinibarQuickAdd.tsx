@@ -94,8 +94,13 @@ export function MinibarQuickAdd({ bookingId, onDone }: MinibarQuickAddProps) {
 
   if (items.length === 0) {
     return (
+      // El hotel arranca con la heladera vacía a propósito, así que este cartel
+      // es lo primero que ve recepción: tiene que decir adónde ir, no sólo que
+      // no hay nada.
       <div className="py-8 text-center text-sm text-muted-foreground">
-        No hay productos de minibar configurados.
+        Todavía no hay productos cargados.
+        <br />
+        Se cargan desde <span className="font-medium text-foreground">Heladera</span>, en el menú de Operaciones.
       </div>
     );
   }

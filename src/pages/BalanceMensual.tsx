@@ -32,6 +32,7 @@ import {
 } from '@/lib/monthlySummary';
 import { summarizeExpenses, EXPENSE_METHOD_ORDER } from '@/lib/cashClosing';
 import { PageHeader } from '@/components/shared';
+import { MonthlyMinibarCard } from '@/components/heladera';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +55,7 @@ const SIN_DATOS: MonthlyMovements = {
   otherIncome: [],
   accountPayments: [],
   bookings: [],
+  minibarMovements: [],
 };
 
 export default function BalanceMensual() {
@@ -68,7 +70,7 @@ export default function BalanceMensual() {
   const { rooms, roomTypes } = useRoomOperations();
   const { data: hotelSettings } = useHotelSettings();
 
-  const { payments, otherIncome, accountPayments, bookings } = movements ?? SIN_DATOS;
+  const { payments, otherIncome, accountPayments, bookings, minibarMovements } = movements ?? SIN_DATOS;
 
   /* ─────────────────────────── Plata ─────────────────────────── */
 
@@ -514,6 +516,9 @@ export default function BalanceMensual() {
           </CardContent>
         </Card>
       </div>
+
+      {/* La heladera, aparte: su plata ya está contada arriba */}
+      <MonthlyMinibarCard movements={minibarMovements} />
 
       {/* Caja de la empresa — solo lo que se movió este mes */}
       <Card className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border-white/20 shadow-sm">

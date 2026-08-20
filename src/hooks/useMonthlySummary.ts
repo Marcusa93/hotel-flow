@@ -1,8 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { mapBooking, mapCurrentAccountPayment, mapOtherIncome, mapPayment } from '@/lib/mappers';
+import {
+  mapBooking, mapCurrentAccountPayment, mapMinibarMovement, mapOtherIncome, mapPayment,
+} from '@/lib/mappers';
 import { formatLocalDate } from '@/lib/utils';
-import type { Booking, CurrentAccountPayment, OtherIncome, Payment } from '@/types/hotel';
+import type {
+  Booking, CurrentAccountPayment, MinibarMovement, OtherIncome, Payment,
+} from '@/types/hotel';
 
 /**
  * Los movimientos de un mes, pedidos por mes.
@@ -20,6 +24,15 @@ export interface MonthlyMovements {
   accountPayments: CurrentAccountPayment[];
   /** Las reservas que tocan el mes, aunque hayan empezado antes o terminen después. */
   bookings: Booking[];
+  /**
+   * Los movimientos de la heladera.
+   *
+   * No suman al ingreso del mes —la plata de la heladera ya está contada en los
+   * cobros y en los ingresos externos, y sumarla otra vez la duplicaría—. Están
+   * para poder mostrar el consumo interno, que no aparece en ningún otro lado
+   * porque no genera plata y sin embargo cuesta.
+   */
+  minibarMovements: MinibarMovement[];
 }
 
 export const useMonthlySummary = (month: string) => {
@@ -32,7 +45,7 @@ export const useMonthlySummary = (month: string) => {
       const startStr = formatLocalDate(start);
       const endStr = formatLocalDate(monthEnd);
 
-      const [paymentsRes, otherRes, accountRes, bookingsRes] = await Promise.all([
+      const [paymentsRes, otherRes, accountRes, bookingsRes, minibarRes] = await Promise.all([
         // `payments.date` es TIMESTAMPTZ: el corte va por instante, y toISOString()
         // convierte la medianoche local al momento correcto. Comparar contra el
         // día suelto correría el borde del mes unas horas.
@@ -56,9 +69,16 @@ export const useMonthlySummary = (month: string) => {
           .select('*')
           .gte('check_out_date', startStr)
           .lte('check_in_date', endStr),
+        // `created_at` es TIMESTAMPTZ, igual que en payments: el corte va por
+        // instante para no correr el borde del mes unas horas.
+        supabase
+          .from('minibar_movements')
+          .select('*')
+          .gte('created_at', start.toISOString())
+          .lt('created_at', nextStart.toISOString()),
       ]);
 
-      for (const res of [paymentsRes, otherRes, accountRes, bookingsRes]) {
+      for (const res of [paymentsRes, otherRes, accountRes, bookingsRes, minibarRes]) {
         if (res.error) throw res.error;
       }
 
@@ -67,6 +87,7 @@ export const useMonthlySummary = (month: string) => {
         otherIncome: (otherRes.data || []).map(mapOtherIncome),
         accountPayments: (accountRes.data || []).map(mapCurrentAccountPayment),
         bookings: (bookingsRes.data || []).map(mapBooking),
+        minibarMovements: (minibarRes.data || []).map(mapMinibarMovement),
       };
     },
     staleTime: 2 * 60 * 1000,

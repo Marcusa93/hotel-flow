@@ -171,10 +171,13 @@ export const useCreateMinibarMovement = () => {
  * recuento. La heladera física siempre gana.
  */
 export class StockNoDescontadoError extends Error {
-  constructor(readonly otherIncomeId: string, cause?: unknown) {
+  // Propia y no `Error.cause`, que es ES2022 y el target de la app es ES2020.
+  readonly motivo?: unknown;
+
+  constructor(readonly otherIncomeId: string, motivo?: unknown) {
     super('Se registró el cobro pero no se pudo descontar el stock.');
     this.name = 'StockNoDescontadoError';
-    this.cause = cause;
+    this.motivo = motivo;
   }
 }
 
@@ -272,10 +275,12 @@ export const useCounterSale = () => {
  * no se puede perder, y el stock se corrige con un recuento.
  */
 export class ConsumoSinDescontarError extends Error {
-  constructor(cause?: unknown) {
+  readonly motivo?: unknown;
+
+  constructor(motivo?: unknown) {
     super('Se cargó el consumo a la cuenta pero no se pudo descontar el stock.');
     this.name = 'ConsumoSinDescontarError';
-    this.cause = cause;
+    this.motivo = motivo;
   }
 }
 

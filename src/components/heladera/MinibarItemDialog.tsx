@@ -73,7 +73,7 @@ export function MinibarItemDialog({ open, onOpenChange, item }: MinibarItemDialo
 
         // Vaciar un campo lo borra: mandar undefined dejaría el valor viejo, y
         // un costo cargado por error se volvería imposible de sacar.
-        const campos: MinibarItemInput = {
+        const campos = {
             name: name.trim(),
             category,
             price: precioVenta,
@@ -82,7 +82,7 @@ export function MinibarItemDialog({ open, onOpenChange, item }: MinibarItemDialo
             // Vacío es cortesía, y es una decisión: sin precio, el personal no paga.
             staffPrice: staffPrice.trim() ? pesos(staffPrice) : null,
             lowStockThreshold: threshold.trim() ? Number(threshold) : null,
-        };
+        } satisfies MinibarItemInput;
 
         setSaving(true);
         try {

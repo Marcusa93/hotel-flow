@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import type { MinibarItem, MinibarMovement } from '@/types/hotel';
+import { MonthlyMinibarCard } from '@/components/heladera/MonthlyMinibarCard';
 
 // Que la pantalla arme bien los números con datos adentro: el valor de la
 // heladera, lo vendido, lo que se llevó el personal y qué hay que reponer. Sin
@@ -117,5 +118,56 @@ describe('la pantalla de la heladera', () => {
         pintar();
         expect(screen.queryByRole('button', { name: /vender/i })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /nuevo producto/i })).not.toBeInTheDocument();
+    });
+});
+
+// ─── La tarjeta del Resumen del Mes ──────────────────────────────────
+//
+// El riesgo acá es contar la misma plata dos veces: lo que se vendió de la
+// heladera YA está en los cobros y en los ingresos externos de arriba. Esta
+// tarjeta contesta otra pregunta —si la heladera deja algo— y tiene que decirlo.
+
+describe('la heladera en el resumen del mes', () => {
+    const pintarTarjeta = (movs: MinibarMovement[]) =>
+        render(<MonthlyMinibarCard movements={movs} />);
+
+    it('avisa que esa plata ya está contada arriba', () => {
+        pintarTarjeta(MOVIMIENTOS);
+        expect(screen.getByText(/ya está contada arriba/i)).toBeInTheDocument();
+    });
+
+    it('muestra la ganancia como venta menos costo de reposición', () => {
+        pintarTarjeta(MOVIMIENTOS);
+        // Vendido 5 u. × $2.000 = $10.000; costo 5 × $900 = $4.500
+        expect(screen.getByText('$10.000')).toBeInTheDocument();
+        expect(screen.getByText('− $4.500')).toBeInTheDocument();
+        expect(screen.getByText('Ganancia de la heladera')).toBeInTheDocument();
+        expect(screen.getByText('$5.500')).toBeInTheDocument();
+    });
+
+    // Lo que el dueño no ve en ninguna otra pantalla.
+    it('separa lo que salió sin dejar plata', () => {
+        pintarTarjeta(MOVIMIENTOS);
+        // Personal: 5 u. × $900 = $4.500 al costo. Sin mermas.
+        expect(screen.getByText(/Se llevó el personal \(5 u\.\)/)).toBeInTheDocument();
+        expect(screen.getByText('Salió sin dejar plata')).toBeInTheDocument();
+    });
+
+    it('sin costos cargados no inventa una ganancia', () => {
+        pintarTarjeta([
+            movimiento({ kind: 'VENTA_MOSTRADOR', quantity: -2, unitCost: undefined }),
+        ]);
+        expect(screen.queryByText('Ganancia de la heladera')).not.toBeInTheDocument();
+    });
+
+    it('un mes sin movimientos lo dice y no muestra ceros', () => {
+        pintarTarjeta([]);
+        expect(screen.getByText('Sin movimientos este mes.')).toBeInTheDocument();
+        expect(screen.queryByText('Vendido')).not.toBeInTheDocument();
+    });
+
+    it('aclara que la reposición no está en los gastos de arriba', () => {
+        pintarTarjeta(MOVIMIENTOS);
+        expect(screen.getByText(/no está incluida en los gastos de arriba/i)).toBeInTheDocument();
     });
 });

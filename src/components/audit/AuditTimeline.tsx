@@ -20,6 +20,7 @@ import {
   ArrowRight,
   ShoppingCart,
   NotebookPen,
+  Refrigerator,
   Wallet,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +50,8 @@ const entityIcons: Record<AuditEntityType, any> = {
   booking_charge: ShoppingCart,
   logbook_entry: NotebookPen,
   cash_closing: Wallet,
+  minibar_item: Refrigerator,
+  minibar_movement: Refrigerator,
 };
 
 const entityLabels: Record<AuditEntityType, string> = {
@@ -64,6 +67,8 @@ const entityLabels: Record<AuditEntityType, string> = {
   booking_charge: 'Cargo de Reserva',
   logbook_entry: 'Novedad',
   cash_closing: 'Cierre de caja',
+  minibar_item: 'Producto de heladera',
+  minibar_movement: 'Movimiento de heladera',
 };
 
 const entityRoutes: Partial<Record<AuditEntityType, string>> = {

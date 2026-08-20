@@ -14,6 +14,7 @@ import {
   Percent,
   ClipboardList,
   NotebookPen,
+  Refrigerator,
   Wallet,
   Scale,
   ChevronLeft,
@@ -63,6 +64,7 @@ const navItems: NavItem[] = [
   { title: 'Huéspedes', href: '/guests', icon: Users, roles: ['admin', 'reception'], section: 'operaciones' },
   { title: 'Limpieza', href: '/housekeeping', icon: ClipboardList, roles: ['admin', 'housekeeping'], section: 'operaciones' },
   { title: 'Novedades', href: '/novedades', icon: NotebookPen, roles: ['admin', 'reception', 'housekeeping'], section: 'operaciones' },
+  { title: 'Heladera', href: '/heladera', icon: Refrigerator, roles: ['admin', 'reception', 'auditor'], section: 'operaciones', readOnly: true },
 
   // Finanzas
   { title: 'Finanzas', href: '/payments', icon: CreditCard, roles: ['admin', 'reception', 'auditor'], section: 'finanzas', readOnly: true },

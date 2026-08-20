@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMinibarItems, MinibarItem } from '@/hooks/useMinibarItems';
-import { useCreateBookingCharge } from '@/hooks/useCreateBookingCharge';
+import { ConsumoSinDescontarError, useGuestConsumption } from '@/hooks/useMinibarMovements';
+import { stockStatus } from '@/lib/heladera';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
@@ -20,7 +21,7 @@ const CATEGORY_META: Record<string, { label: string; icon: React.ReactNode }> = 
 
 export function MinibarQuickAdd({ bookingId, onDone }: MinibarQuickAddProps) {
   const { data: items = [], isLoading } = useMinibarItems();
-  const createCharge = useCreateBookingCharge();
+  const registerConsumption = useGuestConsumption();
   const [cart, setCart] = useState<Map<string, number>>(new Map());
   const [submitting, setSubmitting] = useState(false);
 
@@ -48,20 +49,12 @@ export function MinibarQuickAdd({ bookingId, onDone }: MinibarQuickAddProps) {
     if (cart.size === 0) return;
     setSubmitting(true);
 
-    try {
-      const promises = Array.from(cart.entries()).map(([itemId, qty]) => {
-        const item = items.find(i => i.id === itemId);
-        if (!item) return Promise.resolve();
-        return createCharge.mutateAsync({
-          bookingId,
-          category: 'MINIBAR',
-          description: item.name,
-          amount: item.price,
-          quantity: qty,
-        });
-      });
+    const lines = Array.from(cart.entries())
+      .map(([itemId, quantity]) => ({ item: items.find(i => i.id === itemId), quantity }))
+      .filter((l): l is { item: MinibarItem; quantity: number } => !!l.item);
 
-      await Promise.all(promises);
+    try {
+      await registerConsumption.mutateAsync({ bookingId, lines });
 
       toast({
         title: 'Consumos registrados',
@@ -71,6 +64,20 @@ export function MinibarQuickAdd({ bookingId, onDone }: MinibarQuickAddProps) {
       setCart(new Map());
       onDone?.();
     } catch (error) {
+      // El cargo sí quedó en la cuenta: cerrar el carrito evita que lo carguen
+      // dos veces buscando que "ande". Lo que falta es el stock, y eso se
+      // arregla con un recuento en Heladera.
+      if (error instanceof ConsumoSinDescontarError) {
+        toast({
+          title: 'Consumo cargado, stock sin descontar',
+          description: 'El cargo quedó en la cuenta. Ajustá el stock con un recuento en Heladera.',
+          variant: 'destructive',
+        });
+        setCart(new Map());
+        onDone?.();
+        return;
+      }
+
       toast({
         title: 'Error al registrar consumos',
         description: error instanceof Error ? error.message : 'Ocurrió un error.',
@@ -87,8 +94,13 @@ export function MinibarQuickAdd({ bookingId, onDone }: MinibarQuickAddProps) {
 
   if (items.length === 0) {
     return (
+      // El hotel arranca con la heladera vacía a propósito, así que este cartel
+      // es lo primero que ve recepción: tiene que decir adónde ir, no sólo que
+      // no hay nada.
       <div className="py-8 text-center text-sm text-muted-foreground">
-        No hay productos de minibar configurados.
+        Todavía no hay productos cargados.
+        <br />
+        Se cargan desde <span className="font-medium text-foreground">Heladera</span>, en el menú de Operaciones.
       </div>
     );
   }
@@ -120,6 +132,7 @@ export function MinibarQuickAdd({ bookingId, onDone }: MinibarQuickAddProps) {
             <div className="grid grid-cols-1 gap-1.5">
               {catItems.map(item => {
                 const qty = cart.get(item.id) || 0;
+                const estado = stockStatus(item);
                 return (
                   <div
                     key={item.id}
@@ -131,7 +144,16 @@ export function MinibarQuickAdd({ bookingId, onDone }: MinibarQuickAddProps) {
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">${item.price.toLocaleString('es-AR')}</p>
+                      <p className="text-xs text-muted-foreground">
+                        ${item.price.toLocaleString('es-AR')}
+                        {' · '}
+                        {/* Se avisa pero no se bloquea: si nadie cargó la
+                            reposición, la venta se tiene que poder registrar
+                            igual. El stock queda en rojo hasta el recuento. */}
+                        <span className={estado === 'ok' ? '' : 'text-destructive font-medium'}>
+                          {item.stock > 0 ? `quedan ${item.stock}` : 'sin stock'}
+                        </span>
+                      </p>
                     </div>
 
                     <div className="flex items-center gap-1 ml-2 shrink-0">

@@ -35,6 +35,16 @@ interface UpdatePaymentParams {
      * con dos rastros en auditoría que dicen que los dos salieron bien.
      */
     expectedDate?: Date;
+    /**
+     * El método que el cobro tenía cuando se abrió el diálogo.
+     *
+     * Lo mismo que `expectedDate` pero para la corrección de medio de pago, y por
+     * el mismo motivo: el UPDATE filtra por id y nada más. Sin esto, dos
+     * recepcionistas corrigiendo el mismo cobro dejan dos rastros en auditoría
+     * que dicen "de QR a efectivo" los dos, cuando el segundo salió en realidad
+     * de lo que había dejado el primero.
+     */
+    expectedMethod?: string;
     /** Reemplaza el rastro genérico cuando el que llama sabe describir mejor lo que hizo. */
     audit?: Pick<CreateAuditLogParams, 'description' | 'oldValues' | 'newValues' | 'metadata'>;
 }
@@ -43,8 +53,8 @@ export const useUpdatePayment = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ id, data, expectedDate, audit }: UpdatePaymentParams) => {
-            if (expectedDate) {
+        mutationFn: async ({ id, data, expectedDate, expectedMethod, audit }: UpdatePaymentParams) => {
+            if (expectedDate || expectedMethod) {
                 const { data: row, error: readError } = await supabase
                     .from('payments')
                     .select('*')
@@ -52,14 +62,21 @@ export const useUpdatePayment = () => {
                     .single();
 
                 if (readError) throw asError(readError);
+                const actual = mapPayment(row);
 
                 // Se relee y se compara en memoria en vez de filtrar el UPDATE por
                 // fecha: la columna es TIMESTAMPTZ con microsegundos y el viaje por
                 // Date los trunca a milisegundos, así que el filtro no matchearía
-                // nunca.
-                if (mapPayment(row).date.getTime() !== expectedDate.getTime()) {
+                // nunca. El método iría bien en el filtro, pero se compara acá
+                // igual para que las dos guardas den el mismo mensaje.
+                if (expectedDate && actual.date.getTime() !== expectedDate.getTime()) {
                     throw new Error(
                         'Alguien más cambió la fecha de este cobro mientras lo tenías abierto. Actualizá la pantalla y fijate cómo quedó.'
+                    );
+                }
+                if (expectedMethod && actual.method !== expectedMethod) {
+                    throw new Error(
+                        'Alguien más cambió el medio de pago de este cobro mientras lo tenías abierto. Actualizá la pantalla y fijate cómo quedó.'
                     );
                 }
             }
@@ -142,6 +159,21 @@ export const useUpdatePayment = () => {
                     category: 'payment',
                     title: 'Fecha de cobro corregida',
                     message: variables.audit?.description ?? 'Se corrigió la fecha de un cobro',
+                    metadata: { paymentId: variables.id, ...variables.audit?.metadata },
+                });
+            }
+
+            // Y la corrección de método, por lo mismo pero peor: el desglose por
+            // método no queda guardado en ningún corte de caja, así que el
+            // detector de cambios post-cierre no lo ve. Sin la campanita, un
+            // renglón del cierre cambia y el único rastro queda enterrado en
+            // auditoría, que recepción no lee.
+            if (variables.data.method) {
+                createNotificationIfEnabled({
+                    type: 'warning',
+                    category: 'payment',
+                    title: 'Medio de pago corregido',
+                    message: variables.audit?.description ?? 'Se corrigió el medio de pago de un cobro',
                     metadata: { paymentId: variables.id, ...variables.audit?.metadata },
                 });
             }

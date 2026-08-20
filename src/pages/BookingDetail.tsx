@@ -56,6 +56,7 @@ import {
 import { RegisterPaymentDialog } from '@/components/payments/RegisterPaymentDialog';
 import { PaymentAttachments } from '@/components/payments/PaymentAttachments';
 import { EditPaymentDateDialog } from '@/components/payments/EditPaymentDateDialog';
+import { EditPaymentMethodDialog } from '@/components/payments/EditPaymentMethodDialog';
 import { CheckoutDialog } from '@/components/bookings/CheckoutDialog';
 import { EditBookingDialog } from '@/components/bookings/EditBookingDialog';
 import { ExtendStayDialog } from '@/components/bookings/ExtendStayDialog';
@@ -79,6 +80,7 @@ export default function BookingDetail() {
   const canWrite = currentRole === 'admin' || currentRole === 'reception';
   const isLoading = bookingsLoading;
   const [editingDatePayment, setEditingDatePayment] = useState<Payment | null>(null);
+  const [editingMethodPayment, setEditingMethodPayment] = useState<Payment | null>(null);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -756,6 +758,20 @@ export default function BookingDetail() {
                               <Pencil className="w-3.5 h-3.5" />
                             </Button>
                           )}
+                          {/* Y el medio de pago, que es el otro dato de este renglón
+                              que se carga mal: el método está escrito arriba, en
+                              grande, así que la corrección va al lado. */}
+                          {canWrite && payment.status === 'PAID' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground"
+                              title="Corregir medio de pago"
+                              onClick={() => setEditingMethodPayment(payment)}
+                            >
+                              <CreditCard className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                           <div className="text-right">
                             <p className={cn("font-bold", style.amount)}>{style.sign}${payment.amount.toLocaleString('es-AR')}</p>
                             <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{style.label}</span>
@@ -788,6 +804,14 @@ export default function BookingDetail() {
           open
           onOpenChange={(o) => !o && setEditingDatePayment(null)}
           payment={editingDatePayment}
+        />
+      )}
+
+      {editingMethodPayment && (
+        <EditPaymentMethodDialog
+          open
+          onOpenChange={(o) => !o && setEditingMethodPayment(null)}
+          payment={editingMethodPayment}
         />
       )}
 

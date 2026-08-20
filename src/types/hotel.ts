@@ -13,7 +13,7 @@ export type UserRole = 'admin' | 'reception' | 'housekeeping' | 'auditor';
 export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'CANCELLED' | 'OVERDUE';
 export type InvoiceItemType = 'ACCOMMODATION' | 'SERVICE' | 'EXTRA' | 'OTHER';
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'STATUS_CHANGE';
-export type AuditEntityType = 'booking' | 'guest' | 'room' | 'payment' | 'invoice' | 'housekeeping_task' | 'rate' | 'expense' | 'hotel_settings' | 'booking_charge' | 'logbook_entry' | 'cash_closing';
+export type AuditEntityType = 'booking' | 'guest' | 'room' | 'payment' | 'invoice' | 'housekeeping_task' | 'rate' | 'expense' | 'hotel_settings' | 'booking_charge' | 'logbook_entry' | 'cash_closing' | 'minibar_item' | 'minibar_movement';
 
 export type ChargeCategory =
   | 'MINIBAR' | 'LAVANDERIA' | 'ESTACIONAMIENTO' | 'ROOM_SERVICE'
@@ -554,4 +554,83 @@ export interface AuditLog {
   metadata: Record<string, any>;
   createdAt: Date;
   ipAddress?: string;
+}
+
+// ─── La heladera ────────────────────────────────────────────────────
+
+export type MinibarCategory = 'bebida' | 'snack' | 'alcohol' | 'otro';
+
+/**
+ * Un producto de la heladera.
+ *
+ * En la base sigue siendo minibar_items: la tabla es de abril y los cargos de
+ * reserva la referencian. "Heladera" es como le dicen en el hotel.
+ */
+export interface MinibarItem {
+  id: string;
+  name: string;
+  category: MinibarCategory;
+  /** Lo que paga el huésped por una unidad. */
+  price: number;
+  /** Marca, tamaño, dónde se compra. Opcional. */
+  detail?: string;
+  /** Lo que cuesta reponer una unidad. Opcional. */
+  cost?: number;
+  /** Lo que paga el personal. Sin valor, para el personal es cortesía. */
+  staffPrice?: number;
+  /** Unidades en la heladera. Sale de los movimientos, no se edita a mano. */
+  stock: number;
+  /** Debajo de esto la pantalla pide reponer. */
+  lowStockThreshold?: number;
+  isActive: boolean;
+}
+
+/**
+ * Lo que se manda al guardar un producto.
+ *
+ * Los opcionales aceptan null a propósito: `undefined` es "no lo toques" y
+ * `null` es "borralo". Sin esa diferencia, un costo cargado por error no se
+ * puede sacar nunca más.
+ */
+export interface MinibarItemInput {
+  name?: string;
+  category?: MinibarCategory;
+  price?: number;
+  detail?: string | null;
+  cost?: number | null;
+  staffPrice?: number | null;
+  lowStockThreshold?: number | null;
+  isActive?: boolean;
+}
+
+export type MinibarMovementKind =
+  | 'COMPRA'
+  | 'VENTA_HUESPED'
+  | 'VENTA_MOSTRADOR'
+  | 'CONSUMO_PERSONAL'
+  | 'MERMA'
+  | 'AJUSTE';
+
+/** Una entrada o una salida de la heladera. El stock es la suma de todas. */
+export interface MinibarMovement {
+  id: string;
+  itemId: string;
+  kind: MinibarMovementKind;
+  /** Con signo: positivo entra, negativo sale. */
+  quantity: number;
+  /** Precio unitario del momento. Cero cuando fue cortesía. */
+  unitPrice: number;
+  /** Costo unitario del momento, si el producto lo tenía cargado. */
+  unitCost?: number;
+  /** La reserva a la que se cargó, en VENTA_HUESPED. */
+  bookingId?: string;
+  bookingChargeId?: string;
+  /** El ingreso que generó, en VENTA_MOSTRADOR. */
+  otherIncomeId?: string;
+  /** Quién se lo llevó, en CONSUMO_PERSONAL. */
+  staffName?: string;
+  staffProfileId?: string;
+  notes?: string;
+  createdBy?: string;
+  createdAt: Date;
 }

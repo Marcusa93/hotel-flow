@@ -20,6 +20,9 @@ import type {
   CashFloat,
   CashClosing,
   CashContribution,
+  MinibarItem,
+  MinibarItemInput,
+  MinibarMovement,
 } from '@/types/hotel';
 
 // --- Row to Model mappers (snake_case DB → camelCase frontend) ---
@@ -463,3 +466,80 @@ export const mapBookingCharge = (row: DbRow): BookingCharge => ({
   createdAt: new Date(row.created_at || new Date()),
   createdBy: row.created_by,
 });
+
+// --- La heladera ---
+//
+// Las tablas se llaman minibar_* porque son de abril y los cargos de reserva
+// las referencian. En pantalla es "Heladera".
+
+/**
+ * Los opcionales quedan `undefined`, no en cero.
+ *
+ * Importa: costo cero y "no sé cuánto costó" son cosas distintas, y sin costo
+ * la pantalla no muestra un margen inventado.
+ */
+export const mapMinibarItem = (row: DbRow): MinibarItem => ({
+  id: row.id,
+  name: row.name,
+  category: row.category,
+  price: Number(row.price),
+  detail: row.detail ?? undefined,
+  cost: row.cost == null ? undefined : Number(row.cost),
+  staffPrice: row.staff_price == null ? undefined : Number(row.staff_price),
+  stock: Number(row.stock ?? 0),
+  lowStockThreshold: row.low_stock_threshold == null ? undefined : Number(row.low_stock_threshold),
+  isActive: row.is_active ?? true,
+});
+
+/**
+ * `stock` no está a propósito: sólo lo mueven los movimientos.
+ *
+ * Un campo ausente no se toca; uno en null se borra. Es la única forma de
+ * sacarle el costo a un producto al que se lo cargaron mal.
+ */
+export const minibarItemToRow = (item: MinibarItemInput): DbRow => {
+  const row: DbRow = {};
+  if (item.name !== undefined) row.name = item.name;
+  if (item.category !== undefined) row.category = item.category;
+  if (item.price !== undefined) row.price = item.price;
+  if (item.detail !== undefined) row.detail = item.detail || null;
+  if (item.cost !== undefined) row.cost = item.cost ?? null;
+  if (item.staffPrice !== undefined) row.staff_price = item.staffPrice ?? null;
+  if (item.lowStockThreshold !== undefined) row.low_stock_threshold = item.lowStockThreshold ?? null;
+  if (item.isActive !== undefined) row.is_active = item.isActive;
+  return row;
+};
+
+export const mapMinibarMovement = (row: DbRow): MinibarMovement => ({
+  id: row.id,
+  itemId: row.item_id,
+  kind: row.kind,
+  quantity: Number(row.quantity),
+  unitPrice: Number(row.unit_price ?? 0),
+  unitCost: row.unit_cost == null ? undefined : Number(row.unit_cost),
+  bookingId: row.booking_id ?? undefined,
+  bookingChargeId: row.booking_charge_id ?? undefined,
+  otherIncomeId: row.other_income_id ?? undefined,
+  staffName: row.staff_name ?? undefined,
+  staffProfileId: row.staff_profile_id ?? undefined,
+  notes: row.notes ?? undefined,
+  createdBy: row.created_by ?? undefined,
+  createdAt: new Date(row.created_at || new Date()),
+});
+
+export const minibarMovementToRow = (m: Partial<MinibarMovement>): DbRow => {
+  const row: DbRow = {};
+  if (m.itemId !== undefined) row.item_id = m.itemId;
+  if (m.kind !== undefined) row.kind = m.kind;
+  if (m.quantity !== undefined) row.quantity = m.quantity;
+  if (m.unitPrice !== undefined) row.unit_price = m.unitPrice;
+  if (m.unitCost !== undefined) row.unit_cost = m.unitCost ?? null;
+  if (m.bookingId !== undefined) row.booking_id = m.bookingId ?? null;
+  if (m.bookingChargeId !== undefined) row.booking_charge_id = m.bookingChargeId ?? null;
+  if (m.otherIncomeId !== undefined) row.other_income_id = m.otherIncomeId ?? null;
+  if (m.staffName !== undefined) row.staff_name = m.staffName?.trim() || null;
+  if (m.staffProfileId !== undefined) row.staff_profile_id = m.staffProfileId ?? null;
+  if (m.notes !== undefined) row.notes = m.notes?.trim() || null;
+  if (m.createdBy !== undefined) row.created_by = m.createdBy ?? null;
+  return row;
+};

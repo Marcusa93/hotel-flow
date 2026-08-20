@@ -30,6 +30,7 @@ const Logbook = lazy(() => import("./pages/Logbook"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Expenses = lazy(() => import("./pages/Expenses"));
+const Heladera = lazy(() => import("./pages/Heladera"));
 const CierreCaja = lazy(() => import("./pages/CierreCaja"));
 const BalanceMensual = lazy(() => import("./pages/BalanceMensual"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
@@ -70,6 +71,9 @@ const AnimatedRoutes = () => {
 
         {/* Housekeeping — admin, housekeeping */}
         <Route path="/housekeeping" element={<RoleGuard allowedRoles={['admin', 'housekeeping']}><PageWrapper><Housekeeping /></PageWrapper></RoleGuard>} />
+
+        {/* La heladera es plata: el auditor la mira, la pantalla no lo deja tocar */}
+        <Route path="/heladera" element={<RoleGuard allowedRoles={['admin', 'reception', 'auditor']}><PageWrapper><Heladera /></PageWrapper></RoleGuard>} />
 
         {/* Novedades — la planilla la comparten los tres turnos */}
         <Route path="/novedades" element={<RoleGuard allowedRoles={['admin', 'reception', 'housekeeping']}><PageWrapper><Logbook /></PageWrapper></RoleGuard>} />

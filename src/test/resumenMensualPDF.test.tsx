@@ -159,6 +159,32 @@ describe('el PDF del resumen', () => {
         expect(buffer.length).toBeGreaterThan(2000);
     }, 30000);
 
+    // Sin esto el PDF decía "Sin movimientos en el período" con una merma
+    // cargada: los totales de venta en cero no significan que no pasó nada.
+    it('se genera con un mes de heladera sin ventas', async () => {
+        const buffer = await renderToBuffer(armar({
+            minibar: summarizeMovements([
+                {
+                    id: 'm-1', itemId: 'i-1', kind: 'MERMA', quantity: -4,
+                    unitPrice: 0, unitCost: 700, createdAt: new Date(2026, 7, 9),
+                },
+            ]),
+        }));
+        expect(buffer.length).toBeGreaterThan(2000);
+    }, 30000);
+
+    it('se genera con un mes de solo ajustes de recuento', async () => {
+        const buffer = await renderToBuffer(armar({
+            minibar: summarizeMovements([
+                {
+                    id: 'm-1', itemId: 'i-1', kind: 'AJUSTE', quantity: -3,
+                    unitPrice: 0, unitCost: 700, createdAt: new Date(2026, 7, 9),
+                },
+            ]),
+        }));
+        expect(buffer.length).toBeGreaterThan(2000);
+    }, 30000);
+
     it('se genera con la heladera cargada', async () => {
         const buffer = await renderToBuffer(armar({
             minibar: summarizeMovements([

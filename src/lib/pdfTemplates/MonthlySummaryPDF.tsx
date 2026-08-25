@@ -145,6 +145,14 @@ export function MonthlySummaryPDF({
     ? Math.round(income.fromBookings / occupancy.nightsSold)
     : 0;
 
+  // Un mes de solo ajustes no tiene ningún renglón que mostrar, y una sección
+  // vacía se lee como un error del sistema.
+  const heladeraTieneQueMostrar =
+    minibar.ventaTotal > 0 ||
+    minibar.consumoPersonal.unidades > 0 ||
+    minibar.merma.unidades > 0 ||
+    minibar.compras.unidades > 0;
+
   const relato = narrateMonth({
     income, expenses, occupancy, byType, guests, minibar, result, isPartial,
   });
@@ -329,26 +337,35 @@ export function MonthlySummaryPDF({
 
           <View style={styles.col}>
             <Text style={styles.sectionTitle}>Heladera</Text>
-            {minibar.ventaTotal === 0 && minibar.consumoPersonal.unidades === 0 ? (
+            {minibar.movimientos === 0 ? (
               <Row label="Sin movimientos en el período" value="—" />
+            ) : !heladeraTieneQueMostrar ? (
+              // Hubo movimientos pero todos fueron ajustes de recuento: no son
+              // ni venta ni pérdida, y ponerlos en cero sugeriría que no pasó
+              // nada cuando lo que pasó fue que corrigieron el stock.
+              <Row label="Solo ajustes de recuento" value="—" />
             ) : (
               <>
-                <Row
-                  label="Vendido"
-                  hint={`(${minibar.ventaHuesped.unidades} a huéspedes, ${minibar.ventaMostrador.unidades} en mostrador)`}
-                  value={money(minibar.ventaTotal)}
-                />
-                {minibar.costoVendido > 0 && (
-                  <Row label="Costo de lo vendido" value={money(minibar.costoVendido)} />
+                {minibar.ventaTotal > 0 && (
+                  <Row
+                    label="Vendido"
+                    hint={`(${minibar.ventaHuesped.unidades} a huéspedes, ${minibar.ventaMostrador.unidades} en mostrador)`}
+                    value={money(minibar.ventaTotal)}
+                  />
                 )}
                 {minibar.costoVendido > 0 && (
-                  <Row label="Ganancia" value={money(minibar.margen)} />
+                  <>
+                    <Row label="Costo de lo vendido" value={money(minibar.costoVendido)} />
+                    <Row label="Ganancia" value={money(minibar.margen)} />
+                  </>
                 )}
-                <Row
-                  label="Se llevó el personal"
-                  hint={`(${minibar.consumoPersonal.unidades} u. al costo)`}
-                  value={money(minibar.consumoPersonal.costo)}
-                />
+                {minibar.consumoPersonal.unidades > 0 && (
+                  <Row
+                    label="Se llevó el personal"
+                    hint={`(${minibar.consumoPersonal.unidades} u. al costo)`}
+                    value={money(minibar.consumoPersonal.costo)}
+                  />
+                )}
                 {minibar.merma.unidades > 0 && (
                   <Row
                     label="Mermas y roturas"
@@ -356,13 +373,22 @@ export function MonthlySummaryPDF({
                     value={money(minibar.merma.costo)}
                   />
                 )}
+                {minibar.compras.unidades > 0 && (
+                  <Row
+                    label="Se repuso"
+                    hint={`(${minibar.compras.unidades} u.)`}
+                    value={money(minibar.compras.total)}
+                  />
+                )}
               </>
             )}
-            {/* Que nadie la sume al total de arriba creyendo que falta. */}
-            <Text style={[styles.muted, { marginTop: 4 }]}>
-              Ya contada arriba: el consumo del huésped en su cobro, la venta de mostrador
-              en los ingresos externos.
-            </Text>
+            {/* La aclaración sirve solo si hay venta que alguien pueda sumar de más. */}
+            {minibar.ventaTotal > 0 && (
+              <Text style={[styles.muted, { marginTop: 4 }]}>
+                Ya contada arriba: el consumo del huésped en su cobro, la venta de mostrador
+                en los ingresos externos.
+              </Text>
+            )}
           </View>
         </View>
 

@@ -91,8 +91,6 @@ export function ReservationBoard({ bookings, guests, rooms, roomTypes, accounts,
             today: new Date(`${todayKey}T00:00:00`),
         });
 
-        if (grupos.length === 0) return enLaColumna.map(renderCard);
-
         let indice = 0;
         return grupos.map(grupo => (
             <div key={grupo.key}>

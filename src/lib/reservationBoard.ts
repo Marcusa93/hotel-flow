@@ -103,12 +103,6 @@ export interface BoardGroup {
 }
 
 /**
- * Debajo de esto los separadores son ruido: la columna entra casi entera en
- * pantalla y partirla en tres títulos ocupa más de lo que aclara.
- */
-export const MIN_PARA_AGRUPAR = 10;
-
-/**
  * Cómo se llama cada tramo según la columna.
  *
  * La fecha que se agrupa es la misma por la que la columna ya está ordenada
@@ -162,9 +156,12 @@ const proximityOf = (booking: Booking, status: BoardStatus, today: Date): Proxim
 /**
  * Parte una columna ya ordenada en tramos por cercanía.
  *
- * Devuelve `[]` cuando los separadores no aportan: pocas reservas, o todas en
- * el mismo tramo —un solo título arriba de la lista entera no es un punto de
- * referencia, es una línea más—. El que llama muestra la lista plana.
+ * Siempre devuelve al menos un tramo si hay reservas, incluso cuando caen todas
+ * en el mismo. Podría ahorrarse ese título único, pero entonces unas columnas
+ * arrancarían con un separador y otras con una tarjeta, y las cuatro quedarían
+ * corridas entre sí: con un tramo por columna las tarjetas empiezan todas a la
+ * misma altura. Y el título igual dice algo cierto —"Esta semana"— que la
+ * cabecera de la columna no dice.
  *
  * Los tramos salen en el orden en que aparecen, así que el botón de invertir el
  * orden del tablero los da vuelta solo.
@@ -178,8 +175,6 @@ export function groupByProximity({
   status: BoardStatus;
   today: Date;
 }): BoardGroup[] {
-  if (bookings.length < MIN_PARA_AGRUPAR) return [];
-
   const grupos: BoardGroup[] = [];
   const porClave = new Map<ProximityKey, BoardGroup>();
 
@@ -194,5 +189,5 @@ export function groupByProximity({
     grupo.bookings.push(booking);
   }
 
-  return grupos.length > 1 ? grupos : [];
+  return grupos;
 }

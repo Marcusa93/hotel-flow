@@ -8,7 +8,14 @@ interface ReservationColumnProps {
     title: string;
     count: number;
     headerColorClass: string;
-    /** Qué quedó afuera de la columna. Sin esto, filtrar se lee como perder datos. */
+    /**
+     * Qué quedó afuera de la columna. Sin esto, filtrar se lee como perder datos.
+     *
+     * Va al pie de la lista y no en el encabezado: arriba le sumaba un renglón
+     * a una sola de las cuatro columnas y les corría las tarjetas hacia abajo
+     * respecto de las otras tres. Abajo además se lee cuando corresponde —
+     * llegaste al final de las salidas de hoy y ahí te enterás que hay viejas.
+     */
     hint?: string;
     children: React.ReactNode;
 }
@@ -72,10 +79,6 @@ export function ReservationColumn({ id, title, count, headerColorClass, hint, ch
                 </span>
             </div>
 
-            {hint && (
-                <p className="px-1 -mt-1 mb-2 text-[11px] text-slate-400 dark:text-slate-500">{hint}</p>
-            )}
-
             {/* El degradado del pie avisa que el contenido sigue. Va sobre el
                 área de scroll y no adentro, así no se mueve con las tarjetas. */}
             <div className="relative flex-1 min-h-0">
@@ -99,6 +102,11 @@ export function ReservationColumn({ id, title, count, headerColorClass, hint, ch
                         >
                             {children}
                             {provided.placeholder}
+                            {hint && (
+                                <p className="px-2 pt-2 pb-1 text-[11px] leading-snug text-slate-400 dark:text-slate-500">
+                                    {hint}
+                                </p>
+                            )}
                         </div>
                     )}
                 </Droppable>

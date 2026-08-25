@@ -1,7 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-    buildBoard, groupByProximity, isCurrentDeparture, MIN_PARA_AGRUPAR,
-} from '@/lib/reservationBoard';
+import { buildBoard, groupByProximity, isCurrentDeparture } from '@/lib/reservationBoard';
 import type { Booking } from '@/types/hotel';
 
 const HOY = new Date('2026-07-29T00:00:00');
@@ -156,16 +154,24 @@ describe('groupByProximity', () => {
         expect(grupos[3].label).toBe('Más adelante');
     });
 
-    // Un solo título arriba de la lista entera no es un punto de referencia: es
-    // una línea que ocupa lugar y no dice nada.
-    it('no separa si todas caen en el mismo tramo', () => {
-        expect(agrupar(llegan(60, 20))).toEqual([]);
+    // Podría ahorrarse el título cuando hay uno solo, pero entonces unas
+    // columnas arrancarían con separador y otras con una tarjeta, y las cuatro
+    // quedarían corridas entre sí. Con un tramo por columna, las tarjetas
+    // empiezan todas a la misma altura.
+    it('devuelve un tramo aunque caigan todas en el mismo', () => {
+        // Día 45 de agosto = 14 de septiembre: +20 días de hoy, todas en 'mes'.
+        const grupos = agrupar(llegan(45, 20));
+        expect(grupos).toHaveLength(1);
+        expect(grupos[0].key).toBe('mes');
     });
 
-    it('no separa una columna corta, que entra casi entera en pantalla', () => {
-        const pocas = [...llegan(25, 2), ...llegan(90, 2)];
-        expect(pocas.length).toBeLessThan(MIN_PARA_AGRUPAR);
-        expect(agrupar(pocas)).toEqual([]);
+    it('agrupa igual una columna corta', () => {
+        const grupos = agrupar([...llegan(25, 2), ...llegan(90, 2)]);
+        expect(grupos.map(g => g.key)).toEqual(['hoy', 'despues']);
+    });
+
+    it('una columna vacía no devuelve tramos', () => {
+        expect(agrupar([])).toEqual([]);
     });
 
     it('el borde de la semana son 7 días, y el del mes 30', () => {

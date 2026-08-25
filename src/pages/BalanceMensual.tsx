@@ -160,6 +160,7 @@ export default function BalanceMensual() {
         byType,
         guests,
         minibar,
+        isPartial: range.isPartial,
         companyBalance: saldoEmpresa,
         result: resultado,
       });
@@ -173,7 +174,7 @@ export default function BalanceMensual() {
     } finally {
       setIsGenerating(false);
     }
-  }, [month, hotelName, monthLabel, periodNote, income, expenses, occupancy, byType, guests, minibar, saldoEmpresa, resultado]);
+  }, [month, hotelName, monthLabel, periodNote, income, expenses, occupancy, byType, guests, minibar, range.isPartial, saldoEmpresa, resultado]);
 
   /* ─────────────────────────── Pantalla ─────────────────────────── */
 

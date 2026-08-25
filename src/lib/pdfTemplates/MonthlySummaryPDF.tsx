@@ -6,6 +6,7 @@ import type {
 } from '@/lib/monthlySummary';
 import type { ExpenseBreakdown } from '@/lib/cashClosing';
 import type { MinibarSummary } from '@/lib/heladera';
+import { narrateMonth } from '@/lib/monthNarrative';
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, EXPENSE_TYPE_LABELS } from '@/lib/constants';
 import { EXPENSE_METHOD_ORDER } from '@/lib/cashClosing';
 
@@ -41,6 +42,8 @@ export interface MonthlySummaryPDFProps {
   /** Lo acumulado del hotel al día de hoy. Null mientras carga. */
   companyBalance?: number | null;
   result: number;
+  /** El mes en curso todavía no terminó: cambia cómo se redacta el resumen. */
+  isPartial: boolean;
 }
 
 const money = (n: number) => `$${n.toLocaleString('es-AR')}`;
@@ -80,6 +83,23 @@ const styles = StyleSheet.create({
   totalLabel: { fontFamily: 'Helvetica-Bold' },
   muted: { color: '#94a3b8', fontSize: 8 },
 
+  // El resumen escrito. Va ancho completo y con más interlínea que las tablas:
+  // se lee como texto, no se escanea como una columna de números.
+  narrative: { marginTop: 16 },
+  paragraph: { fontSize: 9.5, lineHeight: 1.55, color: '#334155', marginBottom: 5 },
+
+  attention: {
+    marginTop: 10, padding: 10,
+    backgroundColor: '#fffbeb', borderWidth: 0.75, borderColor: '#e2b53d', borderRadius: 5,
+  },
+  attentionTitle: {
+    fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#92610a',
+    textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 5,
+  },
+  attentionItem: { flexDirection: 'row', marginBottom: 3 },
+  bullet: { width: 9, color: '#92610a' },
+  attentionText: { flex: 1, fontSize: 9, lineHeight: 1.45, color: '#3f2d0b' },
+
   twoCol: { flexDirection: 'row', gap: 22 },
   col: { flex: 1 },
 
@@ -109,7 +129,7 @@ const Total = ({ label, value }: { label: string; value: string }) => (
 
 export function MonthlySummaryPDF({
   hotelName, monthLabel, periodNote,
-  income, expenses, occupancy, byType, guests, minibar, companyBalance, result,
+  income, expenses, occupancy, byType, guests, minibar, companyBalance, result, isPartial,
 }: MonthlySummaryPDFProps) {
   /**
    * Cuánto se sacó por cada noche vendida.
@@ -124,6 +144,10 @@ export function MonthlySummaryPDF({
   const tarifaPromedio = occupancy.nightsSold > 0
     ? Math.round(income.fromBookings / occupancy.nightsSold)
     : 0;
+
+  const relato = narrateMonth({
+    income, expenses, occupancy, byType, guests, minibar, result, isPartial,
+  });
 
   const metodosConPlata = PAYMENT_METHODS.filter(m => income.byMethod[m.value]);
   const rubrosConGasto = Object.entries(expenses.byType).sort((a, b) => b[1] - a[1]);
@@ -157,7 +181,26 @@ export function MonthlySummaryPDF({
           </View>
         </View>
 
-        <View style={styles.twoCol}>
+        <View style={styles.narrative}>
+          <Text style={styles.sectionTitle}>Cómo fue el mes</Text>
+          {[...relato.ocupacion, ...relato.plata].map((parrafo, i) => (
+            <Text key={i} style={styles.paragraph}>{parrafo}</Text>
+          ))}
+
+          {relato.atencion.length > 0 && (
+            <View style={styles.attention} wrap={false}>
+              <Text style={styles.attentionTitle}>Para mirar</Text>
+              {relato.atencion.map((aviso, i) => (
+                <View key={i} style={styles.attentionItem}>
+                  <Text style={styles.bullet}>—</Text>
+                  <Text style={styles.attentionText}>{aviso}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.twoCol} wrap={false}>
           <View style={styles.col}>
             <Text style={styles.sectionTitle}>Ocupación</Text>
             <Row label="Del período" value={pct(occupancy.rate)} />
@@ -205,7 +248,7 @@ export function MonthlySummaryPDF({
           </View>
         </View>
 
-        <View style={styles.twoCol}>
+        <View style={styles.twoCol} wrap={false}>
           <View style={styles.col}>
             <Text style={styles.sectionTitle}>Cómo se cobró</Text>
             {metodosConPlata.length === 0 ? (
@@ -230,7 +273,7 @@ export function MonthlySummaryPDF({
           </View>
         </View>
 
-        <View style={styles.twoCol}>
+        <View style={styles.twoCol} wrap={false}>
           <View style={styles.col}>
             <Text style={styles.sectionTitle}>Ocupación por tipo</Text>
             {byType.length === 0 ? (
@@ -267,7 +310,7 @@ export function MonthlySummaryPDF({
           </View>
         </View>
 
-        <View style={styles.twoCol}>
+        <View style={styles.twoCol} wrap={false}>
           <View style={styles.col}>
             <Text style={styles.sectionTitle}>Movimiento de huéspedes</Text>
             <Row label="Reservas que llegaron" value={String(guests.arrivals)} />

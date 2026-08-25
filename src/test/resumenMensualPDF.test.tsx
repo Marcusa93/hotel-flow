@@ -136,6 +136,7 @@ describe('el PDF del resumen', () => {
             minibar: summarizeMovements([]),
             companyBalance: 17230324,
             result: 1020000,
+            isPartial: false,
             ...extra,
         });
 

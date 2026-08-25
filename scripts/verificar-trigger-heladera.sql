@@ -5,7 +5,7 @@
 -- transacción que termina en ROLLBACK: mira, informa y no deja NADA. Ni el
 -- movimiento, ni el cambio de stock, ni una fila de auditoría.
 --
--- Lo que tiene que dar: las cuatro filas en "resultado" dicen OK.
+-- Lo que tiene que dar: los cinco avisos numerados dicen OK.
 -- ════════════════════════════════════════════════════════════════════
 
 BEGIN;
@@ -68,6 +68,36 @@ BEGIN
     EXCEPTION WHEN check_violation THEN
         RAISE NOTICE '4) Venta con signo al revés → OK: la base la rechazó';
     END;
+END $$;
+
+-- 5. Borrar el ingreso de caja tiene que devolver el producto a la heladera
+DO $$
+DECLARE
+    v_item    UUID;
+    v_inicial INTEGER;
+    v_durante INTEGER;
+    v_final   INTEGER;
+    v_ingreso UUID;
+BEGIN
+    SELECT id, stock INTO v_item, v_inicial
+      FROM public.minibar_items WHERE is_active LIMIT 1;
+
+    INSERT INTO public.other_income (description, method, amount)
+         VALUES ('Heladera: 2 × prueba', 'CASH', 4000)
+      RETURNING id INTO v_ingreso;
+
+    INSERT INTO public.minibar_movements (item_id, kind, quantity, unit_price, other_income_id)
+         VALUES (v_item, 'VENTA_MOSTRADOR', -2, 2000, v_ingreso);
+
+    SELECT stock INTO v_durante FROM public.minibar_items WHERE id = v_item;
+
+    -- Recepción se equivocó y borra el ingreso desde el cierre de caja.
+    DELETE FROM public.other_income WHERE id = v_ingreso;
+
+    SELECT stock INTO v_final FROM public.minibar_items WHERE id = v_item;
+    RAISE NOTICE '5) Venta borrada del cierre → stock volvió de % a % (esperado %) → %',
+        v_durante, v_final, v_inicial,
+        CASE WHEN v_final = v_inicial THEN 'OK' ELSE 'MAL: el stock quedó descontado' END;
 END $$;
 
 -- Nada de lo de arriba queda. Es a propósito.

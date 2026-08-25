@@ -297,6 +297,15 @@ export default function Bookings() {
             statusFilter={statusFilter}
             onStatusFilterChange={(v) => { setStatusFilter(v); setTodayFilter(null); }}
             trailing={
+              <div className="flex items-center gap-2">
+              {/* El historial también en mobile: es lo único de esta fila que
+                  no depende de estar en el tablero de escritorio. */}
+              <WeeklyMovementsLog
+                bookings={bookings}
+                guests={guests}
+                rooms={rooms}
+                onSelect={(id) => navigate(`/bookings/${id}`)}
+              />
               <div className="hidden md:flex items-center gap-2">
               {viewMode === 'kanban' && (
                 <Button
@@ -336,6 +345,7 @@ export default function Bookings() {
                 >
                   <CalendarRange className="w-4 h-4" />
                 </Button>
+              </div>
               </div>
               </div>
             }
@@ -406,16 +416,6 @@ export default function Bookings() {
             />
           </div>
         </div>
-      </div>
-
-      {/* Weekly history — what actually came in and out, independent of the filters above */}
-      <div className="flex-none">
-        <WeeklyMovementsLog
-          bookings={bookings}
-          guests={guests}
-          rooms={rooms}
-          onSelect={(id) => navigate(`/bookings/${id}`)}
-        />
       </div>
 
       {/* Dialogs & Drawers */}

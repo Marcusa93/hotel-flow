@@ -240,6 +240,68 @@ export function monthOccupancy({ bookings, roomCount, start, end }: OccupancyInp
   };
 }
 
+/* ──────────────────────── Movimiento de gente ─────────────────────── */
+
+export interface GuestMovement {
+  /** Reservas que llegaron en el período. */
+  arrivals: number;
+  /** Personas que pasaron por el hotel, chicos y menores de 5 incluidos. */
+  people: number;
+  /** Las que se cayeron: canceladas y no-show con llegada en el período. */
+  lost: number;
+  /** Noches por reserva, promedio. La media estadía cuenta cero: no duerme. */
+  avgNights: number;
+}
+
+/**
+ * Cuánta gente pasó por el hotel y cuánto se quedó.
+ *
+ * La ocupación cuenta noches-habitación, que es lo que hay para vender. Esto
+ * cuenta personas y reservas, que es otra cosa: veinte noches vendidas pueden
+ * ser una familia que se quedó tres semanas o veinte pasajeros de una noche, y
+ * no son el mismo mes ni para las sábanas ni para el desayuno.
+ *
+ * Va por fecha de llegada, no por cruce con el período: la reserva que empezó
+ * en julio no es gente que llegó en agosto, aunque haya dormido acá el día 1.
+ */
+export function guestMovement({
+  bookings,
+  start,
+  end,
+}: {
+  bookings: Booking[];
+  start: Date;
+  end: Date;
+}): GuestMovement {
+  const desde = dayMs(start);
+  const hasta = dayMs(end);
+  const llegaEnElPeriodo = (b: Booking) =>
+    dayMs(b.checkInDate) >= desde && dayMs(b.checkInDate) <= hasta;
+
+  const llegadas = bookings.filter(b => OCCUPYING_STATUSES.has(b.status) && llegaEnElPeriodo(b));
+
+  const people = llegadas.reduce(
+    (sum, b) => sum + (b.adults || 0) + (b.children || 0) + (b.infants || 0),
+    0
+  );
+
+  const noches = llegadas.reduce((sum, b) => {
+    if (b.isHalfDay) return sum;
+    return sum + Math.max(0, differenceInCalendarDays(b.checkOutDate, b.checkInDate));
+  }, 0);
+
+  const lost = bookings.filter(
+    b => (b.status === 'CANCELLED' || b.status === 'NO_SHOW') && llegaEnElPeriodo(b)
+  ).length;
+
+  return {
+    arrivals: llegadas.length,
+    people,
+    lost,
+    avgNights: llegadas.length > 0 ? noches / llegadas.length : 0,
+  };
+}
+
 export interface TypeOccupancy {
   roomTypeId: string;
   label: string;

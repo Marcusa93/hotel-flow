@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { Payment, Guest, Room, RoomType, HotelSettings } from '@/types/hotel';
 import { guestsLabel } from '@/lib/utils';
+import { PAYMENT_METHOD_LABELS } from '@/lib/constants';
 
 interface PaymentReceiptPDFProps {
   payment: Payment;
@@ -14,15 +15,9 @@ interface PaymentReceiptPDFProps {
   signatureDataUrl?: string;
 }
 
-const methodLabels: Record<string, string> = {
-  CASH: 'Efectivo',
-  CREDIT: 'T. Crédito',
-  DEBIT: 'T. Débito',
-  TRANSFER: 'Transferencia',
-  QR: 'QR',
-  OTHER: 'Otro',
-  CARD: 'Tarjeta',
-};
+// De constants y no una copia local: esta lista ya se había quedado sin Cheque
+// cuando el método se agregó, y un recibo de cheque salía con el renglón vacío.
+const methodLabels = PAYMENT_METHOD_LABELS;
 
 const statusLabels: Record<string, string> = {
   PAID: 'Pagado',

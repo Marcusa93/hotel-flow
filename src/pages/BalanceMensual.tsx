@@ -11,7 +11,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import {
-  Printer,
+  Download,
+  Loader2,
   TrendingUp,
   TrendingDown,
   Scale,
@@ -29,7 +30,9 @@ import {
   monthOccupancy,
   occupancyByRoomType,
   monthRange,
+  guestMovement,
 } from '@/lib/monthlySummary';
+import { summarizeMovements } from '@/lib/heladera';
 import { summarizeExpenses, EXPENSE_METHOD_ORDER } from '@/lib/cashClosing';
 import { PageHeader } from '@/components/shared';
 import { MonthlyMinibarCard } from '@/components/heladera';
@@ -39,8 +42,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, EXPENSE_TYPE_LABELS } from '@/lib/constants';
 import { chartColors, chartGrid, chartAxis, chartTooltip } from '@/lib/chartTheme';
-import { cn, escapeHtml, formatLocalDate } from '@/lib/utils';
-import { PRINT_FONT_LINK, PRINT_FONT_CSS } from '@/lib/printStyles';
+import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 const money = (n: number) => `$${n.toLocaleString('es-AR')}`;
 const pct = (n: number) => `${n.toFixed(0)}%`;
@@ -109,6 +112,16 @@ export default function BalanceMensual() {
     [bookings, rooms, roomTypes, range.start, range.end]
   );
 
+  // Para el PDF: cuánta gente pasó y cómo le fue a la heladera. En pantalla el
+  // movimiento de huéspedes no se muestra —el resumen ya es largo— pero en un
+  // archivo que se manda a los socios es de las primeras cosas que preguntan.
+  const guests = useMemo(
+    () => guestMovement({ bookings, start: range.start, end: range.end }),
+    [bookings, range.start, range.end]
+  );
+
+  const minibar = useMemo(() => summarizeMovements(minibarMovements), [minibarMovements]);
+
   const occupancyChart = useMemo(
     () => occupancy.byDay.map(d => ({ dia: format(d.date, 'd'), ocupadas: d.occupied })),
     [occupancy.byDay]
@@ -120,85 +133,48 @@ export default function BalanceMensual() {
     ? `Del 1 al ${format(range.end, 'd')} — el mes todavía no terminó`
     : `Mes completo — ${occupancy.daysCounted} días`;
 
-  /* ─────────────────────────── Imprimir ─────────────────────────── */
+  /* ─────────────────────── Descargar el resumen ─────────────────── */
 
-  const handlePrint = useCallback(() => {
-    const w = window.open('', '', 'width=800,height=600');
-    if (!w) return;
-    const h = escapeHtml;
+  const [isGenerating, setIsGenerating] = useState(false);
 
-    const incomeRows = PAYMENT_METHODS.filter(m => income.byMethod[m.value])
-      .map(m => `<tr><td>${h(m.label)}</td><td class="num">${money(income.byMethod[m.value])}</td></tr>`)
-      .join('') || '<tr><td colspan="2">Sin ingresos</td></tr>';
-
-    const expenseTypeRows = Object.entries(expenses.byType)
-      .map(([t, v]) => `<tr><td>${h(EXPENSE_TYPE_LABELS[t] || t)}</td><td class="num">${money(v)}</td></tr>`)
-      .join('') || '<tr><td colspan="2">Sin gastos</td></tr>';
-
-    const expenseMethodRows = EXPENSE_METHOD_ORDER.filter(m => expenses.byMethod[m])
-      .map(m => `<tr><td>${h(PAYMENT_METHOD_LABELS[m] || m)}</td><td class="num">${money(expenses.byMethod[m])}</td></tr>`)
-      .join('')
-      + (expenses.unspecified > 0
-        ? `<tr><td>Sin especificar</td><td class="num">${money(expenses.unspecified)}</td></tr>`
-        : '')
-      || '<tr><td colspan="2">Sin gastos</td></tr>';
-
-    const typeRows = byType
-      .map(t => `<tr><td>${h(t.label)} (${t.rooms} hab.)</td><td class="num">${pct(t.rate)} — ${t.nightsSold}/${t.nightsAvailable}</td></tr>`)
-      .join('') || '<tr><td colspan="2">Sin habitaciones cargadas</td></tr>';
-
-    w.document.write(`<!DOCTYPE html><html><head><title>Resumen ${h(month)}</title>
-    ${PRINT_FONT_LINK}
-    <style>
-      ${PRINT_FONT_CSS}
-      body{max-width:720px;margin:0 auto;padding:32px;color:#1e293b}
-      h1{font-size:20px;color:#003366;margin:0}.sub{color:#64748b;font-size:13px;margin-bottom:20px;text-transform:capitalize}
-      h2{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:#003366;border-bottom:2px solid #D4A017;padding-bottom:4px;margin:20px 0 8px}
-      table{width:100%;border-collapse:collapse}td{padding:6px 4px;border-bottom:1px solid #f1f5f9;font-size:13px}
-      .num{text-align:right;font-variant-numeric:tabular-nums}.tot{font-weight:700;border-top:2px solid #1e293b}
-      .grand{font-size:16px;font-weight:700;color:#003366}
-      .muted{color:#94a3b8;font-size:11px}
-    </style></head><body>
-    <h1>Resumen del Mes — ${h(hotelName)}</h1>
-    <div class="sub">${h(monthLabel)} · ${h(periodNote)}</div>
-
-    <h2>Ocupación</h2><table>
-      <tr><td>Ocupación del período</td><td class="num">${pct(occupancy.rate)}</td></tr>
-      <tr><td>Noches vendidas</td><td class="num">${occupancy.nightsSold} de ${occupancy.nightsAvailable}</td></tr>
-      ${occupancy.busiest ? `<tr><td>Día más lleno</td><td class="num">${format(occupancy.busiest.date, "d 'de' MMMM", { locale: es })} — ${occupancy.busiest.occupied} hab.</td></tr>` : ''}
-      ${occupancy.quietest ? `<tr><td>Día más vacío</td><td class="num">${format(occupancy.quietest.date, "d 'de' MMMM", { locale: es })} — ${occupancy.quietest.occupied} hab.</td></tr>` : ''}
-      ${occupancy.halfDays > 0 ? `<tr><td>Medias estadías <span class="muted">(no ocupan noche)</span></td><td class="num">${occupancy.halfDays}</td></tr>` : ''}
-    </table>
-
-    <h2>Ocupación por tipo</h2><table>${typeRows}</table>
-
-    <h2>Ingresos por método</h2><table>${incomeRows}
-      <tr class="tot"><td>Total que entró</td><td class="num">${money(income.total)}</td></tr>
-      ${income.toAccounts > 0
-        ? `<tr><td>Cargado a cuenta corriente <span class="muted">(no entró)</span></td><td class="num">${money(income.toAccounts)}</td></tr>`
-        : ''}</table>
-
-    <h2>De dónde vino</h2><table>
-      <tr><td>Cobros de reservas</td><td class="num">${money(income.fromBookings)}</td></tr>
-      <tr><td>Ingresos externos</td><td class="num">${money(income.fromOther)}</td></tr>
-      <tr><td>Pagos de cuenta corriente</td><td class="num">${money(income.fromAccounts)}</td></tr></table>
-
-    <h2>Gastos por rubro</h2><table>${expenseTypeRows}
-      <tr class="tot"><td>Total gastos</td><td class="num">${money(expenses.total)}</td></tr></table>
-
-    <h2>Gastos por cuenta</h2><table>${expenseMethodRows}</table>
-
-    <h2>Caja de la empresa</h2><table>
-      <tr><td>Pagado de esta caja en el mes</td><td class="num">${money(expenses.empresa)}</td></tr>
-      <tr class="tot"><td>Saldo disponible hoy</td><td class="num">${saldoEmpresa == null ? '—' : money(saldoEmpresa)}</td></tr></table>
-
-    <h2>Resultado</h2><table>
-      <tr class="tot grand"><td>Resultado del mes (entró − gastos)</td><td class="num">${money(resultado)}</td></tr></table>
-    </body></html>`);
-    w.document.close();
-    w.focus();
-    setTimeout(() => w.print(), 250);
-  }, [income, expenses, byType, occupancy, saldoEmpresa, resultado, month, monthLabel, periodNote, hotelName]);
+  /**
+   * Un PDF que se descarga, y no el diálogo de impresión del navegador.
+   *
+   * El contenido ya estaba bien; lo que faltaba era el archivo. Sin él, quien
+   * buscaba algo para mandarle a los socios terminaba en el Excel de
+   * Estadísticas, que trae la tabla cruda de reservas y cobros — justo lo que a
+   * un socio no le dice nada.
+   */
+  const handleDownloadPDF = useCallback(async () => {
+    setIsGenerating(true);
+    try {
+      const { generateMonthlySummaryPDF } = await import('@/lib/pdfUtils');
+      await generateMonthlySummaryPDF({
+        month,
+        hotelName,
+        monthLabel,
+        periodNote,
+        income,
+        expenses,
+        occupancy,
+        byType,
+        guests,
+        minibar,
+        isPartial: range.isPartial,
+        companyBalance: saldoEmpresa,
+        result: resultado,
+      });
+      toast({ title: 'Resumen descargado', description: `${monthLabel} — listo para compartir` });
+    } catch (error) {
+      toast({
+        title: 'No se pudo generar el PDF',
+        description: error instanceof Error ? error.message : 'Intentá de nuevo.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [month, hotelName, monthLabel, periodNote, income, expenses, occupancy, byType, guests, minibar, range.isPartial, saldoEmpresa, resultado]);
 
   /* ─────────────────────────── Pantalla ─────────────────────────── */
 
@@ -208,8 +184,11 @@ export default function BalanceMensual() {
         title="Resumen del Mes"
         description="Cómo le fue al hotel: cuánta plata entró y salió, y cuán lleno estuvo."
         actions={
-          <Button variant="outline" size="sm" onClick={handlePrint}>
-            <Printer className="w-4 h-4 mr-2" /> Imprimir resumen
+          <Button variant="outline" size="sm" onClick={handleDownloadPDF} disabled={isGenerating}>
+            {isGenerating
+              ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              : <Download className="w-4 h-4 mr-2" />}
+            Descargar resumen (PDF)
           </Button>
         }
       />

@@ -82,6 +82,14 @@ export function movementCost(movement: Pick<MinibarMovement, 'quantity' | 'unitC
 }
 
 export interface MinibarSummary {
+  /**
+   * Cuántos movimientos se resumieron.
+   *
+   * Hace falta aparte de los totales: un mes con una sola merma tiene todos los
+   * totales de venta en cero, y sin este número no hay forma de distinguirlo de
+   * un mes en el que no pasó nada.
+   */
+  movimientos: number;
   /** Vendido a huéspedes, cargado a la cuenta de la reserva. */
   ventaHuesped: { unidades: number; total: number };
   /** Vendido en el momento, cobrado en el mostrador. */
@@ -102,6 +110,7 @@ export interface MinibarSummary {
 }
 
 const emptySummary = (): MinibarSummary => ({
+  movimientos: 0,
   ventaHuesped: { unidades: 0, total: 0 },
   ventaMostrador: { unidades: 0, total: 0 },
   consumoPersonal: { unidades: 0, cobrado: 0, costo: 0 },
@@ -120,6 +129,7 @@ const emptySummary = (): MinibarSummary => ({
  */
 export function summarizeMovements(movements: MinibarMovement[]): MinibarSummary {
   const s = emptySummary();
+  s.movimientos = movements.length;
 
   for (const m of movements) {
     const u = units(m);

@@ -69,6 +69,19 @@ describe('el estado de un producto', () => {
 });
 
 describe('el resumen del período', () => {
+    // Un mes con una sola merma tiene todos los totales de venta en cero. Sin
+    // contar los movimientos no hay forma de distinguirlo de un mes en el que
+    // no pasó nada, y el resumen del dueño decía "sin movimientos" con la
+    // pérdida cargada.
+    it('cuenta cuántos movimientos hubo, aunque ninguno sea una venta', () => {
+        expect(summarizeMovements([]).movimientos).toBe(0);
+        expect(summarizeMovements([mov('MERMA', { quantity: -2 })]).movimientos).toBe(1);
+        expect(summarizeMovements([
+            mov('AJUSTE', { quantity: -1 }),
+            mov('COMPRA', { quantity: 6 }),
+        ]).movimientos).toBe(2);
+    });
+
     it('separa lo que se cargó a la habitación de lo que se cobró en el mostrador', () => {
         const s = summarizeMovements([
             mov('VENTA_HUESPED', { quantity: -3 }),

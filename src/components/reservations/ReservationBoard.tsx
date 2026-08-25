@@ -3,9 +3,11 @@ import { useMemo } from 'react';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { Booking, BookingStatus, Guest, Room, RoomType } from '@/types/hotel';
 import { buildBookingAccount, type BookingAccount } from '@/lib/bookingAccount';
-import { buildBoard, type BoardOrder, type BoardStatus } from '@/lib/reservationBoard';
+import {
+    buildBoard, groupByProximity, type BoardOrder, type BoardStatus,
+} from '@/lib/reservationBoard';
 import { formatLocalDate } from '@/lib/utils';
-import { ReservationColumn } from './ReservationColumn';
+import { ReservationColumn, ReservationGroupHeader } from './ReservationColumn';
 import { ReservationCard } from './ReservationCard';
 
 interface ReservationBoardProps {
@@ -58,6 +60,48 @@ export function ReservationBoard({ bookings, guests, rooms, roomTypes, accounts,
     const getRoom = (id: string) => rooms.find(r => r.id === id);
     const getRoomType = (id?: string) => roomTypes.find(rt => rt.id === id);
 
+    const renderCard = (booking: Booking, index: number) => {
+        const room = getRoom(booking.roomId);
+        return (
+            <ReservationCard
+                key={booking.id}
+                index={index}
+                booking={booking}
+                guest={getGuest(booking.guestId)}
+                room={room}
+                roomType={getRoomType(room?.roomTypeId)}
+                account={accounts.get(booking.id) || buildBookingAccount({ booking })}
+                onClick={() => onCardClick(booking.id)}
+            />
+        );
+    };
+
+    /**
+     * El contenido de una columna, con separadores cuando hacen falta.
+     *
+     * El índice que lleva cada tarjeta es el de la columna entera y no el del
+     * tramo: arrastrar usa ese número para saber dónde soltó, y reiniciarlo en
+     * cada separador rompería el orden al mover una tarjeta.
+     */
+    const renderColumn = (status: BoardStatus) => {
+        const enLaColumna = columns[status] || [];
+        const grupos = groupByProximity({
+            bookings: enLaColumna,
+            status,
+            today: new Date(`${todayKey}T00:00:00`),
+        });
+
+        if (grupos.length === 0) return enLaColumna.map(renderCard);
+
+        let indice = 0;
+        return grupos.map(grupo => (
+            <div key={grupo.key}>
+                <ReservationGroupHeader label={grupo.label} count={grupo.bookings.length} />
+                {grupo.bookings.map(booking => renderCard(booking, indice++))}
+            </div>
+        ));
+    };
+
     return (
         <DragDropContext onDragEnd={onDragEnd}>
             {/* Las columnas reparten el ancho en partes iguales. El min-w es el
@@ -78,21 +122,7 @@ export function ReservationBoard({ bookings, guests, rooms, roomTypes, accounts,
                                 ? `${hiddenDepartures} de días anteriores · están en la pestaña Salidas`
                                 : undefined}
                         >
-                            {columns[col.id]?.map((booking, index) => {
-                                const room = getRoom(booking.roomId);
-                                return (
-                                    <ReservationCard
-                                        key={booking.id}
-                                        index={index}
-                                        booking={booking}
-                                        guest={getGuest(booking.guestId)}
-                                        room={room}
-                                        roomType={getRoomType(room?.roomTypeId)}
-                                        account={accounts.get(booking.id) || buildBookingAccount({ booking })}
-                                        onClick={() => onCardClick(booking.id)}
-                                    />
-                                );
-                            })}
+                            {renderColumn(col.id)}
                         </ReservationColumn>
                     </div>
                 ))}

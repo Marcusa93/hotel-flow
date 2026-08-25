@@ -15,7 +15,9 @@ import {
   ReservationsFilters,
   ReservationBoard,
   ReservationDetailsDrawer,
-  WeeklyMovementsLog
+  WeeklyMovementsLog,
+  PendingPricingNotice,
+  type PendingPricingItem,
 } from '@/components/reservations';
 import { NewBookingDialog } from '@/components/bookings/NewBookingDialog';
 import { Button } from '@/components/ui/button';
@@ -233,6 +235,31 @@ export default function Bookings() {
     setPendingCheckIn(null);
   };
 
+  // Las dos fuentes de "falta precio" en una sola lista, urgentes primero: la
+  // gente ya está adentro y el sistema dice que no debe nada.
+  const avisosSinPrecio = useMemo<PendingPricingItem[]>(() => {
+    const estadias = reservasSinTarifar.map((b) => {
+      const g = guests.find((x) => x.id === b.guestId);
+      const r = rooms.find((x) => x.id === b.roomId);
+      return {
+        key: `booking-${b.id}`,
+        label: [g?.fullName ?? 'Huésped', r && `Hab. ${r.roomNumber}`, b.specialRateReason]
+          .filter(Boolean).join(' · '),
+        urgent: isPendingAndInHouse(b),
+        onClick: () => setPricingBooking(b),
+      };
+    });
+
+    const masivas = gruposSinTarifar.map(({ group, guestName, habitaciones, urgente }) => ({
+      key: `group-${group.id}`,
+      label: `${guestName} · ${habitaciones} hab.`,
+      urgent: urgente,
+      onClick: () => setPricingGroup(group),
+    }));
+
+    return [...estadias, ...masivas].sort((a, b) => Number(b.urgent) - Number(a.urgent));
+  }, [reservasSinTarifar, gruposSinTarifar, guests, rooms]);
+
   return (
     // El alto se descuenta a mano porque PageWrapper no define altura y un h-full
     // colapsaría al alto del contenido. Lo que se resta es la topbar (64px) más el
@@ -252,75 +279,14 @@ export default function Bookings() {
           stats={stats}
         />
 
-        {/* Reservas masivas esperando precio. Solo administración las tarifa, y
-            solo administración las ve: para recepción sería un cartel sobre algo
-            que no puede resolver. Las que ya entraron van marcadas aparte —la
-            gente está adentro y el sistema dice que no debe nada. */}
-        {/* Estadías marcadas con tarifa especial que esperan precio. Mismo
-            criterio que las masivas: recepción marcó, administración cierra el
-            número. */}
-        {esAdmin && reservasSinTarifar.length > 0 && (
-          <div className="mt-3 rounded-2xl border border-violet-200 bg-violet-50 dark:border-violet-800/50 dark:bg-violet-950/30 p-3">
-            <p className="flex items-center gap-2 text-sm font-semibold text-violet-800 dark:text-violet-200">
-              <Sparkles className="w-4 h-4 shrink-0" />
-              {reservasSinTarifar.length === 1
-                ? 'Hay una estadía con tarifa especial sin precio'
-                : `Hay ${reservasSinTarifar.length} estadías con tarifa especial sin precio`}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {reservasSinTarifar.map((b) => {
-                const g = guests.find(x => x.id === b.guestId);
-                const r = rooms.find(x => x.id === b.roomId);
-                const urgente = isPendingAndInHouse(b);
-                return (
-                  <button
-                    key={b.id}
-                    type="button"
-                    onClick={() => setPricingBooking(b)}
-                    className={cn(
-                      'rounded-xl border px-3 py-1.5 text-xs transition-colors hover:bg-white/60 dark:hover:bg-slate-900/60',
-                      urgente
-                        ? 'border-rose-300 text-rose-800 dark:border-rose-800 dark:text-rose-200 font-semibold'
-                        : 'border-violet-300 text-violet-800 dark:border-violet-800/60 dark:text-violet-200'
-                    )}
-                  >
-                    {g?.fullName ?? 'Huésped'}
-                    {r && ` · Hab. ${r.roomNumber}`}
-                    {b.specialRateReason && ` · ${b.specialRateReason}`}
-                    {urgente && ' · ya entró'}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {esAdmin && gruposSinTarifar.length > 0 && (
-          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/30 p-3">
-            <p className="flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-200">
-              <Tag className="w-4 h-4 shrink-0" />
-              {gruposSinTarifar.length === 1
-                ? 'Hay una reserva masiva sin precio'
-                : `Hay ${gruposSinTarifar.length} reservas masivas sin precio`}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {gruposSinTarifar.map(({ group, guestName, habitaciones, urgente }) => (
-                <button
-                  key={group.id}
-                  type="button"
-                  onClick={() => setPricingGroup(group)}
-                  className={cn(
-                    'rounded-xl border px-3 py-1.5 text-xs transition-colors hover:bg-white/60 dark:hover:bg-slate-900/60',
-                    urgente
-                      ? 'border-rose-300 text-rose-800 dark:border-rose-800 dark:text-rose-200 font-semibold'
-                      : 'border-amber-300 text-amber-800 dark:border-amber-800/60 dark:text-amber-200'
-                  )}
-                >
-                  {guestName} · {habitaciones} hab.
-                  {urgente && ' · ya entraron'}
-                </button>
-              ))}
-            </div>
+        {/* Lo que espera precio, en una línea plegable. Solo administración las
+            tarifa y solo administración las ve: para recepción sería un cartel
+            sobre algo que no puede resolver. Las dos listas —tarifas especiales
+            y reservas masivas— van juntas porque para quien mira son la misma
+            tarea pendiente. */}
+        {esAdmin && avisosSinPrecio.length > 0 && (
+          <div className="mt-2">
+            <PendingPricingNotice items={avisosSinPrecio} />
           </div>
         )}
 

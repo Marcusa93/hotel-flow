@@ -7,3 +7,4 @@ export * from './ReservationColumn';
 export * from './ReservationBoard';
 export * from './ReservationDetailsDrawer';
 export * from './WeeklyMovementsLog';
+export { PendingPricingNotice, type PendingPricingItem } from './PendingPricingNotice';

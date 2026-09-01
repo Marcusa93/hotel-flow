@@ -52,6 +52,7 @@ const entityIcons: Record<AuditEntityType, any> = {
   cash_closing: Wallet,
   minibar_item: Refrigerator,
   minibar_movement: Refrigerator,
+  cash_adjustment: Wallet,
 };
 
 const entityLabels: Record<AuditEntityType, string> = {
@@ -69,6 +70,7 @@ const entityLabels: Record<AuditEntityType, string> = {
   cash_closing: 'Cierre de caja',
   minibar_item: 'Producto de heladera',
   minibar_movement: 'Movimiento de heladera',
+  cash_adjustment: 'Ajuste de caja',
 };
 
 const entityRoutes: Partial<Record<AuditEntityType, string>> = {

@@ -20,18 +20,28 @@ import {
   useCloseCashSession,
   useReopenCashSession,
 } from '@/hooks/useCashSessions';
+import {
+  useCashAdjustments,
+  useCreateCashAdjustment,
+  useDeleteCashAdjustment,
+  type AdjustmentLeg,
+} from '@/hooks/useCashAdjustments';
+import { CashAdjustmentsCard } from '@/components/cash/CashAdjustmentsCard';
 import { useAppRole } from '@/context/AppRoleContext';
 import { useAuth } from '@/context/AuthContext';
 import {
   summarizeExpenses,
   cashToDeposit as computeCashToDeposit,
+  adjustmentTotals,
   belongsToDailyCash,
   belongsToSession,
   belongsToSessionInterval,
+  groupAdjustments,
   nextSessionStart,
   sessionDateRange,
   sessionIncomeRows,
   EXPENSE_METHOD_ORDER,
+  type AdjustmentGroup,
 } from '@/lib/cashClosing';
 import { formatLocalDate, escapeHtml } from '@/lib/utils';
 import {
@@ -53,7 +63,8 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { PRINT_FONT_LINK, PRINT_FONT_CSS } from '@/lib/printStyles';
 
-const money = (n: number) => `$${n.toLocaleString('es-AR')}`;
+// El signo va antes del $: "$-5.000" parece un error de tipeo, "−$5.000" se lee.
+const money = (n: number) => `${n < 0 ? '−' : ''}$${Math.abs(n).toLocaleString('es-AR')}`;
 
 /**
  * Qué decirle a quien apretó el botón cuando la caja no se movió.
@@ -86,6 +97,9 @@ export default function CierreCaja() {
   const openSession = useOpenCashSession();
   const closeSession = useCloseCashSession();
   const reopenSession = useReopenCashSession();
+  const { data: allAdjustments = [] } = useCashAdjustments();
+  const createAdjustment = useCreateCashAdjustment();
+  const deleteAdjustment = useDeleteCashAdjustment();
 
   const { profileName, currentRole } = useAppRole();
   const { user } = useAuth();
@@ -146,6 +160,20 @@ export default function CierreCaja() {
     [allAccountPayments, viewedSession]
   );
 
+  // Los ajustes manuales del turno: cambios entre métodos y retiros del admin.
+  // Van por createdAt, como los gastos: el ajuste cae en el turno en que se hizo.
+  const adjustmentsSession = useMemo(
+    () => (viewedSession
+      ? allAdjustments.filter((a) => belongsToSessionInterval(new Date(a.createdAt), viewedSession))
+      : []),
+    [allAdjustments, viewedSession]
+  );
+
+  const adjustmentGroups = useMemo(
+    () => groupAdjustments(adjustmentsSession),
+    [adjustmentsSession]
+  );
+
   const { byMethod, totalIngresos, cashTotal, aCuentaCorriente } = useMemo(() => {
     const byMethod: Record<string, number> = {};
     for (const m of PAYMENT_METHODS) byMethod[m.value] = 0;
@@ -169,9 +197,17 @@ export default function CierreCaja() {
       byMethod[p.method] = (byMethod[p.method] || 0) + p.amount;
       total += p.amount;
     }
+    // Los ajustes van con signo: un cambio de método mueve los renglones y deja
+    // el total quieto; un retiro baja el método y el total juntos. Es lo que
+    // hace que "Efectivo a rendir" diga lo que hay de verdad en el cajón.
+    const ajustes = adjustmentTotals(adjustmentsSession);
+    for (const [m, v] of Object.entries(ajustes.byMethod)) {
+      byMethod[m] = (byMethod[m] || 0) + v;
+    }
+    total += ajustes.total;
 
     return { byMethod, totalIngresos: total, cashTotal: byMethod['CASH'] || 0, aCuentaCorriente };
-  }, [payments, otherIncomeSession, accountPaymentsSession, viewedSession]);
+  }, [payments, otherIncomeSession, accountPaymentsSession, adjustmentsSession, viewedSession]);
 
   // El detalle que permite controlar el total sin salir de la pantalla: las tres
   // fuentes juntas y en orden. Ver sessionIncomeRows.
@@ -181,6 +217,7 @@ export default function CierreCaja() {
       payments,
       otherIncome: allOtherIncome,
       accountPayments: allAccountPayments,
+      adjustments: allAdjustments,
       paymentDetail: (p) => {
         const b = bookings.find((x) => x.id === p.bookingId);
         const guest = b ? guests.find((g) => g.id === b.guestId) : undefined;
@@ -193,7 +230,7 @@ export default function CierreCaja() {
         return `${guest?.fullName || 'Huésped'} — pago de cuenta corriente`;
       },
     }),
-    [viewedSession, payments, allOtherIncome, allAccountPayments, bookings, guests, rooms]
+    [viewedSession, payments, allOtherIncome, allAccountPayments, allAdjustments, bookings, guests, rooms]
   );
 
   const { data: allExpenses = [] } = useExpenses();
@@ -343,6 +380,42 @@ export default function CierreCaja() {
     }
   };
 
+  const handleCreateAdjustment = async ({ legs, reason }: { legs: AdjustmentLeg[]; reason: string }) => {
+    try {
+      const { auditOk } = await createAdjustment.mutateAsync({
+        legs,
+        reason,
+        createdBy: author.id,
+        createdByName: author.name,
+      });
+      toast({ title: 'Ajuste registrado', description: reason });
+      if (!auditOk) {
+        toast({
+          title: 'El ajuste se guardó, pero no quedó en auditoría',
+          description: 'No se pudo escribir el rastro. Avisale a administración.',
+          variant: 'destructive',
+        });
+      }
+    } catch (e) {
+      toast({ title: 'Error', description: cajaError(e, 'registrar el ajuste'), variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteAdjustment = async (group: AdjustmentGroup) => {
+    const que = group.kind === 'CAMBIO'
+      ? `${money(group.amount)} de ${PAYMENT_METHOD_LABELS[group.fromMethod]} a ${PAYMENT_METHOD_LABELS[group.toMethod]}`
+      : `${money(group.amount)} en ${PAYMENT_METHOD_LABELS[group.method]}`;
+    try {
+      await deleteAdjustment.mutateAsync({
+        ids: group.ids,
+        description: `${que} — ${group.reason}`,
+      });
+      toast({ title: 'Ajuste deshecho', description: que });
+    } catch (e) {
+      toast({ title: 'Error', description: cajaError(e, 'deshacer el ajuste'), variant: 'destructive' });
+    }
+  };
+
   // ─── Etiquetas de un turno para la lista ──────────────────────────────
   const sessionLabel = (s: typeof allSessions[number]) => {
     const open = format(s.openedAt, "EEE d/M HH:mm", { locale: es });
@@ -387,10 +460,22 @@ export default function CierreCaja() {
     const otherIncomeRows = otherIncomeSession
       .map((o) => `<tr><td>${h(o.description)} (${h(PAYMENT_METHODS.find(m => m.value === o.method)?.label || o.method)})</td><td class="num">${money(o.amount)}</td></tr>`)
       .join('') || '<tr><td colspan="2">Sin ingresos externos</td></tr>';
+    // Los ajustes van al papel con nombre y motivo: es el registro que se rinde
+    // junto con la plata, y un cierre con la caja movida a mano y sin decirlo
+    // es exactamente lo que esta sección evita.
+    const adjustmentRows = adjustmentGroups
+      .map((g) => {
+        const que = g.kind === 'CAMBIO'
+          ? `${h(PAYMENT_METHOD_LABELS[g.fromMethod])} → ${h(PAYMENT_METHOD_LABELS[g.toMethod])}`
+          : `${g.amount < 0 ? 'Retiro' : 'Ingreso'} · ${h(PAYMENT_METHOD_LABELS[g.method])}`;
+        const firma = g.createdByName ? ` (${h(g.createdByName)})` : '';
+        return `<tr><td>${que} — ${h(g.reason)}${firma}</td><td class="num">${money(g.amount)}</td></tr>`;
+      })
+      .join('') || '<tr><td colspan="2">Sin ajustes</td></tr>';
     // Va impreso porque es el papel con el que se rinde: sin el detalle, quien
     // recibe la plata tiene un total y ninguna forma de controlarlo.
     const incomeDetailRows = incomeRows
-      .map((r) => `<tr><td>${h(format(r.instant, 'd/M HH:mm', { locale: es }))} · ${h(r.detail)}<br><span class="muted">${h(PAYMENT_METHOD_LABELS[r.method] || r.method)}${r.source === 'EXTERNO' ? ' · ingreso externo' : r.source === 'CTA_CTE' ? ' · cuenta corriente' : ''}${r.toAccount ? ' · no ingresó' : ''}</span></td><td class="num">${r.toAccount ? `(${money(r.amount)})` : money(r.amount)}</td></tr>`)
+      .map((r) => `<tr><td>${h(format(r.instant, 'd/M HH:mm', { locale: es }))} · ${h(r.detail)}<br><span class="muted">${h(PAYMENT_METHOD_LABELS[r.method] || r.method)}${r.source === 'EXTERNO' ? ' · ingreso externo' : r.source === 'CTA_CTE' ? ' · cuenta corriente' : r.source === 'AJUSTE' ? ' · ajuste de caja' : ''}${r.toAccount ? ' · no ingresó' : ''}</span></td><td class="num">${r.toAccount ? `(${money(r.amount)})` : money(r.amount)}</td></tr>`)
       .join('') || '<tr><td colspan="2">Sin movimientos</td></tr>';
     w.document.write(`<!DOCTYPE html><html><head><title>Cierre de Caja</title>
     ${PRINT_FONT_LINK}
@@ -425,6 +510,7 @@ export default function CierreCaja() {
     <h2>Gastos por cuenta</h2><table>${expenseMethodRows}</table>
     <h2>Detalle de gastos</h2><table>${expenseDetailRows}</table>
     <h2>Ingresos externos</h2><table>${otherIncomeRows}</table>
+    <h2>Ajustes de caja</h2><table>${adjustmentRows}</table>
     <h2>Deudas (DEBE)</h2><table>${deudaRows}
       <tr class="tot"><td>Total deuda</td><td class="num">${money(deuda.total)}</td></tr></table>
     <h2>Resultado del turno</h2><table>
@@ -433,7 +519,7 @@ export default function CierreCaja() {
     w.document.close();
     w.focus();
     setTimeout(() => w.print(), 250);
-  }, [byMethod, expenses, deuda, otherIncomeSession, incomeRows, cheques, chequesTotal, aCuentaCorriente, cashFloat, cashTotal, cashToDeposit, totalIngresos, totalDelDia, hotelSettings, viewedSession]);
+  }, [byMethod, expenses, deuda, otherIncomeSession, adjustmentGroups, incomeRows, cheques, chequesTotal, aCuentaCorriente, cashFloat, cashTotal, cashToDeposit, totalIngresos, totalDelDia, hotelSettings, viewedSession]);
 
   // ─── Render ───────────────────────────────────────────────────────────
   const isClosed = !!viewedSession?.closedAt;
@@ -701,7 +787,7 @@ export default function CierreCaja() {
                     <span className="flex-1 truncate">{r.detail}</span>
                     {r.source !== 'COBRO' && (
                       <span className="text-[10px] uppercase tracking-wide text-slate-400 shrink-0">
-                        {r.source === 'EXTERNO' ? 'externo' : 'cta. cte.'}
+                        {r.source === 'EXTERNO' ? 'externo' : r.source === 'AJUSTE' ? 'ajuste' : 'cta. cte.'}
                       </span>
                     )}
                     <span className="text-[11px] text-slate-400 shrink-0">
@@ -858,6 +944,22 @@ export default function CierreCaja() {
               )}
             </CardContent>
           </Card>
+
+          {/* Ajustes de caja: la herramienta del admin para que el cierre diga
+              lo que hay de verdad. La tarjeta la ven todos —el ajuste es parte
+              del cierre—, pero el formulario es solo del admin y solo mirando
+              el turno abierto: el ajuste cae en el turno en que se carga, así
+              que ofrecerlo mirando un turno viejo prometería otra cosa. */}
+          {(currentRole === 'admin' || adjustmentGroups.length > 0) && (
+            <CashAdjustmentsCard
+              groups={adjustmentGroups}
+              showForm={!!isViewingOpen && currentRole === 'admin'}
+              canDelete={!isClosed && currentRole === 'admin'}
+              onCreate={handleCreateAdjustment}
+              onDelete={handleDeleteAdjustment}
+              isCreating={createAdjustment.isPending}
+            />
+          )}
         </div>
       )}
 

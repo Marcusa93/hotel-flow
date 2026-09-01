@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { format, isToday, isYesterday, startOfDay, subDays, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronDown, LogIn, LogOut, History } from 'lucide-react';
+import { LogIn, LogOut, History } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn, formatLastNameFirst, formatLocalDate } from '@/lib/utils';
@@ -122,46 +122,38 @@ export function WeeklyMovementsLog({ bookings, guests, rooms, onSelect }: Weekly
     }, [bookings, guestName, roomNumber]);
 
     return (
-        // La página de Reservas tiene alto fijo: si el historial abriera "en el flujo"
-        // le comería todo el alto al tablero. Por eso se despliega flotando encima.
+        // Un botón en la fila de filtros, no una barra propia. Como barra abajo
+        // del tablero se llevaba 62px de alto fijo para algo que está cerrado
+        // casi siempre; acá aprovecha el hueco que ya existe y no cuesta nada.
+        // El panel sigue abriendo flotando: la página tiene alto fijo y en el
+        // flujo le comería el alto al tablero.
         <Collapsible open={open} onOpenChange={setOpen} className="relative">
-            <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
-                <CollapsibleTrigger asChild>
-                    <button
-                        type="button"
-                        className="w-full flex items-center justify-between gap-3 p-3 pl-4 text-left hover:bg-muted/40 transition-colors"
-                    >
-                        <div className="flex items-center gap-2 min-w-0">
-                            <ChevronDown
-                                className={cn('w-4 h-4 shrink-0 transition-transform', !open && '-rotate-90')}
-                            />
-                            <History className="w-4 h-4 shrink-0 text-muted-foreground" />
-                            <div className="min-w-0">
-                                <p className="font-semibold text-sm">Historial de la semana</p>
-                                <p className="text-xs text-muted-foreground truncate">
-                                    Últimos {WINDOW_DAYS} días · {arrivals} llegada{arrivals === 1 ? '' : 's'} y{' '}
-                                    {departures} salida{departures === 1 ? '' : 's'}
-                                </p>
-                            </div>
-                        </div>
+            <CollapsibleTrigger asChild>
+                <button
+                    type="button"
+                    title={`Últimos ${WINDOW_DAYS} días: ${arrivals} llegadas y ${departures} salidas`}
+                    className={cn(
+                        'flex items-center gap-1.5 h-9 px-2.5 rounded-xl text-xs font-medium',
+                        'text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors',
+                        open && 'bg-muted text-foreground',
+                    )}
+                >
+                    <History className="w-3.5 h-3.5 shrink-0" />
+                    <span className="hidden lg:inline">Historial</span>
+                    <span className="flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 tabular-nums">
+                        <LogIn className="w-3 h-3" />
+                        {arrivals}
+                    </span>
+                    <span className="flex items-center gap-0.5 text-amber-600 dark:text-amber-500 tabular-nums">
+                        <LogOut className="w-3 h-3" />
+                        {departures}
+                    </span>
+                </button>
+            </CollapsibleTrigger>
 
-                        {/* En mobile los totales ya están en el subtítulo, así que el título
-                            se queda con todo el ancho. */}
-                        <div className="hidden sm:flex items-center gap-1.5 shrink-0">
-                            <Badge variant="outline" className="gap-1 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900">
-                                <LogIn className="w-3 h-3" />
-                                {arrivals}
-                            </Badge>
-                            <Badge variant="outline" className="gap-1 text-amber-600 dark:text-amber-500 border-amber-200 dark:border-amber-900">
-                                <LogOut className="w-3 h-3" />
-                                {departures}
-                            </Badge>
-                        </div>
-                    </button>
-                </CollapsibleTrigger>
-            </div>
-
-            <CollapsibleContent className="absolute bottom-full left-0 right-0 mb-2 z-20 rounded-2xl border bg-card shadow-2xl overflow-hidden">
+            {/* Abre hacia abajo y anclado a la derecha: el botón ahora vive
+                arriba de la pantalla, no abajo. */}
+            <CollapsibleContent className="absolute top-full right-0 mt-2 z-30 w-[min(28rem,90vw)] rounded-2xl border bg-card shadow-2xl overflow-hidden">
                     <div className="max-h-[min(24rem,45vh)] overflow-y-auto">
                         {days.length === 0 && (
                             <p className="text-sm text-muted-foreground p-4">

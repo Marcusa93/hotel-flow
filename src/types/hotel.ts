@@ -13,7 +13,7 @@ export type UserRole = 'admin' | 'reception' | 'housekeeping' | 'auditor';
 export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'CANCELLED' | 'OVERDUE';
 export type InvoiceItemType = 'ACCOMMODATION' | 'SERVICE' | 'EXTRA' | 'OTHER';
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'STATUS_CHANGE';
-export type AuditEntityType = 'booking' | 'guest' | 'room' | 'payment' | 'invoice' | 'housekeeping_task' | 'rate' | 'expense' | 'hotel_settings' | 'booking_charge' | 'logbook_entry' | 'cash_closing' | 'minibar_item' | 'minibar_movement';
+export type AuditEntityType = 'booking' | 'guest' | 'room' | 'payment' | 'invoice' | 'housekeeping_task' | 'rate' | 'expense' | 'hotel_settings' | 'booking_charge' | 'logbook_entry' | 'cash_closing' | 'minibar_item' | 'minibar_movement' | 'cash_adjustment';
 
 export type ChargeCategory =
   | 'MINIBAR' | 'LAVANDERIA' | 'ESTACIONAMIENTO' | 'ROOM_SERVICE'
@@ -500,6 +500,28 @@ export interface CashSession {
   snapCashToDeposit?: number;
   snapTotalIncome?: number;
   snapTotalExpenses?: number;
+  createdAt: Date;
+}
+
+/**
+ * Un ajuste manual de la caja diaria: un renglón con signo por método.
+ *
+ * Positivo entra plata a ese método, negativo sale. Un cambio de método son
+ * dos ajustes atados por `transferGroup` (-X en el origen, +X en el destino),
+ * que netean cero. A qué turno pertenece lo decide `createdAt` contra el
+ * intervalo del turno, igual que los gastos y los ingresos externos.
+ */
+export interface CashAdjustment {
+  id: string;
+  method: SettlementMethod;
+  /** Con signo: positivo entra, negativo sale. Nunca cero. */
+  amount: number;
+  /** Obligatorio: el renglón es el rastro, y un ajuste sin motivo no explica nada. */
+  reason: string;
+  /** Las dos patas de un cambio de método comparten este id. */
+  transferGroup?: string;
+  createdBy?: string;
+  createdByName?: string;
   createdAt: Date;
 }
 

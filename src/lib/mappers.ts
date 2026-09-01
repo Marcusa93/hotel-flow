@@ -156,6 +156,17 @@ export const otherIncomeToRow = (income: Partial<OtherIncome>): DbRow => {
   return row;
 };
 
+export const mapCashAdjustment = (row: DbRow): import('@/types/hotel').CashAdjustment => ({
+  id: row.id,
+  method: row.method,
+  amount: Number(row.amount),
+  reason: row.reason,
+  transferGroup: row.transfer_group || undefined,
+  createdBy: row.created_by || undefined,
+  createdByName: row.created_by_name || undefined,
+  createdAt: new Date(row.created_at || new Date()),
+});
+
 export const mapPayment = (row: DbRow): Payment => ({
   id: row.id,
   bookingId: row.booking_id,

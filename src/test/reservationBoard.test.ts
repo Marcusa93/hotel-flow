@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildBoard, isCurrentDeparture } from '@/lib/reservationBoard';
+import { buildBoard, groupByProximity, isCurrentDeparture } from '@/lib/reservationBoard';
 import type { Booking } from '@/types/hotel';
 
 const HOY = new Date('2026-07-29T00:00:00');
@@ -118,5 +118,113 @@ describe('buildBoard', () => {
         });
 
         expect(board.columns.CHECKED_IN.map(b => b.id)).toEqual(['colgada']);
+    });
+});
+
+
+// La columna de Pendientes tiene 81 reservas repartidas en tres meses, y en
+// pantalla entran una y media. Sin puntos de referencia, scrollearla es a
+// ciegas: no sabés si lo que estás mirando llega el martes o en noviembre.
+
+describe('groupByProximity', () => {
+    const AGOSTO = (d: number) => new Date(2026, 7, d, 0, 0, 0);
+    const HOY_AGOSTO = AGOSTO(25);
+
+    /** n reservas que entran el día d. */
+    const llegan = (d: number, n = 1): Booking[] =>
+        Array.from({ length: n }, (_, i) => reserva({
+            id: `b-${d}-${i}`, status: 'PENDING',
+            checkInDate: AGOSTO(d), checkOutDate: AGOSTO(d + 2),
+        }));
+
+    const agrupar = (bookings: Booking[], status: 'PENDING' | 'CHECKED_OUT' = 'PENDING') =>
+        groupByProximity({ bookings, status, today: HOY_AGOSTO });
+
+    it('parte la columna en tramos por cercanía a hoy', () => {
+        const grupos = agrupar([
+            ...llegan(25, 2),   // hoy
+            ...llegan(28, 3),   // esta semana
+            ...llegan(40, 4),   // dentro de 30 días — septiembre
+            ...llegan(120, 3),  // más adelante
+        ]);
+
+        expect(grupos.map(g => g.key)).toEqual(['hoy', 'semana', 'mes', 'despues']);
+        expect(grupos.map(g => g.bookings.length)).toEqual([2, 3, 4, 3]);
+        expect(grupos[0].label).toBe('Llegan hoy');
+        expect(grupos[3].label).toBe('Más adelante');
+    });
+
+    // Podría ahorrarse el título cuando hay uno solo, pero entonces unas
+    // columnas arrancarían con separador y otras con una tarjeta, y las cuatro
+    // quedarían corridas entre sí. Con un tramo por columna, las tarjetas
+    // empiezan todas a la misma altura.
+    it('devuelve un tramo aunque caigan todas en el mismo', () => {
+        // Día 45 de agosto = 14 de septiembre: +20 días de hoy, todas en 'mes'.
+        const grupos = agrupar(llegan(45, 20));
+        expect(grupos).toHaveLength(1);
+        expect(grupos[0].key).toBe('mes');
+    });
+
+    it('agrupa igual una columna corta', () => {
+        const grupos = agrupar([...llegan(25, 2), ...llegan(90, 2)]);
+        expect(grupos.map(g => g.key)).toEqual(['hoy', 'despues']);
+    });
+
+    it('una columna vacía no devuelve tramos', () => {
+        expect(agrupar([])).toEqual([]);
+    });
+
+    it('el borde de la semana son 7 días, y el del mes 30', () => {
+        const grupos = agrupar([
+            ...llegan(26, 3),   // mañana
+            ...llegan(32, 3),   // +7 → última de "esta semana"
+            ...llegan(33, 3),   // +8 → ya es "próximos 30 días"
+            ...llegan(55, 2),   // +30 → última de "próximos 30 días"
+            ...llegan(56, 2),   // +31 → más adelante
+        ]);
+
+        expect(grupos.map(g => [g.key, g.bookings.length])).toEqual([
+            ['semana', 6], ['mes', 5], ['despues', 2],
+        ]);
+    });
+
+    it('lo que quedó atrasado va primero y se nombra como tal', () => {
+        const grupos = agrupar([
+            ...llegan(20, 3),   // ya pasó y sigue pendiente
+            ...llegan(26, 8),
+        ]);
+
+        expect(grupos[0].key).toBe('atrasadas');
+        expect(grupos[0].label).toBe('Ya deberían haber llegado');
+    });
+
+    // El botón "Últimos arriba" invierte el orden del tablero. Los tramos salen
+    // en el orden en que aparecen, así que se dan vuelta solos.
+    it('sigue el orden en que vienen las reservas', () => {
+        const alReves = [...llegan(120, 3), ...llegan(40, 4), ...llegan(25, 4)];
+        expect(agrupar(alReves).map(g => g.key)).toEqual(['despues', 'mes', 'hoy']);
+    });
+
+    it('la columna de salidas agrupa por la fecha de salida, no la de entrada', () => {
+        const salidas = Array.from({ length: 12 }, (_, i) => reserva({
+            id: `s-${i}`, status: 'CHECKED_OUT',
+            // Todas entraron el mismo día; se van en fechas distintas.
+            checkInDate: AGOSTO(20),
+            checkOutDate: i < 5 ? AGOSTO(25) : AGOSTO(29),
+        }));
+
+        const grupos = groupByProximity({ bookings: salidas, status: 'CHECKED_OUT', today: HOY_AGOSTO });
+        expect(grupos.map(g => [g.label, g.bookings.length])).toEqual([
+            ['Salieron hoy', 5], ['Salen esta semana', 7],
+        ]);
+    });
+
+    it('no pierde ni duplica ninguna reserva', () => {
+        const todas = [...llegan(25, 4), ...llegan(30, 5), ...llegan(90, 6)];
+        const grupos = agrupar(todas);
+        const ids = grupos.flatMap(g => g.bookings.map(b => b.id));
+
+        expect(ids).toHaveLength(todas.length);
+        expect(new Set(ids).size).toBe(todas.length);
     });
 });

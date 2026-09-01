@@ -1,6 +1,6 @@
 import type {
-  CashClosing, CashSession, CashSource, CurrentAccountPayment, Expense, OtherIncome,
-  Payment, SettlementMethod,
+  CashAdjustment, CashClosing, CashSession, CashSource, CurrentAccountPayment, Expense,
+  OtherIncome, Payment, SettlementMethod,
 } from '@/types/hotel';
 import { isCurrentAccountPayment } from '@/lib/currentAccount';
 import { formatLocalDate } from '@/lib/utils';
@@ -333,8 +333,110 @@ export function sessionAt(
     .find(s => belongsToSessionInterval(instant, s));
 }
 
+/**
+ * Cuánto mueven los ajustes manuales, por método y en total.
+ *
+ * Los montos vienen con signo, así que acá solo se suma: un cambio de método
+ * (-X efectivo, +X transferencia) mueve los renglones y deja el total en cero;
+ * un retiro baja el método y el total juntos.
+ */
+export function adjustmentTotals(adjustments: CashAdjustment[]): {
+  byMethod: Record<string, number>;
+  total: number;
+} {
+  const byMethod: Record<string, number> = {};
+  let total = 0;
+  for (const a of adjustments) {
+    byMethod[a.method] = (byMethod[a.method] || 0) + a.amount;
+    total += a.amount;
+  }
+  return { byMethod, total };
+}
+
+/** Un ajuste listo para mostrar: el cambio de método junta sus dos patas. */
+export type AdjustmentGroup =
+  | {
+      kind: 'CAMBIO';
+      /** Los ids de las dos patas, para borrarlas juntas. */
+      ids: string[];
+      fromMethod: SettlementMethod;
+      toMethod: SettlementMethod;
+      /** Siempre positivo: lo que se movió de un método al otro. */
+      amount: number;
+      reason: string;
+      createdAt: Date;
+      createdByName?: string;
+    }
+  | {
+      kind: 'AJUSTE';
+      ids: string[];
+      method: SettlementMethod;
+      /** Con signo: negativo es un retiro, positivo plata que entra. */
+      amount: number;
+      reason: string;
+      createdAt: Date;
+      createdByName?: string;
+    };
+
+/**
+ * Los ajustes agrupados para la pantalla y el papel impreso.
+ *
+ * Las dos patas de un cambio de método son un solo hecho —"pasé $50.000 de
+ * efectivo a transferencia"— y mostrarlas como dos renglones sueltos obliga a
+ * reconstruirlo de memoria. Si una pata quedó huérfana (borrada a mano en la
+ * base, o un insert a medias), se muestra como ajuste suelto: mentir un cambio
+ * completo sería peor que mostrar la verdad incómoda.
+ */
+export function groupAdjustments(adjustments: CashAdjustment[]): AdjustmentGroup[] {
+  const byGroup = new Map<string, CashAdjustment[]>();
+  const singles: CashAdjustment[] = [];
+  for (const a of adjustments) {
+    if (!a.transferGroup) {
+      singles.push(a);
+      continue;
+    }
+    const legs = byGroup.get(a.transferGroup) || [];
+    legs.push(a);
+    byGroup.set(a.transferGroup, legs);
+  }
+
+  const groups: AdjustmentGroup[] = [];
+  for (const legs of byGroup.values()) {
+    const negative = legs.find((l) => l.amount < 0);
+    const positive = legs.find((l) => l.amount > 0);
+    if (legs.length === 2 && negative && positive) {
+      groups.push({
+        kind: 'CAMBIO',
+        ids: [negative.id, positive.id],
+        fromMethod: negative.method,
+        toMethod: positive.method,
+        amount: positive.amount,
+        reason: positive.reason,
+        createdAt: positive.createdAt,
+        createdByName: positive.createdByName,
+      });
+    } else {
+      singles.push(...legs);
+    }
+  }
+
+  for (const a of singles) {
+    groups.push({
+      kind: 'AJUSTE',
+      ids: [a.id],
+      method: a.method,
+      amount: a.amount,
+      reason: a.reason,
+      createdAt: a.createdAt,
+      createdByName: a.createdByName,
+    });
+  }
+
+  return groups.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+}
+
 /** De dónde salió un renglón de ingreso del turno. */
-export type IncomeSource = 'COBRO' | 'EXTERNO' | 'CTA_CTE';
+export type IncomeSource = 'COBRO' | 'EXTERNO' | 'CTA_CTE' | 'AJUSTE';
 
 /** Un movimiento de plata del turno, listo para mostrar. */
 export interface IncomeRow {
@@ -375,6 +477,7 @@ export function sessionIncomeRows({
   payments = [],
   otherIncome = [],
   accountPayments = [],
+  adjustments = [],
   paymentDetail = () => 'Cobro',
   accountPaymentDetail = () => 'Cuenta corriente',
 }: {
@@ -382,6 +485,12 @@ export function sessionIncomeRows({
   payments?: Payment[];
   otherIncome?: OtherIncome[];
   accountPayments?: CurrentAccountPayment[];
+  /**
+   * Los ajustes manuales de caja, con signo. Van en el detalle porque los
+   * totales de arriba los incluyen, y la promesa de esta lista es que sumarla
+   * dé exactamente ese total.
+   */
+  adjustments?: CashAdjustment[];
   /** Cómo nombrar un cobro: quién pagó y en qué habitación. Lo resuelve la pantalla. */
   paymentDetail?: (payment: Payment) => string;
   accountPaymentDetail?: (payment: CurrentAccountPayment) => string;
@@ -430,6 +539,21 @@ export function sessionIncomeRows({
       source: 'CTA_CTE',
       method: p.method,
       amount: p.amount,
+      toAccount: false,
+    });
+  }
+
+  for (const a of adjustments) {
+    const instant = new Date(a.createdAt);
+    if (!belongsToSessionInterval(instant, session)) continue;
+    rows.push({
+      id: a.id,
+      instant,
+      detail: a.reason,
+      source: 'AJUSTE',
+      method: a.method,
+      // Con signo: la pata que sale resta en el detalle igual que en el total.
+      amount: a.amount,
       toAccount: false,
     });
   }

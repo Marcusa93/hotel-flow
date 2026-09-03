@@ -12,7 +12,9 @@ import { useRoomOperations } from '@/hooks/domain/useRoomOperations';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useOtherIncome, useCreateOtherIncome, useDeleteOtherIncome } from '@/hooks/useOtherIncome';
 import { useCurrentAccountPayments } from '@/hooks/useCurrentAccount';
+import { useAllBookingCharges } from '@/hooks/useAllBookingCharges';
 import { isCurrentAccountPayment } from '@/lib/currentAccount';
+import { buildOutstandingRows } from '@/lib/bookingAccount';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
 import {
   useCashSessions,
@@ -34,11 +36,9 @@ import {
   cashToDeposit as computeCashToDeposit,
   adjustmentTotals,
   belongsToDailyCash,
-  belongsToSession,
   belongsToSessionInterval,
   groupAdjustments,
   nextSessionStart,
-  sessionDateRange,
   sessionIncomeRows,
   EXPENSE_METHOD_ORDER,
   type AdjustmentGroup,
@@ -98,6 +98,9 @@ export default function CierreCaja() {
   const closeSession = useCloseCashSession();
   const reopenSession = useReopenCashSession();
   const { data: allAdjustments = [] } = useCashAdjustments();
+  // Los consumos: sin ellos la deuda de abajo no ve la heladera ni las noches
+  // que se agregaron al extender la estadía.
+  const { data: charges = [] } = useAllBookingCharges();
   const createAdjustment = useCreateCashAdjustment();
   const deleteAdjustment = useDeleteCashAdjustment();
 
@@ -117,10 +120,6 @@ export default function CierreCaja() {
   const viewedSession = selectedId
     ? allSessions.find((s) => s.id === selectedId)
     : (openTurn ?? allSessions[0] ?? null);
-
-  const { start: rangeStart, end: rangeEnd } = viewedSession
-    ? sessionDateRange(viewedSession)
-    : { start: '', end: '' };
 
   // ─── Formulario de apertura ───────────────────────────────────────────
   const [openingInput, setOpeningInput] = useState('');
@@ -247,26 +246,56 @@ export default function CierreCaja() {
     return { list, ...summarizeExpenses(list) };
   }, [allExpenses, viewedSession]);
 
+  /**
+   * Quién debe plata, ahora mismo.
+   *
+   * Antes esta lista filtraba por día de check-in dentro del turno, así que no
+   * mostraba "quién debe" sino "de los que entraron en estos días, quién debe".
+   * El huésped que entró ayer y se va pasado desaparecía del DEBE apenas se
+   * abría el turno de la mañana: la deuda seguía existiendo y la pantalla decía
+   * "Sin deudas". La lista ahora arranca en el check-in de cada uno y lo
+   * sostiene hasta que salda.
+   *
+   * El saldo sale de buildOutstandingRows, el mismo cálculo que Finanzas. El de
+   * antes era totalAmount menos lo cobrado y se equivocaba en las dos
+   * direcciones: escondía los consumos y las noches agregadas, e inventaba
+   * deuda por el descuento aplicado al cobrar.
+   *
+   * Los que ya se fueron van aparte y no arriba de todo: se cobran distinto
+   * —hay que salir a buscarlos— y mezclados inflan el número que recepción lee
+   * como "lo que puedo cobrar hoy en el mostrador".
+   *
+   * No depende del turno a propósito: es la foto de este momento, y el título
+   * lo dice. Un turno viejo muestra la deuda de hoy, no la que había ese día.
+   */
   const deuda = useMemo(() => {
-    const rows: { name: string; room: string; owed: number }[] = [];
-    let total = 0;
-    for (const b of bookings) {
-      const d = formatLocalDate(new Date(b.checkInDate));
-      if (!belongsToSession(d, rangeStart, rangeEnd)) continue;
-      if (b.status === 'CANCELLED' || b.status === 'NO_SHOW') continue;
-      const paid = payments
-        .filter((p) => p.bookingId === b.id && p.status === 'PAID')
-        .reduce((s, p) => s + p.amount, 0);
-      const owed = (b.totalAmount || 0) - paid;
-      if (owed > 0) {
-        const guest = guests.find((g) => g.id === b.guestId);
-        const room = rooms.find((r) => r.id === b.roomId);
-        rows.push({ name: guest?.fullName || 'Huésped', room: room?.roomNumber || '-', owed });
-        total += owed;
-      }
-    }
-    return { rows, total };
-  }, [bookings, payments, guests, rooms, rangeStart, rangeEnd]);
+    const bookingById = new Map(bookings.map((b) => [b.id, b]));
+    const filas = buildOutstandingRows({ bookings, payments, charges })
+      .map((row) => {
+        const b = bookingById.get(row.bookingId);
+        const guest = b ? guests.find((g) => g.id === b.guestId) : undefined;
+        const room = b ? rooms.find((r) => r.id === b.roomId) : undefined;
+        return {
+          name: guest?.fullName || 'Huésped',
+          room: room?.roomNumber || '-',
+          owed: row.balance,
+          departed: row.departed,
+        };
+      })
+      .sort((a, b) => b.owed - a.owed);
+
+    const alojados = filas.filter((r) => !r.departed);
+    const salidos = filas.filter((r) => r.departed);
+    const sumar = (rs: typeof filas) => rs.reduce((s, r) => s + r.owed, 0);
+
+    return {
+      alojados,
+      salidos,
+      alojadosTotal: sumar(alojados),
+      salidosTotal: sumar(salidos),
+      total: sumar(filas),
+    };
+  }, [bookings, payments, charges, guests, rooms]);
 
   /**
    * Los cheques del turno: cuántos y por cuánto.
@@ -454,9 +483,17 @@ export default function CierreCaja() {
     const expenseDetailRows = expenses.list
       .map((e) => `<tr><td>${h(EXPENSE_TYPE_LABELS[e.expenseType] || e.expenseType)}${e.description ? ` — ${h(e.description)}` : ''}<br><span class="muted">${h((e.method ? PAYMENT_METHOD_LABELS[e.method] || e.method : 'sin especificar') + cajaLabel(e))}</span></td><td class="num">${money(e.amount)}</td></tr>`)
       .join('') || '<tr><td colspan="2">Sin gastos</td></tr>';
-    const deudaRows = deuda.rows
-      .map((r) => `<tr><td>${h(r.name)} — Hab. ${h(r.room)}</td><td class="num">${money(r.owed)}</td></tr>`)
-      .join('') || '<tr><td colspan="2">Sin deudas</td></tr>';
+    const deudaFila = (r: { name: string; room: string; owed: number }) =>
+      `<tr><td>${h(r.name)} — Hab. ${h(r.room)}</td><td class="num">${money(r.owed)}</td></tr>`;
+    // Los que ya se fueron van en su propio bloque: en el papel que se rinde,
+    // mezclarlos con los alojados hace que el total se lea como cobrable hoy.
+    const deudaRows = (deuda.alojados.map(deudaFila).join('')
+        || '<tr><td colspan="2">Ningún huésped alojado debe plata</td></tr>')
+      + (deuda.salidos.length > 0
+        ? `<tr class="tot"><td>Total alojados</td><td class="num">${money(deuda.alojadosTotal)}</td></tr>`
+          + '<tr><td colspan="2" class="muted">Ya se fueron debiendo</td></tr>'
+          + deuda.salidos.map(deudaFila).join('')
+        : '');
     const otherIncomeRows = otherIncomeSession
       .map((o) => `<tr><td>${h(o.description)} (${h(PAYMENT_METHODS.find(m => m.value === o.method)?.label || o.method)})</td><td class="num">${money(o.amount)}</td></tr>`)
       .join('') || '<tr><td colspan="2">Sin ingresos externos</td></tr>';
@@ -511,7 +548,7 @@ export default function CierreCaja() {
     <h2>Detalle de gastos</h2><table>${expenseDetailRows}</table>
     <h2>Ingresos externos</h2><table>${otherIncomeRows}</table>
     <h2>Ajustes de caja</h2><table>${adjustmentRows}</table>
-    <h2>Deudas (DEBE)</h2><table>${deudaRows}
+    <h2>Deudas (DEBE) — al ${format(new Date(), 'dd/MM/yyyy')}</h2><table>${deudaRows}
       <tr class="tot"><td>Total deuda</td><td class="num">${money(deuda.total)}</td></tr></table>
     <h2>Resultado del turno</h2><table>
       <tr class="tot grand"><td>Total del turno (ingresos − gastos)</td><td class="num">${money(totalDelDia)}</td></tr></table>
@@ -873,20 +910,44 @@ export default function CierreCaja() {
             </CardContent>
           </Card>
 
-          {/* Deudas */}
+          {/* Deudas. No es del turno: es de este momento, por eso la fecha en el
+              título. Un turno viejo muestra lo que se debe hoy. */}
           <Card className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border-white/20 shadow-sm">
-            <CardHeader><CardTitle className="text-base">Deudas del turno (DEBE)</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Deudas (DEBE) <span className="font-normal text-muted-foreground">— al {format(new Date(), "d 'de' MMMM", { locale: es })}</span>
+              </CardTitle>
+            </CardHeader>
             <CardContent className="space-y-2">
-              {deuda.rows.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-2">Sin deudas registradas en este turno</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">En el hotel</p>
+              {deuda.alojados.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">Ningún huésped alojado debe plata</p>
               ) : (
-                deuda.rows.map((r, i) => (
+                deuda.alojados.map((r, i) => (
                   <div key={i} className="flex justify-between text-sm py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
                     <span className="text-muted-foreground">{r.name} — Hab. {r.room}</span>
                     <span className="font-medium tabular-nums text-amber-600">{money(r.owed)}</span>
                   </div>
                 ))
               )}
+
+              {/* Solo cuando hay: una sección vacía permanente entrena a saltearla */}
+              {deuda.salidos.length > 0 && (
+                <>
+                  <div className="flex justify-between pt-2 border-t text-sm">
+                    <span className="text-muted-foreground">Total alojados</span>
+                    <span className="font-medium tabular-nums text-amber-600">{money(deuda.alojadosTotal)}</span>
+                  </div>
+                  <p className="pt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ya se fueron debiendo</p>
+                  {deuda.salidos.map((r, i) => (
+                    <div key={i} className="flex justify-between text-sm py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                      <span className="text-muted-foreground">{r.name} — Hab. {r.room}</span>
+                      <span className="font-medium tabular-nums text-rose-600">{money(r.owed)}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+
               <div className="flex justify-between pt-2 border-t font-bold">
                 <span>Total deuda</span>
                 <span className="text-amber-600 tabular-nums">{money(deuda.total)}</span>

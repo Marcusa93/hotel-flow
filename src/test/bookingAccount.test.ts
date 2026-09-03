@@ -3,6 +3,7 @@ import {
     buildBookingAccount,
     buildAccountsByBooking,
     buildOutstandingTotals,
+    buildOutstandingRows,
     paymentState,
     paymentStateLabel,
 } from '@/lib/bookingAccount';
@@ -306,6 +307,103 @@ describe('buildOutstandingTotals', () => {
 
         expect(totals.outstanding).toBe(100_000);
         expect(totals.outstandingCount).toBe(1);
+    });
+});
+
+describe('buildOutstandingRows', () => {
+    it('el que entró ayer y se va mañana sigue en la lista', () => {
+        // La queja del dueño: cinco huéspedes entraron un día, se iban dos días
+        // después y el cierre decía "Sin deudas". La lista filtraba por día de
+        // check-in dentro del turno, así que al abrir la caja de la mañana los
+        // de ayer se caían. Lo que decide es el saldo, no la fecha de entrada.
+        const rows = buildOutstandingRows({
+            bookings: [
+                { id: 'b1', totalAmount: 100_000, status: 'CHECKED_IN' },
+                { id: 'b2', totalAmount: 80_000, status: 'CHECKED_IN' },
+            ],
+            payments: [payment({ bookingId: 'b2', amount: 30_000 })],
+        });
+
+        expect(rows).toEqual([
+            { bookingId: 'b1', balance: 100_000, departed: false },
+            { bookingId: 'b2', balance: 50_000, departed: false },
+        ]);
+    });
+
+    it('no lista al que ya pagó todo', () => {
+        const rows = buildOutstandingRows({
+            bookings: [{ id: 'b1', totalAmount: 100_000, status: 'CHECKED_IN' }],
+            payments: [payment({ bookingId: 'b1', amount: 100_000 })],
+        });
+
+        expect(rows).toEqual([]);
+    });
+
+    it('lista al que tiene la habitación paga y los consumos no', () => {
+        // Con la cuenta vieja del cierre —total menos cobrado— esto daba 0 y el
+        // huésped salía sin que nadie le cobrara la heladera.
+        const rows = buildOutstandingRows({
+            bookings: [{ id: 'b1', totalAmount: 240_000, status: 'CHECKED_IN' }],
+            payments: [payment({ bookingId: 'b1', amount: 240_000 })],
+            charges: [{ bookingId: 'b1', amount: 80_000, quantity: 2 }],
+        });
+
+        expect(rows).toEqual([{ bookingId: 'b1', balance: 160_000, departed: false }]);
+    });
+
+    it('no inventa deuda por el descuento aplicado al cobrar', () => {
+        // El otro error de la cuenta vieja, en la dirección contraria: el cupón
+        // aparecía en el DEBE como si el huésped lo debiera.
+        const rows = buildOutstandingRows({
+            bookings: [{ id: 'b1', totalAmount: 255_000, status: 'CHECKED_IN' }],
+            payments: [payment({ bookingId: 'b1', amount: 204_000, discountAmount: 51_000 })],
+        });
+
+        expect(rows).toEqual([]);
+    });
+
+    it('marca al que ya se fue debiendo', () => {
+        const rows = buildOutstandingRows({
+            bookings: [{ id: 'b1', totalAmount: 50_000, status: 'CHECKED_OUT' }],
+            payments: [],
+        });
+
+        expect(rows).toEqual([{ bookingId: 'b1', balance: 50_000, departed: true }]);
+    });
+
+    it('deja afuera lo que todavía no empezó, y lo cancelado', () => {
+        const rows = buildOutstandingRows({
+            bookings: [
+                { id: 'diciembre', totalAmount: 900_000, status: 'CONFIRMED' },
+                { id: 'a-confirmar', totalAmount: 300_000, status: 'PENDING' },
+                { id: 'cancelada', totalAmount: 100_000, status: 'CANCELLED' },
+                { id: 'no-vino', totalAmount: 100_000, status: 'NO_SHOW' },
+            ],
+            payments: [],
+        });
+
+        expect(rows).toEqual([]);
+    });
+
+    it('las filas suman lo mismo que los totales de Finanzas', () => {
+        // Las dos pantallas tienen que dar el mismo número para la misma noche:
+        // es la razón de que compartan el cálculo.
+        const params = {
+            bookings: [
+                { id: 'adentro', totalAmount: 100_000, status: 'CHECKED_IN' },
+                { id: 'salido', totalAmount: 50_000, status: 'CHECKED_OUT' },
+                { id: 'diciembre', totalAmount: 900_000, status: 'CONFIRMED' },
+            ],
+            payments: [payment({ bookingId: 'adentro', amount: 20_000 })],
+            charges: [{ bookingId: 'salido', amount: 5_000, quantity: 1 }],
+        };
+        const rows = buildOutstandingRows(params);
+        const totals = buildOutstandingTotals(params);
+
+        expect(rows.reduce((s, r) => s + r.balance, 0)).toBe(totals.outstanding);
+        expect(rows.length).toBe(totals.outstandingCount);
+        expect(rows.filter((r) => r.departed).reduce((s, r) => s + r.balance, 0))
+            .toBe(totals.departedDebt);
     });
 });
 

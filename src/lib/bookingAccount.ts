@@ -204,6 +204,60 @@ interface BuildOutstandingParams {
     charges?: (Pick<BookingCharge, 'amount' | 'quantity'> & { bookingId: string })[];
 }
 
+/** Una reserva devengada a la que le falta cobrarle. */
+export interface OutstandingRow {
+    bookingId: string;
+    /** Lo que falta cobrar, con los consumos sumados y los descuentos restados */
+    balance: number;
+    /** El huésped ya se fue: esta deuda no se cobra sola, se persigue */
+    departed: boolean;
+}
+
+/**
+ * Qué reserva debe plata y cuánta. Devengado es alojado o ya salido.
+ *
+ * Es la regla de "quién debe", en un solo lugar: los totales de Finanzas la
+ * usan para sumar y el cierre de caja para nombrar a cada deudor. Cuando cada
+ * pantalla tenía la suya, el cierre imprimía un total que no coincidía con el
+ * de Finanzas para la misma noche.
+ */
+const outstandingRowsFrom = (
+    bookings: BuildOutstandingParams['bookings'],
+    accounts: Map<string, BookingAccount>
+): OutstandingRow[] => {
+    const rows: OutstandingRow[] = [];
+
+    for (const booking of bookings) {
+        // CANCELLED y NO_SHOW quedan afuera solas: no son ni alojados ni salidos.
+        if (booking.status !== 'CHECKED_IN' && booking.status !== 'CHECKED_OUT') continue;
+
+        const balance = accounts.get(booking.id)?.balance ?? 0;
+        if (balance <= 0) continue;
+
+        rows.push({
+            bookingId: booking.id,
+            balance,
+            departed: booking.status === 'CHECKED_OUT',
+        });
+    }
+
+    return rows;
+};
+
+/**
+ * Los deudores uno por uno, para las pantallas que los nombran.
+ *
+ * El cierre de caja necesita la lista y no solo el total: el recepcionista que
+ * rinde el turno tiene que saber a quién ir a cobrarle. Sale del mismo cálculo
+ * que `buildOutstandingTotals` para que las dos pantallas no puedan discrepar.
+ */
+export const buildOutstandingRows = ({
+    bookings,
+    payments,
+    charges = [],
+}: BuildOutstandingParams): OutstandingRow[] =>
+    outstandingRowsFrom(bookings, buildAccountsByBooking({ bookings, payments, charges }));
+
 /**
  * Cuánta plata falta cobrar, mirando las reservas y no los pagos.
  *
@@ -233,19 +287,18 @@ export const buildOutstandingTotals = ({
         upcoming: 0,
     };
 
+    for (const row of outstandingRowsFrom(bookings, accounts)) {
+        totals.outstanding += row.balance;
+        totals.outstandingCount += 1;
+        if (row.departed) totals.departedDebt += row.balance;
+    }
+
     for (const booking of bookings) {
         if (booking.status === 'CANCELLED' || booking.status === 'NO_SHOW') continue;
+        if (booking.status === 'CHECKED_IN' || booking.status === 'CHECKED_OUT') continue;
 
         const balance = accounts.get(booking.id)?.balance ?? 0;
-        if (balance <= 0) continue;
-
-        if (booking.status === 'CHECKED_IN' || booking.status === 'CHECKED_OUT') {
-            totals.outstanding += balance;
-            totals.outstandingCount += 1;
-            if (booking.status === 'CHECKED_OUT') totals.departedDebt += balance;
-        } else {
-            totals.upcoming += balance;
-        }
+        if (balance > 0) totals.upcoming += balance;
     }
 
     return totals;

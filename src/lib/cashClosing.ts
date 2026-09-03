@@ -242,37 +242,14 @@ export function closingForDay(
   return closings.find(c => formatLocalDate(c.closingDate) === day);
 }
 
-/**
- * Rango de fechas de un turno de caja.
- *
- * Un turno puede abarcar más de un día (turno noche: lunes 22h → martes 10h).
- * El rango es la fecha de apertura hasta la fecha de cierre inclusive, en local.
- * Si el turno sigue abierto, `end` es hoy.
- */
-export function sessionDateRange(session: {
-  openedAt: Date;
-  closedAt?: Date;
-}): { start: string; end: string } {
-  return {
-    start: formatLocalDate(session.openedAt),
-    end: session.closedAt ? formatLocalDate(session.closedAt) : formatLocalDate(new Date()),
-  };
-}
-
-/**
- * Si un día calendario cae dentro del rango de días del turno.
- *
- * Es para las listas informativas (las deudas por día de check-in), no para la
- * plata: los movimientos de plata entran por `belongsToSessionInterval`, que
- * corta por instante. Este corte por día entero cuenta el día del cierre en los
- * dos turnos que lo comparten, y para la plata eso es rendirla dos veces.
- *
- * Strings en formato ISO ordenan lexicográficamente igual que por fecha,
- * así que la comparación directa funciona.
- */
-export function belongsToSession(movementDay: string, start: string, end: string): boolean {
-  return movementDay >= start && movementDay <= end;
-}
+// Acá vivían sessionDateRange y belongsToSession, el corte por día entero del
+// turno. Su único consumidor era la lista de deudas del cierre, que filtraba
+// las reservas por día de check-in: mostraba "de los que entraron en estos
+// días, quién debe" cuando lo que hacía falta era "quién debe". El huésped que
+// entraba un día y se iba tres después figuraba una sola vez y desaparecía sin
+// haber pagado. Esa lista ahora sale de buildOutstandingRows, que pregunta por
+// el saldo y no por la fecha, así que el corte por día quedó sin nadie que lo
+// use. La plata nunca cortó por día: va por belongsToSessionInterval, acá abajo.
 
 /**
  * Si un movimiento de plata entra en un turno: por el INSTANTE, no por el día.

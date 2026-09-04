@@ -247,30 +247,20 @@ export default function CierreCaja() {
   }, [allExpenses, viewedSession]);
 
   /**
-   * Quién debe plata, ahora mismo.
+   * Quién debe plata de los huéspedes que están en el hotel ahora mismo.
    *
-   * Antes esta lista filtraba por día de check-in dentro del turno, así que no
-   * mostraba "quién debe" sino "de los que entraron en estos días, quién debe".
-   * El huésped que entró ayer y se va pasado desaparecía del DEBE apenas se
-   * abría el turno de la mañana: la deuda seguía existiendo y la pantalla decía
-   * "Sin deudas". La lista ahora arranca en el check-in de cada uno y lo
-   * sostiene hasta que salda.
+   * Solo CHECKED_IN: el hotel siempre cobra en el checkout, así que un
+   * huésped que ya se fue y debe plata no es algo que recepción pueda resolver
+   * desde esta pantalla. Mostrarlos solo genera confusión con deudas viejas.
    *
-   * El saldo sale de buildOutstandingRows, el mismo cálculo que Finanzas. El de
-   * antes era totalAmount menos lo cobrado y se equivocaba en las dos
-   * direcciones: escondía los consumos y las noches agregadas, e inventaba
-   * deuda por el descuento aplicado al cobrar.
-   *
-   * Los que ya se fueron van aparte y no arriba de todo: se cobran distinto
-   * —hay que salir a buscarlos— y mezclados inflan el número que recepción lee
-   * como "lo que puedo cobrar hoy en el mostrador".
-   *
-   * No depende del turno a propósito: es la foto de este momento, y el título
-   * lo dice. Un turno viejo muestra la deuda de hoy, no la que había ese día.
+   * El saldo sale de buildOutstandingRows, el mismo cálculo que Finanzas:
+   * totalAmount + cargos − descuentos − cobrado. Así las dos pantallas siempre
+   * muestran el mismo número para la misma reserva.
    */
   const deuda = useMemo(() => {
+    const alojados = bookings.filter((b) => b.status === 'CHECKED_IN');
     const bookingById = new Map(bookings.map((b) => [b.id, b]));
-    const filas = buildOutstandingRows({ bookings, payments, charges })
+    const filas = buildOutstandingRows({ bookings: alojados, payments, charges })
       .map((row) => {
         const b = bookingById.get(row.bookingId);
         const guest = b ? guests.find((g) => g.id === b.guestId) : undefined;
@@ -279,22 +269,12 @@ export default function CierreCaja() {
           name: guest?.fullName || 'Huésped',
           room: room?.roomNumber || '-',
           owed: row.balance,
-          departed: row.departed,
         };
       })
       .sort((a, b) => b.owed - a.owed);
 
-    const alojados = filas.filter((r) => !r.departed);
-    const salidos = filas.filter((r) => r.departed);
-    const sumar = (rs: typeof filas) => rs.reduce((s, r) => s + r.owed, 0);
-
-    return {
-      alojados,
-      salidos,
-      alojadosTotal: sumar(alojados),
-      salidosTotal: sumar(salidos),
-      total: sumar(filas),
-    };
+    const total = filas.reduce((s, r) => s + r.owed, 0);
+    return { filas, total };
   }, [bookings, payments, charges, guests, rooms]);
 
   /**
@@ -483,17 +463,9 @@ export default function CierreCaja() {
     const expenseDetailRows = expenses.list
       .map((e) => `<tr><td>${h(EXPENSE_TYPE_LABELS[e.expenseType] || e.expenseType)}${e.description ? ` — ${h(e.description)}` : ''}<br><span class="muted">${h((e.method ? PAYMENT_METHOD_LABELS[e.method] || e.method : 'sin especificar') + cajaLabel(e))}</span></td><td class="num">${money(e.amount)}</td></tr>`)
       .join('') || '<tr><td colspan="2">Sin gastos</td></tr>';
-    const deudaFila = (r: { name: string; room: string; owed: number }) =>
-      `<tr><td>${h(r.name)} — Hab. ${h(r.room)}</td><td class="num">${money(r.owed)}</td></tr>`;
-    // Los que ya se fueron van en su propio bloque: en el papel que se rinde,
-    // mezclarlos con los alojados hace que el total se lea como cobrable hoy.
-    const deudaRows = (deuda.alojados.map(deudaFila).join('')
-        || '<tr><td colspan="2">Ningún huésped alojado debe plata</td></tr>')
-      + (deuda.salidos.length > 0
-        ? `<tr class="tot"><td>Total alojados</td><td class="num">${money(deuda.alojadosTotal)}</td></tr>`
-          + '<tr><td colspan="2" class="muted">Ya se fueron debiendo</td></tr>'
-          + deuda.salidos.map(deudaFila).join('')
-        : '');
+    const deudaRows = deuda.filas
+      .map((r) => `<tr><td>${h(r.name)} — Hab. ${h(r.room)}</td><td class="num">${money(r.owed)}</td></tr>`)
+      .join('') || '<tr><td colspan="2">Sin deudas pendientes</td></tr>';
     const otherIncomeRows = otherIncomeSession
       .map((o) => `<tr><td>${h(o.description)} (${h(PAYMENT_METHODS.find(m => m.value === o.method)?.label || o.method)})</td><td class="num">${money(o.amount)}</td></tr>`)
       .join('') || '<tr><td colspan="2">Sin ingresos externos</td></tr>';
@@ -910,44 +882,24 @@ export default function CierreCaja() {
             </CardContent>
           </Card>
 
-          {/* Deudas. No es del turno: es de este momento, por eso la fecha en el
-              título. Un turno viejo muestra lo que se debe hoy. */}
+          {/* Deudas de huéspedes alojados: solo CHECKED_IN */}
           <Card className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border-white/20 shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">
-                Deudas (DEBE) <span className="font-normal text-muted-foreground">— al {format(new Date(), "d 'de' MMMM", { locale: es })}</span>
+                Deudas de huéspedes en el hotel
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">En el hotel</p>
-              {deuda.alojados.length === 0 ? (
+              {deuda.filas.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-2">Ningún huésped alojado debe plata</p>
               ) : (
-                deuda.alojados.map((r, i) => (
+                deuda.filas.map((r, i) => (
                   <div key={i} className="flex justify-between text-sm py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
                     <span className="text-muted-foreground">{r.name} — Hab. {r.room}</span>
                     <span className="font-medium tabular-nums text-amber-600">{money(r.owed)}</span>
                   </div>
                 ))
               )}
-
-              {/* Solo cuando hay: una sección vacía permanente entrena a saltearla */}
-              {deuda.salidos.length > 0 && (
-                <>
-                  <div className="flex justify-between pt-2 border-t text-sm">
-                    <span className="text-muted-foreground">Total alojados</span>
-                    <span className="font-medium tabular-nums text-amber-600">{money(deuda.alojadosTotal)}</span>
-                  </div>
-                  <p className="pt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ya se fueron debiendo</p>
-                  {deuda.salidos.map((r, i) => (
-                    <div key={i} className="flex justify-between text-sm py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
-                      <span className="text-muted-foreground">{r.name} — Hab. {r.room}</span>
-                      <span className="font-medium tabular-nums text-rose-600">{money(r.owed)}</span>
-                    </div>
-                  ))}
-                </>
-              )}
-
               <div className="flex justify-between pt-2 border-t font-bold">
                 <span>Total deuda</span>
                 <span className="text-amber-600 tabular-nums">{money(deuda.total)}</span>

@@ -9,6 +9,7 @@ import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRates } from '@/hooks/useRates';
+import { discountableBase, type BookingAccount } from '@/lib/bookingAccount';
 import {
   Dialog,
   DialogContent,
@@ -70,15 +71,20 @@ interface RegisterPaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   bookingId: string;
-  pendingAmount: number;
+  /**
+   * La cuenta entera y no solo el saldo: para saber sobre cuánto puede caer un
+   * descuento hay que poder separar la habitación de los consumos.
+   */
+  account: BookingAccount;
 }
 
 export function RegisterPaymentDialog({
   open,
   onOpenChange,
   bookingId,
-  pendingAmount
+  account
 }: RegisterPaymentDialogProps) {
+  const pendingAmount = account.balance;
   const { addPayment, payments } = usePaymentOperations();
   const { data: rates = [] } = useRates();
   const { bookings } = useBookingOperations();
@@ -145,12 +151,15 @@ export function RegisterPaymentDialog({
     });
   }, [rates]);
 
-  // Calculate discount
+  // El descuento cae sobre lo que queda por pagar de la habitación, no sobre el
+  // monto entero: ver discountableBase. Antes un 20% sobre una cuenta con
+  // heladera descontaba también los consumos.
   const calculateDiscount = (promo: Rate, amount: number): number => {
+    const base = discountableBase(account, amount);
     if (promo.discountType === 'FIXED' && promo.discountAmount) {
-      return Math.min(promo.discountAmount, amount);
+      return Math.min(promo.discountAmount, base);
     } else if (promo.discountPercent) {
-      return amount * (promo.discountPercent / 100);
+      return base * (promo.discountPercent / 100);
     }
     return 0;
   };
@@ -170,6 +179,17 @@ export function RegisterPaymentDialog({
     const matching = availablePromos.find(p => p.promoCode?.toUpperCase() === code);
 
     if (matching) {
+      // Con la habitación ya cubierta no queda sobre qué descontar: aplicarlo
+      // diría "código aplicado" y no movería un peso, y el recepcionista se
+      // quedaría esperando un descuento que nunca llega.
+      if (calculateDiscount(matching, originalAmount) <= 0) {
+        toast({
+          title: 'El código no aplica acá',
+          description: 'El descuento es sobre el alojamiento, y esta reserva ya lo tiene cubierto. Los consumos no llevan descuento.',
+          variant: 'destructive',
+        });
+        return;
+      }
       setAppliedPromo(matching);
       toast({
         title: '🎉 Código aplicado',
@@ -435,6 +455,14 @@ export function RegisterPaymentDialog({
                   </span>
                   <span>-${discount.toLocaleString('es-AR')}</span>
                 </div>
+                {/* Con consumos en la cuenta, el número descontado no es el
+                    porcentaje del monto de arriba y parece un error de cálculo.
+                    Decir sobre qué cayó evita el llamado a administración. */}
+                {account.extras > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Aplicado sobre el alojamiento. Los consumos (${account.extras.toLocaleString('es-AR')}) no llevan descuento.
+                  </p>
+                )}
                 <div className="flex justify-between font-bold text-lg pt-2 border-t border-emerald-200 dark:border-emerald-800">
                   <span>Total a pagar</span>
                   <span className="text-emerald-600">${finalAmount.toLocaleString('es-AR')}</span>

@@ -4,6 +4,7 @@ import {
     buildAccountsByBooking,
     buildOutstandingTotals,
     buildOutstandingRows,
+    discountableBase,
     paymentState,
     paymentStateLabel,
 } from '@/lib/bookingAccount';
@@ -181,6 +182,79 @@ describe('paymentState', () => {
 
         expect(paymentState(account)).toBe('paid');
         expect(paymentStateLabel(account)).toBe('Pagado');
+    });
+});
+
+describe('discountableBase', () => {
+    it('el descuento no toca los consumos', () => {
+        // La queja del admin: habitación $100.000 y $20.000 de heladera. Un 20%
+        // sobre el monto entero descontaba $24.000 y regalaba parte del minibar.
+        // Sobre el alojamiento son $20.000.
+        const account = buildBookingAccount({
+            booking: { totalAmount: 100_000 },
+            charges: [{ amount: 20_000, quantity: 1 }],
+        });
+
+        expect(account.balance).toBe(120_000);
+        expect(discountableBase(account, 120_000)).toBe(100_000);
+    });
+
+    it('sin consumos, descuenta sobre todo el monto', () => {
+        const account = buildBookingAccount({ booking: { totalAmount: 100_000 } });
+
+        expect(discountableBase(account, 100_000)).toBe(100_000);
+    });
+
+    it('con la habitación ya paga no queda nada para descontar', () => {
+        // Lo cobrado cubre primero el alojamiento: si alcanzó para taparlo, lo
+        // que falta son consumos y el cupón no tiene sobre qué caer.
+        const account = buildBookingAccount({
+            booking: { totalAmount: 100_000 },
+            payments: [payment({ amount: 100_000 })],
+            charges: [{ amount: 20_000, quantity: 1 }],
+        });
+
+        expect(account.balance).toBe(20_000);
+        expect(discountableBase(account, 20_000)).toBe(0);
+    });
+
+    it('con la habitación a medio pagar, descuenta solo lo que queda de ella', () => {
+        const account = buildBookingAccount({
+            booking: { totalAmount: 100_000 },
+            payments: [payment({ amount: 60_000 })],
+            charges: [{ amount: 20_000, quantity: 1 }],
+        });
+
+        expect(account.balance).toBe(60_000);
+        expect(discountableBase(account, 60_000)).toBe(40_000);
+    });
+
+    it('un cobro parcial no arrastra el descuento de lo que no se cobra', () => {
+        const account = buildBookingAccount({
+            booking: { totalAmount: 100_000 },
+            charges: [{ amount: 20_000, quantity: 1 }],
+        });
+
+        expect(discountableBase(account, 30_000)).toBe(30_000);
+    });
+
+    it('un descuento ya aplicado antes no se vuelve a descontar', () => {
+        const account = buildBookingAccount({
+            booking: { totalAmount: 100_000 },
+            payments: [payment({ amount: 40_000, discountAmount: 20_000 })],
+            charges: [{ amount: 20_000, quantity: 1 }],
+        });
+
+        expect(discountableBase(account, 60_000)).toBe(40_000);
+    });
+
+    it('no devuelve negativo si se cobró de más', () => {
+        const account = buildBookingAccount({
+            booking: { totalAmount: 100_000 },
+            payments: [payment({ amount: 150_000 })],
+        });
+
+        expect(discountableBase(account, 10_000)).toBe(0);
     });
 });
 

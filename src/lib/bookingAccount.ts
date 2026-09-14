@@ -137,6 +137,27 @@ export const paymentStateLabel = (account: BookingAccount): string => {
     }
 };
 
+/**
+ * Sobre cuánta plata puede caer un descuento de promoción.
+ *
+ * El descuento es sobre la habitación, no sobre la cuenta. Aplicar un 20% a una
+ * reserva con la heladera cargada se llevaba también los consumos: la promoción
+ * del hotel terminaba regalando el minibar, que no está en promoción y que
+ * además ya se pagó al proveedor.
+ *
+ * Lo cobrado cubre primero el alojamiento y después los extras —la misma
+ * convención que usa `paymentState` para distinguir "falta cobrar la
+ * habitación" de "la habitación está paga, faltan los consumos"—, así que lo
+ * que queda de habitación es su total menos todo lo que ya la cubrió.
+ *
+ * Nunca pasa del monto que se está cobrando: un cobro parcial no puede arrastrar
+ * el descuento de lo que todavía no se cobró.
+ */
+export const discountableBase = (account: BookingAccount, amount: number): number => {
+    const lodgingOwed = Math.max(0, account.lodging - account.paid - account.discount);
+    return Math.min(Math.max(0, amount), lodgingOwed);
+};
+
 interface BuildAccountsByBookingParams {
     bookings: Pick<Booking, 'id' | 'totalAmount'>[];
     payments: (SettleablePayment & { bookingId?: string })[];

@@ -796,7 +796,7 @@ export default function BookingDetail() {
         open={isPaymentDialogOpen}
         onOpenChange={setIsPaymentDialogOpen}
         bookingId={booking.id}
-        pendingAmount={pendingAmount}
+        account={account}
       />
 
       {editingDatePayment && (

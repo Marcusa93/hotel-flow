@@ -19,7 +19,9 @@ import {
   ShieldCheck,
   Car,
   Pencil,
-  CalendarPlus
+  CalendarPlus,
+  CalendarMinus,
+  Coffee,
 } from 'lucide-react';
 import { PAYMENT_METHOD_LABELS } from '@/lib/constants';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
@@ -31,7 +33,8 @@ import { useHousekeepingTasks } from '@/hooks/domain/useHousekeepingOperations';
 import { useCheckInOccupancy } from '@/hooks/useCheckInOccupancy';
 import { CheckInOccupancy } from '@/components/bookings/CheckInOccupancy';
 import { getRoomCheckInWarning, checkInConfirmLabel } from '@/lib/roomReadiness';
-import { totalOccupants } from '@/lib/occupancyPricing';
+import { totalOccupants, getBookingPricing, halfDayTotal, billableGuests } from '@/lib/occupancyPricing';
+import { useCreateBookingCharge } from '@/hooks/useCreateBookingCharge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -60,6 +63,7 @@ import { EditPaymentMethodDialog } from '@/components/payments/EditPaymentMethod
 import { CheckoutDialog } from '@/components/bookings/CheckoutDialog';
 import { EditBookingDialog } from '@/components/bookings/EditBookingDialog';
 import { ExtendStayDialog } from '@/components/bookings/ExtendStayDialog';
+import { ShortenStayDialog } from '@/components/bookings/ShortenStayDialog';
 import { BookingChargesSection } from '@/components/bookings/BookingChargesSection';
 import { BookingQRCode } from '@/components/bookings/BookingQRCode';
 import { useBookingCharges } from '@/hooks/useBookingCharges';
@@ -85,6 +89,9 @@ export default function BookingDetail() {
   const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isExtendDialogOpen, setIsExtendDialogOpen] = useState(false);
+  const [isShortenDialogOpen, setIsShortenDialogOpen] = useState(false);
+  const [isAddingHalfDay, setIsAddingHalfDay] = useState(false);
+  const createCharge = useCreateBookingCharge();
   const [cancelReason, setCancelReason] = useState('');
   const { data: bookingCharges = [] } = useBookingCharges(id);
   const { data: housekeepingTasks = [] } = useHousekeepingTasks();
@@ -162,6 +169,36 @@ export default function BookingDetail() {
     (new Date(booking.checkOutDate).getTime() - new Date(booking.checkInDate).getTime()) /
     (1000 * 60 * 60 * 24)
   );
+
+  const halfDayPrice = halfDayTotal(
+    getBookingPricing(roomTypes, booking.roomType, booking, booking.pricingRoomTypeId)?.nightlyPrice
+    ?? booking.roomType.basePrice
+  );
+
+  const handleAddHalfDay = async () => {
+    setIsAddingHalfDay(true);
+    try {
+      await createCharge.mutateAsync({
+        bookingId: booking.id,
+        category: 'ALOJAMIENTO',
+        description: `Media estadía adicional — ${format(new Date(booking.checkOutDate), "d 'de' MMMM", { locale: es })}`,
+        amount: halfDayPrice,
+        quantity: 1,
+      });
+      toast({
+        title: 'Media estadía agregada',
+        description: `$${halfDayPrice.toLocaleString('es-AR')} cargados a la cuenta de ${booking.guest.fullName.split(' ')[0]}.`,
+      });
+    } catch (e) {
+      toast({
+        title: 'No se pudo agregar la media estadía',
+        description: e instanceof Error ? e.message : 'Intentá nuevamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAddingHalfDay(false);
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-1">
@@ -301,17 +338,50 @@ export default function BookingDetail() {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-              {/* Editar está apagado una vez adentro; sin esto, el huésped que
-                  pide una noche más no tiene dónde cargarse.
-
-                  En una media estadía no se ofrece: agregarle noches la
-                  convertiría en otra cosa —el CHECK de la base pide que entrada
-                  y salida sean el mismo día— y el precio dejaría de ser el 50%.
-                  El que se queda a dormir es una reserva nueva. */}
+              {/* En una media estadía no se ofrecen los botones de fechas:
+                  agregarle noches la convertiría en otra cosa y el CHECK de
+                  la base pide que entrada y salida sean el mismo día. */}
               {!booking.isHalfDay && (
-                <Button variant="outline" onClick={() => setIsExtendDialogOpen(true)} className="rounded-full">
-                  <CalendarPlus className="w-4 h-4 mr-2" /> Extender estadía
-                </Button>
+                <>
+                  {nights > 1 && (
+                    <Button variant="outline" onClick={() => setIsShortenDialogOpen(true)} className="rounded-full">
+                      <CalendarMinus className="w-4 h-4 mr-2" /> Acortar estadía
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={() => setIsExtendDialogOpen(true)} className="rounded-full">
+                    <CalendarPlus className="w-4 h-4 mr-2" /> Extender estadía
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" className="rounded-full">
+                        <Coffee className="w-4 h-4 mr-2" /> Agregar media estadía
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Agregar media estadía</AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                          <div className="space-y-2">
+                            <p>
+                              Se agrega un cargo de <strong>${halfDayPrice.toLocaleString('es-AR')}</strong> a la
+                              cuenta de <strong>{booking.guest.fullName.split(' ')[0]}</strong> por una media estadía
+                              adicional (50% de la tarifa {billableGuests(booking)} personas).
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              El monto aparecerá en Consumos / Extras de la reserva.
+                            </p>
+                          </div>
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleAddHalfDay} disabled={isAddingHalfDay}>
+                          Agregar cargo
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
               )}
             </>
           )}
@@ -832,6 +902,12 @@ export default function BookingDetail() {
       <ExtendStayDialog
         open={isExtendDialogOpen}
         onOpenChange={setIsExtendDialogOpen}
+        booking={booking}
+      />
+
+      <ShortenStayDialog
+        open={isShortenDialogOpen}
+        onOpenChange={setIsShortenDialogOpen}
         booking={booking}
       />
     </div>

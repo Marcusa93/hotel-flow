@@ -201,6 +201,12 @@ export interface Booking {
    */
   isHalfDay?: boolean;
   /**
+   * Estadía y media: N noches más un medio día extra al final. El precio es
+   * noches × tarifa + 50% de la tarifa. Compatible con promociones y tarifa
+   * especial; exclusivo con isHalfDay.
+   */
+  halfDayAdd?: boolean;
+  /**
    * La reserva masiva a la que pertenece, si es de un contingente.
    *
    * La reserva sigue siendo de UNA habitación: el grupo solo la une con las

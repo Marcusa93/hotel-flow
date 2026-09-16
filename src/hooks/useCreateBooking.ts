@@ -33,6 +33,7 @@ export const useCreateBooking = () => {
                     // migración, mandar la columna en toda reserva rompería
                     // también las normales. Mismo criterio que la promo.
                     ...(bookingData.isHalfDay ? { is_half_day: true } : {}),
+                    ...(bookingData.halfDayAdd ? { half_day_add: true } : {}),
                     // Solo cuando la reserva es de un contingente, por lo mismo
                     // que la media estadía: mandar la columna siempre rompería
                     // la reserva normal si el código sale antes que la migración.
@@ -89,6 +90,7 @@ export const useCreateBooking = () => {
                 pricingRoomTypeId: data.pricing_room_type_id || undefined,
                 isFullHotel: data.is_full_hotel ?? false,
                 isHalfDay: data.is_half_day ?? false,
+                halfDayAdd: data.half_day_add ?? false,
                 groupId: data.group_id || undefined,
                 specialRateReason: data.special_rate_reason || undefined,
                 specialRatePending: data.special_rate_pending ?? false,

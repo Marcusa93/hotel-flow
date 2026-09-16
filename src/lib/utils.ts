@@ -73,9 +73,10 @@ export function guestsLabel(count: number): string {
  * la ficha decía "0 noches". Va en un solo lugar para que la ficha, el tablero y
  * los carteles de confirmar digan lo mismo.
  */
-export function stayLengthLabel(nights: number, isHalfDay = false): string {
+export function stayLengthLabel(nights: number, isHalfDay = false, halfDayAdd = false): string {
   if (isHalfDay) return 'Media estadía';
-  return `${nights} ${nights === 1 ? 'noche' : 'noches'}`;
+  const base = `${nights} ${nights === 1 ? 'noche' : 'noches'}`;
+  return halfDayAdd ? `${base} y media` : base;
 }
 
 /** Escape HTML special characters to prevent XSS in document.write() contexts */

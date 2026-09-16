@@ -34,7 +34,6 @@ import { useCheckInOccupancy } from '@/hooks/useCheckInOccupancy';
 import { CheckInOccupancy } from '@/components/bookings/CheckInOccupancy';
 import { getRoomCheckInWarning, checkInConfirmLabel } from '@/lib/roomReadiness';
 import { totalOccupants, getBookingPricing, halfDayTotal, billableGuests } from '@/lib/occupancyPricing';
-import { useCreateBookingCharge } from '@/hooks/useCreateBookingCharge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -91,7 +90,6 @@ export default function BookingDetail() {
   const [isExtendDialogOpen, setIsExtendDialogOpen] = useState(false);
   const [isShortenDialogOpen, setIsShortenDialogOpen] = useState(false);
   const [isAddingHalfDay, setIsAddingHalfDay] = useState(false);
-  const createCharge = useCreateBookingCharge();
   const [cancelReason, setCancelReason] = useState('');
   const { data: bookingCharges = [] } = useBookingCharges(id);
   const { data: housekeepingTasks = [] } = useHousekeepingTasks();
@@ -175,19 +173,26 @@ export default function BookingDetail() {
     ?? booking.roomType.basePrice
   );
 
+  /**
+   * El medio día que el huésped se queda de más, sobre una reserva ya empezada.
+   *
+   * Va como estadía y media —la marca más el total— y no como cargo suelto. Era
+   * un cargo, y eso rompía tres cosas: el botón nunca se ocultaba porque nada
+   * ponía la marca que lo esconde, así que el mismo medio día se podía cobrar
+   * dos y tres veces; el anti-overbooking no veía que la habitación quedaba
+   * tomada hasta las 18:00 del día de salida; y la ficha seguía diciendo
+   * "2 noches" cuando eran dos y media. Es alojamiento, no un consumo.
+   */
   const handleAddHalfDay = async () => {
     setIsAddingHalfDay(true);
     try {
-      await createCharge.mutateAsync({
-        bookingId: booking.id,
-        category: 'ALOJAMIENTO',
-        description: `Media estadía adicional — ${format(new Date(booking.checkOutDate), "d 'de' MMMM", { locale: es })}`,
-        amount: halfDayPrice,
-        quantity: 1,
+      await updateBooking(booking.id, {
+        halfDayAdd: true,
+        totalAmount: (booking.totalAmount || 0) + halfDayPrice,
       });
       toast({
         title: 'Media estadía agregada',
-        description: `$${halfDayPrice.toLocaleString('es-AR')} cargados a la cuenta de ${booking.guest.fullName.split(' ')[0]}.`,
+        description: `$${halfDayPrice.toLocaleString('es-AR')} sumados al alojamiento de ${booking.guest.fullName.split(' ')[0]}.`,
       });
     } catch (e) {
       toast({
@@ -369,7 +374,7 @@ export default function BookingDetail() {
                               adicional (50% de la tarifa {billableGuests(booking)} personas).
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              El monto aparecerá en Consumos / Extras de la reserva.
+                              Se suma al alojamiento y la reserva pasa a figurar como estadía y media.
                             </p>
                           </div>
                         </AlertDialogDescription>

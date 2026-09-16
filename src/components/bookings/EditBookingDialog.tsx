@@ -278,6 +278,10 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
           bookedTierNightly: bookedPricing.nightlyPrice,
           specialRateNightly,
           isHalfDay,
+          // Sin esto, editar una estadía y media recalculaba el total por
+          // noches enteras y el medio día se caía de la cuenta: el hotel lo
+          // regalaba por cambiarle la habitación al huésped.
+          halfDayAdd: booking.halfDayAdd === true,
           promo,
           discountRatio: bookingDiscountRatio(booking),
         })

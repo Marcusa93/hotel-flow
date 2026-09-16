@@ -439,6 +439,51 @@ describe('media estadía', () => {
         expect(stayTotal(80_000, 0, false)).toBe(0);
     });
 
+    it('estadía y media: las noches enteras más medio día', () => {
+        // Lo que pidió el hotel: "lo que corresponde a la reserva y media".
+        // Dos noches de $80.000 más el 50% de una = $200.000.
+        expect(stayTotal(80_000, 2, false, true)).toBe(200_000);
+        expect(stayTotal(80_000, 1, false, true)).toBe(120_000);
+    });
+
+    it('media estadía y estadía y media son excluyentes: manda la media', () => {
+        // isHalfDay no tiene noches; si llegaran las dos marcas juntas, cobrar
+        // noches más medio día inventaría una estadía que no existe.
+        expect(stayTotal(80_000, 0, true, true)).toBe(40_000);
+    });
+
+    it('sin la marca, el total no cambia', () => {
+        expect(stayTotal(80_000, 2, false, false)).toBe(stayTotal(80_000, 2, false));
+    });
+
+    it('el medio día se suma también sobre la tarifa especial', () => {
+        expect(
+            resolveEditedTotal({
+                agreedTotal: 160_000,
+                agreedNights: 2,
+                nights: 2,
+                tierNightly: 80_000,
+                bookedTierNightly: 80_000,
+                specialRateNightly: 50_000,
+                halfDayAdd: true,
+            })
+        ).toBe(2 * 50_000 + 40_000);
+    });
+
+    it('el medio día de la estadía y media va sobre el tramo, no sobre la promoción', () => {
+        // El 50% es de la tarifa de la habitación. Calcularlo sobre el precio ya
+        // promocionado descontaría la promo dos veces sobre el medio día.
+        const conMedia = {
+            agreedTotal: 160_000,
+            agreedNights: 2,
+            nights: 2,
+            tierNightly: 80_000,
+            bookedTierNightly: 80_000,
+            halfDayAdd: true,
+        };
+        expect(resolveEditedTotal(conMedia)).toBe(160_000 + 40_000);
+    });
+
     it('editar una media estadía la mantiene a mitad de tramo', () => {
         // Cambiarla de habitación la recotiza sobre el tramo nuevo, siempre al 50%.
         expect(

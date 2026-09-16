@@ -34,7 +34,6 @@ import { useCheckInOccupancy } from '@/hooks/useCheckInOccupancy';
 import { CheckInOccupancy } from '@/components/bookings/CheckInOccupancy';
 import { getRoomCheckInWarning, checkInConfirmLabel } from '@/lib/roomReadiness';
 import { totalOccupants, getBookingPricing, halfDayTotal, billableGuests } from '@/lib/occupancyPricing';
-import { useCreateBookingCharge } from '@/hooks/useCreateBookingCharge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -91,7 +90,6 @@ export default function BookingDetail() {
   const [isExtendDialogOpen, setIsExtendDialogOpen] = useState(false);
   const [isShortenDialogOpen, setIsShortenDialogOpen] = useState(false);
   const [isAddingHalfDay, setIsAddingHalfDay] = useState(false);
-  const createCharge = useCreateBookingCharge();
   const [cancelReason, setCancelReason] = useState('');
   const { data: bookingCharges = [] } = useBookingCharges(id);
   const { data: housekeepingTasks = [] } = useHousekeepingTasks();
@@ -175,19 +173,26 @@ export default function BookingDetail() {
     ?? booking.roomType.basePrice
   );
 
+  /**
+   * El medio día que el huésped se queda de más, sobre una reserva ya empezada.
+   *
+   * Va como estadía y media —la marca más el total— y no como cargo suelto. Era
+   * un cargo, y eso rompía tres cosas: el botón nunca se ocultaba porque nada
+   * ponía la marca que lo esconde, así que el mismo medio día se podía cobrar
+   * dos y tres veces; el anti-overbooking no veía que la habitación quedaba
+   * tomada hasta las 18:00 del día de salida; y la ficha seguía diciendo
+   * "2 noches" cuando eran dos y media. Es alojamiento, no un consumo.
+   */
   const handleAddHalfDay = async () => {
     setIsAddingHalfDay(true);
     try {
-      await createCharge.mutateAsync({
-        bookingId: booking.id,
-        category: 'ALOJAMIENTO',
-        description: `Media estadía adicional — ${format(new Date(booking.checkOutDate), "d 'de' MMMM", { locale: es })}`,
-        amount: halfDayPrice,
-        quantity: 1,
+      await updateBooking(booking.id, {
+        halfDayAdd: true,
+        totalAmount: (booking.totalAmount || 0) + halfDayPrice,
       });
       toast({
         title: 'Media estadía agregada',
-        description: `$${halfDayPrice.toLocaleString('es-AR')} cargados a la cuenta de ${booking.guest.fullName.split(' ')[0]}.`,
+        description: `$${halfDayPrice.toLocaleString('es-AR')} sumados al alojamiento de ${booking.guest.fullName.split(' ')[0]}.`,
       });
     } catch (e) {
       toast({
@@ -225,7 +230,7 @@ export default function BookingDetail() {
             <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm mt-1">
               <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">#{booking.id.slice(0, 8)}</span>
               <span className="hidden md:inline">•</span>
-              <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {stayLengthLabel(nights, booking.isHalfDay)}</span>
+              <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {stayLengthLabel(nights, booking.isHalfDay, booking.halfDayAdd)}</span>
               <span className="hidden md:inline">•</span>
               {/* Cuenta a los menores de 5: dice "huéspedes", no "los que se cobran" */}
               <span className="flex items-center gap-1"><User className="w-3 h-3" /> {totalOccupants(booking)} huéspedes</span>
@@ -245,7 +250,7 @@ export default function BookingDetail() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Confirmar Reserva</AlertDialogTitle>
                   <AlertDialogDescription>
-                    ¿Confirmar la reserva de <strong>{formatLastNameFirst(booking.guest.fullName)}</strong> en la habitación <strong>{booking.room.roomNumber}</strong> por {stayLengthLabel(nights, booking.isHalfDay)} (${booking.totalAmount.toLocaleString('es-AR')})?
+                    ¿Confirmar la reserva de <strong>{formatLastNameFirst(booking.guest.fullName)}</strong> en la habitación <strong>{booking.room.roomNumber}</strong> por {stayLengthLabel(nights, booking.isHalfDay, booking.halfDayAdd)} (${booking.totalAmount.toLocaleString('es-AR')})?
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -351,6 +356,7 @@ export default function BookingDetail() {
                   <Button variant="outline" onClick={() => setIsExtendDialogOpen(true)} className="rounded-full">
                     <CalendarPlus className="w-4 h-4 mr-2" /> Extender estadía
                   </Button>
+                  {!booking.halfDayAdd && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="outline" className="rounded-full">
@@ -368,7 +374,7 @@ export default function BookingDetail() {
                               adicional (50% de la tarifa {billableGuests(booking)} personas).
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              El monto aparecerá en Consumos / Extras de la reserva.
+                              Se suma al alojamiento y la reserva pasa a figurar como estadía y media.
                             </p>
                           </div>
                         </AlertDialogDescription>
@@ -381,6 +387,7 @@ export default function BookingDetail() {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
+                  )}
                 </>
               )}
             </>
@@ -409,7 +416,7 @@ export default function BookingDetail() {
                   <AlertDialogDescription asChild>
                     <div className="space-y-3">
                       <p>
-                        Se cancelará la reserva de <strong>{formatLastNameFirst(booking.guest.fullName)}</strong> (Hab. {booking.room.roomNumber}, {stayLengthLabel(nights, booking.isHalfDay)}, ${booking.totalAmount.toLocaleString()}).
+                        Se cancelará la reserva de <strong>{formatLastNameFirst(booking.guest.fullName)}</strong> (Hab. {booking.room.roomNumber}, {stayLengthLabel(nights, booking.isHalfDay, booking.halfDayAdd)}, ${booking.totalAmount.toLocaleString()}).
                       </p>
                       {totalPaid > 0 && (
                         <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-sm">

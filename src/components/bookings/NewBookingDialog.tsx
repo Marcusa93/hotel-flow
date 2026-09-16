@@ -18,6 +18,7 @@ import {
   selectableTiers,
   describeDownTier,
   stayTotal,
+  halfDayTotal,
 } from '@/lib/occupancyPricing';
 import { getParkingAvailability } from '@/lib/parking';
 import { useHotelSettings } from '@/hooks/useHotelSettings';
@@ -88,6 +89,7 @@ const bookingSchema = z.object({
   specialRateAmount: z.string().optional(),
   specialRateReason: z.string().max(120, 'Motivo demasiado largo').optional(),
   isHalfDay: z.boolean().default(false),
+  halfDayAdd: z.boolean().default(false),
   pricingRoomTypeId: z.string().optional(),
   promoCode: z.string().optional(),
   confirmOverCapacity: z.boolean().optional(),
@@ -180,6 +182,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
       specialRateAmount: '',
       specialRateReason: '',
       isHalfDay: false,
+      halfDayAdd: false,
       pricingRoomTypeId: TARIFA_AUTOMATICA,
       promoCode: '',
       confirmOverCapacity: false,
@@ -206,6 +209,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
   const watchedSpecialRate = form.watch('useSpecialRate');
   const watchedSpecialRateAmount = form.watch('specialRateAmount');
   const watchedHalfDay = form.watch('isHalfDay');
+  const watchedHalfDayAdd = form.watch('halfDayAdd');
   const watchedCheckIn = form.watch('checkInDate');
   const watchedCheckOut = form.watch('checkOutDate');
   const watchedHasVehicle = form.watch('hasVehicle');
@@ -361,7 +365,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
 
   // Calculate pricing
   const basePrice = usesSpecialRate ? specialRate : (occupancyPricing?.nightlyPrice || 0);
-  const baseTotalAmount = stayTotal(basePrice, nights, watchedHalfDay);
+  const baseTotalAmount = stayTotal(basePrice, nights, watchedHalfDay, watchedHalfDayAdd);
 
   // Best automatic promotion (cheapest for the guest, no code required)
   const bestAutoPromo = useMemo(
@@ -398,7 +402,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
     return { effectivePrice: finalPrice, appliedPromo: promo, savings: basePrice - finalPrice };
   }, [basePrice, appliedPromoCode, bestAutoPromo, applicablePromotions, usesSpecialRate, specialRate, watchedHalfDay]);
 
-  const totalAmount = stayTotal(effectivePrice, nights, watchedHalfDay);
+  const totalAmount = stayTotal(effectivePrice, nights, watchedHalfDay, watchedHalfDayAdd);
   const totalSavings = nights * savings;
 
   // Handle promo code application
@@ -550,6 +554,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
         children: data.children,
         infants: data.infants,
         isHalfDay: data.isHalfDay,
+        halfDayAdd: data.halfDayAdd,
         status: 'CONFIRMED',
         totalAmount,
         notes: appliedPromo
@@ -1127,7 +1132,13 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
               render={({ field }) => (
                 <FormItem className="flex flex-row items-start gap-3 space-y-0 p-4 rounded-xl border border-sky-200 dark:border-sky-900/50 bg-sky-50/50 dark:bg-sky-950/20">
                   <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={(v) => {
+                        field.onChange(v);
+                        if (v) form.setValue('halfDayAdd', false);
+                      }}
+                    />
                   </FormControl>
                   <div className="space-y-0.5">
                     <FormLabel className="flex items-center gap-2 cursor-pointer">
@@ -1143,6 +1154,37 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
                 </FormItem>
               )}
             />
+
+            {/* Estadía y media — noches completas + medio día extra al final */}
+            {!watchedHalfDay && (
+              <FormField
+                control={form.control}
+                name="halfDayAdd"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start gap-3 space-y-0 p-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={(v) => {
+                          field.onChange(v);
+                          if (v) form.setValue('isHalfDay', false);
+                        }}
+                      />
+                    </FormControl>
+                    <div className="space-y-0.5">
+                      <FormLabel className="flex items-center gap-2 cursor-pointer">
+                        <Clock className="w-4 h-4 text-amber-500" />
+                        Estadía y media — más un medio día extra al final
+                      </FormLabel>
+                      <FormDescription className="text-xs">
+                        Las noches de la reserva más un medio día adicional. El precio incluye
+                        el 50% de la tarifa extra. Compatible con promociones y tarifa especial.
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            )}
 
             {/* Conflict warning */}
             {!conflicts.available && (
@@ -1595,7 +1637,9 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
                   <span className="text-muted-foreground">
                     {watchedHalfDay
                       ? `Media estadía — 50% de $${basePrice.toLocaleString('es-AR')}`
-                      : `${nights} noche${nights > 1 ? 's' : ''} x $${basePrice.toLocaleString('es-AR')}`}
+                      : watchedHalfDayAdd
+                        ? `${nights} noche${nights > 1 ? 's' : ''} y media x $${basePrice.toLocaleString('es-AR')}`
+                        : `${nights} noche${nights > 1 ? 's' : ''} x $${basePrice.toLocaleString('es-AR')}`}
                   </span>
                   <span className={cn(appliedPromo && "line-through text-muted-foreground")}>
                     ${baseTotalAmount.toLocaleString('es-AR')}
@@ -1606,6 +1650,13 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
                   <p className="text-xs text-sky-600 dark:text-sky-400 flex items-center gap-1">
                     <Clock className="w-3 h-3 shrink-0" />
                     De {halfDayCheckIn} a {halfDayCheckOut}, sin pasar la noche.
+                  </p>
+                )}
+
+                {watchedHalfDayAdd && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <Clock className="w-3 h-3 shrink-0" />
+                    Incluye medio día extra: {nights} noche{nights > 1 ? 's' : ''} × ${basePrice.toLocaleString('es-AR')} + ${halfDayTotal(basePrice).toLocaleString('es-AR')}.
                   </p>
                 )}
 

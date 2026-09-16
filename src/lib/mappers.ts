@@ -130,6 +130,7 @@ export const mapBooking = (row: DbRow): Booking => ({
   isFullHotel: row.is_full_hotel ?? false,
   groupId: row.group_id || undefined,
   isHalfDay: row.is_half_day ?? false,
+  halfDayAdd: row.half_day_add ?? false,
   baseAmount: row.base_amount == null ? undefined : Number(row.base_amount),
   discountAmount: row.discount_amount == null ? undefined : Number(row.discount_amount),
   createdAt: new Date(row.created_at || new Date()),
@@ -376,6 +377,7 @@ export const bookingToRow = (booking: Partial<Booking>): DbRow => {
   if (booking.isFullHotel !== undefined) row.is_full_hotel = booking.isFullHotel;
   if (booking.groupId !== undefined) row.group_id = booking.groupId;
   if (booking.isHalfDay !== undefined) row.is_half_day = booking.isHalfDay;
+  if (booking.halfDayAdd !== undefined) row.half_day_add = booking.halfDayAdd;
   if (booking.status !== undefined) row.status = booking.status;
   if (booking.totalAmount !== undefined) row.total_amount = booking.totalAmount;
   if (booking.notes !== undefined) row.notes = booking.notes;

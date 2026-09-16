@@ -234,7 +234,8 @@ export function halfDayTotal(tierNightly: number): number {
 }
 
 /**
- * El total de una estadía: noches x precio, o la mitad si es media estadía.
+ * El total de una estadía: noches x precio, o la mitad si es media estadía,
+ * o noches + medio día si es estadía y media.
  *
  * La media estadía no tiene noches —entra y sale el mismo día— así que
  * multiplicar por `nights` daría cero. Va por acá y no por un `if` en cada
@@ -243,11 +244,13 @@ export function halfDayTotal(tierNightly: number): number {
 export function stayTotal(
   nightlyPrice: number,
   nights: number,
-  isHalfDay = false
+  isHalfDay = false,
+  halfDayAdd = false
 ): number {
   if (isHalfDay) return halfDayTotal(nightlyPrice);
   if (nights <= 0) return 0;
-  return Math.round(nightlyPrice * nights);
+  const base = Math.round(nightlyPrice * nights);
+  return halfDayAdd ? base + halfDayTotal(nightlyPrice) : base;
 }
 
 export interface EditedTotalInput {
@@ -265,6 +268,8 @@ export interface EditedTotalInput {
   specialRateNightly?: number | null;
   /** Media estadía: sin noches y a mitad de tramo. Manda sobre todo lo demás. */
   isHalfDay?: boolean;
+  /** Estadía y media: agrega 50% al total calculado por noches. */
+  halfDayAdd?: boolean;
   /** La promoción de la reserva, si todavía se puede resolver por rateId */
   promo?: Rate | null;
   /** Proporción descontada. Solo se usa cuando la promoción ya no se resuelve. */
@@ -298,6 +303,7 @@ export function resolveEditedTotal({
   bookedTierNightly,
   specialRateNightly,
   isHalfDay = false,
+  halfDayAdd = false,
   promo,
   discountRatio = 0,
 }: EditedTotalInput): number {
@@ -308,11 +314,13 @@ export function resolveEditedTotal({
 
   if (nights <= 0) return 0;
 
-  if (specialRateNightly != null) return Math.round(specialRateNightly * nights);
+  const extra = halfDayAdd ? halfDayTotal(tierNightly) : 0;
+
+  if (specialRateNightly != null) return Math.round(specialRateNightly * nights) + extra;
 
   // Reserva sin noches: no hay pactado por noche del que partir, así que lo
   // único honesto es la lista de hoy.
-  if (agreedNights <= 0) return Math.round(tierNightly * nights);
+  if (agreedNights <= 0) return Math.round(tierNightly * nights) + extra;
 
   const resolvedNightly =
     resolveCheckInTotal({
@@ -324,5 +332,5 @@ export function resolveEditedTotal({
       discountRatio,
     }) / agreedNights;
 
-  return Math.round(resolvedNightly * nights);
+  return Math.round(resolvedNightly * nights) + extra;
 }

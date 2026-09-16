@@ -4,6 +4,7 @@ import { es } from 'date-fns/locale';
 import { ArrowLeft, CalendarMinus, CalendarIcon, Loader2 } from 'lucide-react';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { formatLastNameFirst, formatPesosInput, parsePesosInput, cn } from '@/lib/utils';
+import { halfDayTotal } from '@/lib/occupancyPricing';
 import type { BookingWithDetails } from '@/types/hotel';
 import {
     Dialog,
@@ -17,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { toast } from '@/hooks/use-toast';
@@ -36,6 +38,12 @@ interface ShortenStayDialogProps {
  *
  * El precio por noche se deriva del total pactado dividido las noches originales,
  * y se puede editar: si se acordó otro monto en el mostrador, se pone a mano.
+ *
+ * El que se va antes rara vez se va a la mañana: usa la habitación hasta el
+ * mediodía del último día. Sin poder cobrar ese medio día había que elegir entre
+ * regalar medio día o cobrar la noche entera que no durmió, así que recepción
+ * terminaba arreglando el número a mano en el precio por noche y el total dejaba
+ * de explicar de dónde salía.
  */
 export function ShortenStayDialog({ open, onOpenChange, booking }: ShortenStayDialogProps) {
     const { updateBooking } = useBookingOperations();
@@ -60,11 +68,13 @@ export function ShortenStayDialog({ open, onOpenChange, booking }: ShortenStayDi
     const [newCheckOut, setNewCheckOut] = useState<Date>(defaultNewCheckOut);
     const [priceText, setPriceText] = useState('');
     const [pricePerNight, setPricePerNight] = useState(0);
+    const [chargeHalfDay, setChargeHalfDay] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (open) {
             setNewCheckOut(defaultNewCheckOut);
+            setChargeHalfDay(false);
             const nightly = originalNights > 0
                 ? Math.round(booking.totalAmount / originalNights)
                 : 0;
@@ -75,7 +85,11 @@ export function ShortenStayDialog({ open, onOpenChange, booking }: ShortenStayDi
 
     const newNights = differenceInDays(newCheckOut, checkIn);
     const nightsRemoved = originalNights - newNights;
-    const newTotal = newNights * pricePerNight;
+    // El medio día sale del mismo precio por noche que se está usando arriba: si
+    // recepción lo corrige a mano, la media acompaña sin quedar sobre la tarifa
+    // vieja. Ver halfDayTotal.
+    const halfDayAmount = chargeHalfDay ? halfDayTotal(pricePerNight) : 0;
+    const newTotal = newNights * pricePerNight + halfDayAmount;
 
     const isValid =
         newNights >= 1 &&
@@ -90,10 +104,13 @@ export function ShortenStayDialog({ open, onOpenChange, booking }: ShortenStayDi
             await updateBooking(booking.id, {
                 checkOutDate: newCheckOut,
                 totalAmount: newTotal,
+                // Queda marcada para que el detalle no ofrezca cobrar el medio
+                // día otra vez y para que la duración diga "y media".
+                halfDayAdd: chargeHalfDay,
             });
             toast({
                 title: 'Estadía acortada',
-                description: `${formatLastNameFirst(booking.guest.fullName)} sale el ${format(newCheckOut, "d 'de' MMMM", { locale: es })} — nuevo total $${newTotal.toLocaleString('es-AR')}.`,
+                description: `${formatLastNameFirst(booking.guest.fullName)} sale el ${format(newCheckOut, "d 'de' MMMM", { locale: es })}${chargeHalfDay ? ' al mediodía' : ''} — nuevo total $${newTotal.toLocaleString('es-AR')}.`,
             });
             onOpenChange(false);
         } catch (e) {
@@ -200,6 +217,26 @@ export function ShortenStayDialog({ open, onOpenChange, booking }: ShortenStayDi
                         </p>
                     </div>
 
+                    {/* El medio día del último día. Se cobra cuando el huésped se
+                        va al mediodía en vez de a la mañana. */}
+                    <div className="flex items-start gap-3 p-3 rounded-xl border border-primary/10 bg-primary/5">
+                        <Checkbox
+                            id="shorten-half-day"
+                            checked={chargeHalfDay}
+                            onCheckedChange={(v) => setChargeHalfDay(v === true)}
+                            className="mt-0.5"
+                        />
+                        <div className="space-y-1">
+                            <Label htmlFor="shorten-half-day" className="cursor-pointer">
+                                Cobrar media estadía del último día
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                                Se fue al mediodía del {format(newCheckOut, "d 'de' MMMM", { locale: es })}: suma el 50% de la noche
+                                {pricePerNight > 0 && ` (+$${halfDayTotal(pricePerNight).toLocaleString('es-AR')})`}.
+                            </p>
+                        </div>
+                    </div>
+
                     {/* Resumen */}
                     <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 space-y-2">
                         <div className="flex justify-between text-sm">
@@ -207,6 +244,12 @@ export function ShortenStayDialog({ open, onOpenChange, booking }: ShortenStayDi
                                 {newNights} noche{newNights === 1 ? '' : 's'} × ${pricePerNight.toLocaleString('es-AR')}
                             </span>
                         </div>
+                        {chargeHalfDay && (
+                            <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Media estadía del último día</span>
+                                <span className="tabular-nums">+${halfDayAmount.toLocaleString('es-AR')}</span>
+                            </div>
+                        )}
                         {nightsRemoved > 0 && (
                             <div className="flex justify-between text-sm text-muted-foreground">
                                 <span>

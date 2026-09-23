@@ -9,7 +9,7 @@ import { usePaymentOperations } from '@/hooks/domain/usePaymentOperations';
 import { useBookingOperations } from '@/hooks/domain/useBookingOperations';
 import { useGuestOperations } from '@/hooks/domain/useGuestOperations';
 import { useRates } from '@/hooks/useRates';
-import { discountableBase, type BookingAccount } from '@/lib/bookingAccount';
+import { discountableBase, applicableDiscount, type BookingAccount } from '@/lib/bookingAccount';
 import {
   Dialog,
   DialogContent,
@@ -151,16 +151,25 @@ export function RegisterPaymentDialog({
     });
   }, [rates]);
 
-  // El descuento cae sobre lo que queda por pagar de la habitación, no sobre el
-  // monto entero: ver discountableBase. Antes un 20% sobre una cuenta con
-  // heladera descontaba también los consumos.
+  // El descuento es de la estadía entera y no del cobro: ver discountableBase.
+  // Cae sobre el alojamiento —los consumos no llevan descuento— y descuenta una
+  // sola vez aunque se cobre en varias veces.
   const calculateDiscount = (promo: Rate, amount: number): number => {
-    const base = discountableBase(account, amount);
-    if (promo.discountType === 'FIXED' && promo.discountAmount) {
-      return Math.min(promo.discountAmount, base);
-    } else if (promo.discountPercent) {
-      return base * (promo.discountPercent / 100);
-    }
+    const base = discountableBase(account);
+    const full =
+      promo.discountType === 'FIXED' && promo.discountAmount
+        ? Math.min(promo.discountAmount, base)
+        : promo.discountPercent
+          ? Math.round(base * (promo.discountPercent / 100))
+          : 0;
+    return applicableDiscount(account, full, amount);
+  };
+
+  /** Lo que el cupón daría sobre la estadía entera, sin los topes del cobro. */
+  const fullPromoDiscount = (promo: Rate): number => {
+    const base = discountableBase(account);
+    if (promo.discountType === 'FIXED' && promo.discountAmount) return Math.min(promo.discountAmount, base);
+    if (promo.discountPercent) return Math.round(base * (promo.discountPercent / 100));
     return 0;
   };
 
@@ -461,6 +470,15 @@ export function RegisterPaymentDialog({
                 {account.extras > 0 && (
                   <p className="text-xs text-muted-foreground">
                     Aplicado sobre el alojamiento. Los consumos (${account.extras.toLocaleString('es-AR')}) no llevan descuento.
+                  </p>
+                )}
+                {/* El cupón llegó con la estadía casi cobrada y no entra entero.
+                    Lo que sobra se pierde: descontarlo dejaría al hotel debiendo
+                    plata. Quien cobra tiene que verlo, no enterarse después. */}
+                {appliedPromo && fullPromoDiscount(appliedPromo) > discount && (
+                  <p className="text-xs text-amber-600">
+                    Al cupón le corresponden ${fullPromoDiscount(appliedPromo).toLocaleString('es-AR')}, pero solo entran $
+                    {discount.toLocaleString('es-AR')} en este cobro: ya se cobró casi toda la estadía.
                   </p>
                 )}
                 <div className="flex justify-between font-bold text-lg pt-2 border-t border-emerald-200 dark:border-emerald-800">

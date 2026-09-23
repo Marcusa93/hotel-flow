@@ -63,8 +63,13 @@ export function getOccupancyPricing(
   // Sin gente cargada todavía no hay nada que decidir: vale la habitación.
   if (billable <= 0 || billable >= roomType.maxGuests) return stay;
 
+  // Un tramo en cero es un precio a medio cargar, no una oferta. Sin
+  // descartarlo se derramaba hacia arriba: con "Hab. 1 persona" sin precio, el
+  // huésped solo salía gratis en la doble, la triple y la cuádruple, que tenían
+  // su precio intacto. Un campo borrado en una tarjeta dejaba regaladas
+  // categorías que el admin ni abrió.
   const cheaperTiers = roomTypes.filter(
-    rt => rt.maxGuests >= billable && rt.maxGuests < roomType.maxGuests
+    rt => rt.maxGuests >= billable && rt.maxGuests < roomType.maxGuests && rt.basePrice > 0
   );
   if (cheaperTiers.length === 0) return stay;
 

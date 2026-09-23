@@ -44,11 +44,27 @@ type SettleablePayment = Pick<Payment, 'amount'> & {
 // usaban ahora arman la cuenta completa; no queda forma de preguntar "¿está
 // pagada?" sin mirar los cargos.
 
+/**
+ * Un cargo, con lo mínimo para saber cuánto suma y de qué lado de la cuenta cae.
+ *
+ * La categoría importa: las noches que agrega "Extender estadía" entran como
+ * cargo igual que una gaseosa, y sin mirarla las dos terminaban del lado de los
+ * consumos. Una noche de hotel no es un consumo —la promoción del huésped tiene
+ * que alcanzarla— y para el mostrador tampoco: "la habitación está paga, faltan
+ * los extras" es falso cuando lo que falta es una noche.
+ */
+type CountableCharge = Pick<BookingCharge, 'amount' | 'quantity'> & {
+    category?: BookingCharge['category'] | string;
+};
+
+/** Si este cargo es alojamiento y no un consumo. */
+const isLodgingCharge = (charge: CountableCharge): boolean => charge.category === 'ALOJAMIENTO';
+
 interface BuildAccountParams {
     booking: Pick<Booking, 'totalAmount'>;
     /** Pagos de ESTA reserva. El filtrado por estado lo hace esta función. */
     payments?: SettleablePayment[];
-    charges?: Pick<BookingCharge, 'amount' | 'quantity'>[];
+    charges?: CountableCharge[];
     /** Cargos de último momento que todavía no están en la base, como el check-out tardío */
     pendingExtra?: number;
 }
@@ -75,8 +91,11 @@ export const buildBookingAccount = ({
 }: BuildAccountParams): BookingAccount => {
     const settled = payments.filter(p => p.status === 'PAID');
 
-    const lodging = booking.totalAmount || 0;
-    const extras = charges.reduce((sum, c) => sum + c.amount * c.quantity, 0) + pendingExtra;
+    const sumar = (list: CountableCharge[]) => list.reduce((sum, c) => sum + c.amount * c.quantity, 0);
+
+    // El total no se mueve: lo que cambia es de qué lado cae cada cargo.
+    const lodging = (booking.totalAmount || 0) + sumar(charges.filter(isLodgingCharge));
+    const extras = sumar(charges.filter(c => !isLodgingCharge(c))) + pendingExtra;
     const total = lodging + extras;
 
     const discount = settled.reduce((sum, p) => sum + (p.discountAmount || 0), 0);
@@ -138,30 +157,48 @@ export const paymentStateLabel = (account: BookingAccount): string => {
 };
 
 /**
- * Sobre cuánta plata puede caer un descuento de promoción.
+ * Sobre cuánto se calcula un descuento de promoción: el alojamiento entero.
  *
- * El descuento es sobre la habitación, no sobre la cuenta. Aplicar un 20% a una
- * reserva con la heladera cargada se llevaba también los consumos: la promoción
- * del hotel terminaba regalando el minibar, que no está en promoción y que
- * además ya se pagó al proveedor.
+ * El descuento es de la estadía, no del cobro. Se calculaba sobre lo que se
+ * estaba cobrando en ese momento, y el que había dejado seña salía perdiendo:
+ * su seña ya se había cobrado a precio de lista, así que el 10% caía nada más
+ * que sobre el saldo. Reserva de $110.000 con $50.000 de seña, cupón del 10%:
+ * descontaba $6.000 en vez de $11.000 y el hotel cobraba $104.000. Peor todavía,
+ * la cuenta cerraba en cero y la ficha decía "Pagado": nada avisaba que al
+ * huésped le habían quedado $5.000 de descuento sin dar.
  *
- * Lo cobrado cubre primero el alojamiento y después los extras —la misma
- * convención que usa `paymentState` para distinguir "falta cobrar la
- * habitación" de "la habitación está paga, faltan los consumos"—, así que lo
- * que queda de habitación es su total menos todo lo que ya la cubrió.
- *
- * Nunca pasa del monto que se está cobrando: un cobro parcial no puede arrastrar
- * el descuento de lo que todavía no se cobró.
+ * Los consumos quedan afuera solos, porque la base es el alojamiento y no el
+ * total: la promoción del hotel no regala el minibar. Las noches que agrega
+ * "Extender estadía" sí entran, que para eso son alojamiento.
  */
-export const discountableBase = (account: BookingAccount, amount: number): number => {
-    const lodgingOwed = Math.max(0, account.lodging - account.paid - account.discount);
-    return Math.min(Math.max(0, amount), lodgingOwed);
+export const discountableBase = (account: BookingAccount): number => account.lodging;
+
+/**
+ * Cuánto de ese descuento entra en este cobro.
+ *
+ * Dos topes, y los dos son plata. Lo ya descontado en cobros anteriores no se
+ * vuelve a descontar: sin esto, el mismo cupón aplicado en la seña y otra vez
+ * en el saldo descontaba dos veces. Y nunca más que lo que se está cobrando,
+ * porque un pago en negativo no existe.
+ *
+ * Cuando el segundo tope recorta —el cupón apareció cuando ya estaba casi todo
+ * cobrado— el descuento que sobra se pierde. Es a propósito: la alternativa es
+ * que el hotel le quede debiendo plata al huésped, y eso se arregla en el
+ * mostrador y no solo. Quien cobra lo ve, porque el diálogo lo dice.
+ */
+export const applicableDiscount = (
+    account: BookingAccount,
+    fullDiscount: number,
+    amount: number
+): number => {
+    const pendiente = Math.max(0, fullDiscount - account.discount);
+    return Math.min(pendiente, Math.max(0, amount));
 };
 
 interface BuildAccountsByBookingParams {
     bookings: Pick<Booking, 'id' | 'totalAmount'>[];
     payments: (SettleablePayment & { bookingId?: string })[];
-    charges?: (Pick<BookingCharge, 'amount' | 'quantity'> & { bookingId: string })[];
+    charges?: (CountableCharge & { bookingId: string })[];
 }
 
 /**
@@ -189,7 +226,7 @@ export const buildAccountsByBooking = ({
         else paymentsByBooking.set(payment.bookingId, [payment]);
     }
 
-    const chargesByBooking = new Map<string, Pick<BookingCharge, 'amount' | 'quantity'>[]>();
+    const chargesByBooking = new Map<string, CountableCharge[]>();
     for (const charge of charges) {
         const list = chargesByBooking.get(charge.bookingId);
         if (list) list.push(charge);
@@ -222,7 +259,7 @@ export interface OutstandingTotals {
 interface BuildOutstandingParams {
     bookings: (Pick<Booking, 'id' | 'totalAmount'> & { status: Booking['status'] | string })[];
     payments: (SettleablePayment & { bookingId?: string })[];
-    charges?: (Pick<BookingCharge, 'amount' | 'quantity'> & { bookingId: string })[];
+    charges?: (CountableCharge & { bookingId: string })[];
 }
 
 /** Una reserva devengada a la que le falta cobrarle. */

@@ -5,6 +5,7 @@ import {
     buildOutstandingTotals,
     buildOutstandingRows,
     discountableBase,
+    applicableDiscount,
     paymentState,
     paymentStateLabel,
 } from '@/lib/bookingAccount';
@@ -185,67 +186,87 @@ describe('paymentState', () => {
     });
 });
 
-describe('discountableBase', () => {
+describe('discountableBase y applicableDiscount', () => {
     it('el descuento no toca los consumos', () => {
         // La queja del admin: habitación $100.000 y $20.000 de heladera. Un 20%
         // sobre el monto entero descontaba $24.000 y regalaba parte del minibar.
         // Sobre el alojamiento son $20.000.
         const account = buildBookingAccount({
             booking: { totalAmount: 100_000 },
-            charges: [{ amount: 20_000, quantity: 1 }],
+            charges: [{ amount: 20_000, quantity: 1, category: 'MINIBAR' }],
         });
 
         expect(account.balance).toBe(120_000);
-        expect(discountableBase(account, 120_000)).toBe(100_000);
+        expect(discountableBase(account)).toBe(100_000);
     });
 
-    it('sin consumos, descuenta sobre todo el monto', () => {
-        const account = buildBookingAccount({ booking: { totalAmount: 100_000 } });
-
-        expect(discountableBase(account, 100_000)).toBe(100_000);
-    });
-
-    it('con la habitación ya paga no queda nada para descontar', () => {
-        // Lo cobrado cubre primero el alojamiento: si alcanzó para taparlo, lo
-        // que falta son consumos y el cupón no tiene sobre qué caer.
+    it('la seña no se queda sin descuento: la base es la estadía entera', () => {
+        // La queja del hotel: reserva de $110.000 con $50.000 de seña y cupón
+        // del 10%. Se descontaba el 10% de los $60.000 que faltaban —$6.000— y
+        // el hotel cobraba $104.000 en vez de $99.000.
         const account = buildBookingAccount({
-            booking: { totalAmount: 100_000 },
-            payments: [payment({ amount: 100_000 })],
-            charges: [{ amount: 20_000, quantity: 1 }],
-        });
-
-        expect(account.balance).toBe(20_000);
-        expect(discountableBase(account, 20_000)).toBe(0);
-    });
-
-    it('con la habitación a medio pagar, descuenta solo lo que queda de ella', () => {
-        const account = buildBookingAccount({
-            booking: { totalAmount: 100_000 },
-            payments: [payment({ amount: 60_000 })],
-            charges: [{ amount: 20_000, quantity: 1 }],
+            booking: { totalAmount: 110_000 },
+            payments: [payment({ amount: 50_000 })],
         });
 
         expect(account.balance).toBe(60_000);
-        expect(discountableBase(account, 60_000)).toBe(40_000);
+        expect(discountableBase(account)).toBe(110_000);
+
+        const descuento = applicableDiscount(account, 11_000, account.balance);
+        expect(descuento).toBe(11_000);
+        // Paga 49.000: con la seña, el hotel recauda los 99.000 pactados.
+        expect(account.balance - descuento).toBe(49_000);
     });
 
-    it('un cobro parcial no arrastra el descuento de lo que no se cobra', () => {
+    it('las noches de extender la estadía sí llevan descuento', () => {
+        // Entran como cargo igual que una gaseosa, pero son alojamiento: sin
+        // esto el huésped con promoción perdía el descuento de la noche que
+        // agregó, y el cartel del cobro las llamaba "consumos".
         const account = buildBookingAccount({
-            booking: { totalAmount: 100_000 },
-            charges: [{ amount: 20_000, quantity: 1 }],
+            booking: { totalAmount: 110_000 },
+            charges: [
+                { amount: 110_000, quantity: 1, category: 'ALOJAMIENTO' },
+                { amount: 5_000, quantity: 1, category: 'MINIBAR' },
+            ],
         });
 
-        expect(discountableBase(account, 30_000)).toBe(30_000);
+        expect(account.lodging).toBe(220_000);
+        expect(account.extras).toBe(5_000);
+        expect(account.total).toBe(225_000);
+        expect(discountableBase(account)).toBe(220_000);
     });
 
-    it('un descuento ya aplicado antes no se vuelve a descontar', () => {
+    it('el mismo cupón no se descuenta dos veces en cobros parciales', () => {
+        // Aplicado en la seña y otra vez en el saldo, descontaba el 10% dos
+        // veces. Lo ya descontado se resta de lo que queda por descontar.
         const account = buildBookingAccount({
-            booking: { totalAmount: 100_000 },
-            payments: [payment({ amount: 40_000, discountAmount: 20_000 })],
-            charges: [{ amount: 20_000, quantity: 1 }],
+            booking: { totalAmount: 110_000 },
+            payments: [payment({ amount: 39_000, discountAmount: 11_000 })],
         });
 
-        expect(discountableBase(account, 60_000)).toBe(40_000);
+        expect(account.discount).toBe(11_000);
+        expect(applicableDiscount(account, 11_000, account.balance)).toBe(0);
+    });
+
+    it('descuenta solo lo que falta cuando el cupón ya se usó en parte', () => {
+        const account = buildBookingAccount({
+            booking: { totalAmount: 110_000 },
+            payments: [payment({ amount: 20_000, discountAmount: 4_000 })],
+        });
+
+        expect(applicableDiscount(account, 11_000, account.balance)).toBe(7_000);
+    });
+
+    it('nunca descuenta más que lo que se está cobrando', () => {
+        // El cupón apareció con casi todo cobrado: descontar $11.000 sobre un
+        // saldo de $5.000 dejaría al hotel debiéndole plata al huésped.
+        const account = buildBookingAccount({
+            booking: { totalAmount: 110_000 },
+            payments: [payment({ amount: 105_000 })],
+        });
+
+        expect(account.balance).toBe(5_000);
+        expect(applicableDiscount(account, 11_000, account.balance)).toBe(5_000);
     });
 
     it('no devuelve negativo si se cobró de más', () => {
@@ -254,7 +275,8 @@ describe('discountableBase', () => {
             payments: [payment({ amount: 150_000 })],
         });
 
-        expect(discountableBase(account, 10_000)).toBe(0);
+        expect(discountableBase(account)).toBe(100_000);
+        expect(applicableDiscount(account, 10_000, account.balance)).toBe(0);
     });
 });
 

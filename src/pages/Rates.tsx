@@ -273,7 +273,28 @@ export default function Rates() {
     }
   };
 
+  /**
+   * El precio de lista de un tramo. En cero no existe.
+   *
+   * El campo es numérico y Number('') es 0: seleccionar el precio y borrarlo
+   * para reescribirlo ya dejaba el tramo en cero, y el tilde lo guardaba sin
+   * preguntar. Desde ahí ese tramo valía $0 para todo el hotel, las reservas
+   * nacían en cero con el badge verde de "Pagado" y no aparecían en ninguna
+   * lista de deuda: nada saltaba.
+   *
+   * Regalar una estadía sigue siendo posible y va por donde corresponde: la
+   * tarifa especial de la reserva, que pide motivo y queda con autor. Esto es
+   * precio de lista para todo el hotel, y acá el cero nunca es una decisión.
+   */
   const handleSaveBasePrice = async (roomTypeId: string, newPrice: number) => {
+    if (!Number.isFinite(newPrice) || newPrice <= 0) {
+      toast({
+        title: 'El precio no puede quedar en cero',
+        description: 'Es el precio de lista del tramo. Para no cobrarle a una reserva puntual, usá la tarifa especial de esa reserva.',
+        variant: 'destructive',
+      });
+      return;
+    }
     try {
       await updateRoomTypeMutation.mutateAsync({
         id: roomTypeId,
@@ -368,7 +389,12 @@ export default function Rates() {
                       className="text-2xl font-bold h-12 w-24 md:w-28"
                       autoFocus
                     />
-                    <Button size="icon" variant="ghost" onClick={() => handleSaveBasePrice(type.id, editingBasePrice.price)}>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={!(editingBasePrice.price > 0)}
+                      onClick={() => handleSaveBasePrice(type.id, editingBasePrice.price)}
+                    >
                       <Check className="w-4 h-4 text-emerald-500" />
                     </Button>
                     <Button size="icon" variant="ghost" onClick={() => setEditingBasePrice(null)}>

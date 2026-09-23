@@ -310,6 +310,32 @@ describe('resolveCheckInTotal', () => {
     });
 });
 
+describe('un tramo sin precio cargado', () => {
+    // El precio base se edita en Tarifas y el campo es numérico: borrarlo para
+    // reescribirlo deja un 0, y hasta ahora nada lo frenaba. El daño no se
+    // quedaba en ese tramo.
+    const SIN_PRECIO = tramo(1, 0);
+    const tramos = [SIN_PRECIO, tramo(2, 20_000), tramo(3, 30_000)];
+    const LA_TRIPLE = tramos[2];
+
+    it('no se derrama a las habitaciones más grandes', () => {
+        // Un huésped solo en una triple: antes se le cobraba el tramo de 1
+        // —que quedó en 0— y la triple salía gratis con su precio intacto.
+        // Ahora ese tramo se ignora y cae al sano más cercano, que es la regla
+        // de siempre: "no hay tarifa de 1, se cobra la más cercana, la de 2".
+        const p = getOccupancyPricing(tramos, LA_TRIPLE, { adults: 1, children: 0 });
+
+        expect(p?.nightlyPrice).toBe(20_000);
+        expect(p?.pricingType.maxGuests).toBe(2);
+    });
+
+    it('tampoco se derrama con dos personas', () => {
+        const p = getOccupancyPricing(tramos, LA_TRIPLE, { adults: 2, children: 0 });
+
+        expect(p?.nightlyPrice).toBe(20_000);
+    });
+});
+
 describe('resolveEditedTotal', () => {
     // El caso que llegó de producción: reserva de 2 noches en una doble de
     // $80.000, tomada con PROMO26 (10% off) → $144.000 pactados y pagados.

@@ -39,6 +39,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -72,6 +74,9 @@ import { useAppRole } from '@/context/AppRoleContext';
 import { toast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 
+/** El descuento de la casa sobre el medio día, el que se da por pagar en efectivo. */
+const HALF_DAY_DISCOUNT_PCT = 10;
+
 export default function BookingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -90,6 +95,10 @@ export default function BookingDetail() {
   const [isExtendDialogOpen, setIsExtendDialogOpen] = useState(false);
   const [isShortenDialogOpen, setIsShortenDialogOpen] = useState(false);
   const [isAddingHalfDay, setIsAddingHalfDay] = useState(false);
+  // El 10% de la casa sobre la media estadía: sí o no, y listo. Arranca en no
+  // para que nadie lo regale por inercia; lo tilda el que cobra cuando
+  // corresponde.
+  const [halfDayDiscountOn, setHalfDayDiscountOn] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const { data: bookingCharges = [] } = useBookingCharges(id);
   const { data: housekeepingTasks = [] } = useHousekeepingTasks();
@@ -183,16 +192,21 @@ export default function BookingDetail() {
    * tomada hasta las 18:00 del día de salida; y la ficha seguía diciendo
    * "2 noches" cuando eran dos y media. Es alojamiento, no un consumo.
    */
+  const halfDayDiscount = halfDayDiscountOn ? Math.round(halfDayPrice * (HALF_DAY_DISCOUNT_PCT / 100)) : 0;
+  const halfDayNet = halfDayPrice - halfDayDiscount;
+
   const handleAddHalfDay = async () => {
     setIsAddingHalfDay(true);
     try {
       await updateBooking(booking.id, {
         halfDayAdd: true,
-        totalAmount: (booking.totalAmount || 0) + halfDayPrice,
+        totalAmount: (booking.totalAmount || 0) + halfDayNet,
       });
       toast({
         title: 'Media estadía agregada',
-        description: `$${halfDayPrice.toLocaleString('es-AR')} sumados al alojamiento de ${booking.guest.fullName.split(' ')[0]}.`,
+        description: halfDayDiscount > 0
+          ? `$${halfDayNet.toLocaleString('es-AR')} sumados al alojamiento de ${booking.guest.fullName.split(' ')[0]} (${HALF_DAY_DISCOUNT_PCT}% de descuento: −$${halfDayDiscount.toLocaleString('es-AR')}).`
+          : `$${halfDayNet.toLocaleString('es-AR')} sumados al alojamiento de ${booking.guest.fullName.split(' ')[0]}.`,
       });
     } catch (e) {
       toast({
@@ -357,7 +371,7 @@ export default function BookingDetail() {
                     <CalendarPlus className="w-4 h-4 mr-2" /> Extender estadía
                   </Button>
                   {!booking.halfDayAdd && (
-                  <AlertDialog>
+                  <AlertDialog onOpenChange={(o) => o && setHalfDayDiscountOn(false)}>
                     <AlertDialogTrigger asChild>
                       <Button variant="outline" className="rounded-full">
                         <Coffee className="w-4 h-4 mr-2" /> Agregar media estadía
@@ -369,9 +383,9 @@ export default function BookingDetail() {
                         <AlertDialogDescription asChild>
                           <div className="space-y-2">
                             <p>
-                              Se agrega un cargo de <strong>${halfDayPrice.toLocaleString('es-AR')}</strong> a la
-                              cuenta de <strong>{booking.guest.fullName.split(' ')[0]}</strong> por una media estadía
-                              adicional (50% de la tarifa {billableGuests(booking)} personas).
+                              Media estadía adicional para <strong>{booking.guest.fullName.split(' ')[0]}</strong>:{' '}
+                              <strong>${halfDayPrice.toLocaleString('es-AR')}</strong> (50% de la tarifa{' '}
+                              {billableGuests(booking)} personas).
                             </p>
                             <p className="text-sm text-muted-foreground">
                               Se suma al alojamiento y la reserva pasa a figurar como estadía y media.
@@ -379,10 +393,38 @@ export default function BookingDetail() {
                           </div>
                         </AlertDialogDescription>
                       </AlertDialogHeader>
+
+                      {/* El 10% de la casa sobre el medio día: un sí o un no. El
+                          huésped que ya pagó todo y pide media más tiene que
+                          poder llevarse el mismo descuento sin depender de que
+                          alguien se acuerde de un código en el próximo cobro. */}
+                      <div className="space-y-3 rounded-xl border border-primary/10 bg-primary/5 p-3">
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            id="half-day-discount"
+                            checked={halfDayDiscountOn}
+                            onCheckedChange={(v) => setHalfDayDiscountOn(v === true)}
+                          />
+                          <Label htmlFor="half-day-discount" className="cursor-pointer">
+                            Aplicar {HALF_DAY_DISCOUNT_PCT}% de descuento
+                          </Label>
+                        </div>
+                        {halfDayDiscount > 0 && (
+                          <div className="flex justify-between text-sm text-emerald-600">
+                            <span>{HALF_DAY_DISCOUNT_PCT}% de descuento</span>
+                            <span className="tabular-nums">−${halfDayDiscount.toLocaleString('es-AR')}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-t pt-2 font-semibold">
+                          <span>Se suma al alojamiento</span>
+                          <span className="tabular-nums">${halfDayNet.toLocaleString('es-AR')}</span>
+                        </div>
+                      </div>
+
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
                         <AlertDialogAction onClick={handleAddHalfDay} disabled={isAddingHalfDay}>
-                          Agregar cargo
+                          Agregar ${halfDayNet.toLocaleString('es-AR')}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>

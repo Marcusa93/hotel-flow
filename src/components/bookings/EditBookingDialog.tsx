@@ -109,6 +109,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
   const [manualPriceText, setManualPriceText] = useState('');
 
   const isCheckedIn = booking.status === 'CHECKED_IN';
+  const isCheckedOut = booking.status === 'CHECKED_OUT';
   /**
    * Media estadía. Las fechas quedan fijas: entra y sale el mismo día, y el
    * CHECK de la base lo exige. Convertirla en una estadía normal —o al revés—
@@ -121,9 +122,12 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
    * mano: se corre sola con la entrada, más abajo. Estirar la estadía sigue
    * siendo trabajo de Extender estadía, que cobra las noches nuevas como cargo
    * aparte en vez de repisar lo que se cotizó al reservar.
+   *
+   * En CHECKED_OUT todo queda fijo: la estadía terminó, no hay nada que correr.
+   * Solo se puede corregir el monto y las notas.
    */
-  const checkInLocked = isHalfDay;
-  const checkOutLocked = isCheckedIn || isHalfDay;
+  const checkInLocked = isHalfDay || isCheckedOut;
+  const checkOutLocked = isCheckedIn || isHalfDay || isCheckedOut;
 
   const form = useForm<EditBookingFormData>({
     resolver: zodResolver(editBookingSchema),
@@ -590,6 +594,13 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
               </p>
             )}
 
+            {isCheckedOut && (
+              <p className="text-xs text-muted-foreground bg-muted px-3 py-2 rounded-md -mt-2">
+                Esta estadía ya terminó: solo se pueden corregir el <strong>monto y las notas</strong>.
+                Las fechas, la habitación y la ocupación quedan como fueron.
+              </p>
+            )}
+
             {/* Room */}
             <FormField
               control={form.control}
@@ -597,7 +608,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Habitación</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={isCheckedOut}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar habitación" />
@@ -639,7 +650,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
                   <FormItem>
                     <FormLabel>Adultos</FormLabel>
                     <FormControl>
-                      <Input type="number" min={1} max={10} {...field} />
+                      <Input type="number" min={1} max={10} disabled={isCheckedOut} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -653,7 +664,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
                   <FormItem>
                     <FormLabel>Niños (5+)</FormLabel>
                     <FormControl>
-                      <Input type="number" min={0} max={10} {...field} />
+                      <Input type="number" min={0} max={10} disabled={isCheckedOut} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -667,7 +678,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
                   <FormItem>
                     <FormLabel>Menores de 5</FormLabel>
                     <FormControl>
-                      <Input type="number" min={0} max={10} {...field} />
+                      <Input type="number" min={0} max={10} disabled={isCheckedOut} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -676,6 +687,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
             </div>
 
             {/* Estimated arrival — the hour this guest announced, not the hotel policy */}
+            {!isCheckedOut && (
             <FormField
               control={form.control}
               name="estimatedArrivalTime"
@@ -689,6 +701,7 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
                 </FormItem>
               )}
             />
+            )}
 
             {/* Over capacity warning */}
             {/* Los menores de 5 no se cobran pero ocupan lugar: cuentan acá */}
@@ -723,8 +736,8 @@ export function EditBookingDialog({ open, onOpenChange, booking }: EditBookingDi
 
             {/* La tarifa la propone la ocupación; el mostrador puede elegir otra.
                 Con tarifa especial no se ofrece: el precio ya está pactado y no
-                sale de ningún tramo. */}
-            {!isSpecialRate && selectedRoomType && tierOptions.length > 1 && (
+                sale de ningún tramo. En CHECKED_OUT tampoco: la estadía terminó. */}
+            {!isSpecialRate && !isCheckedOut && selectedRoomType && tierOptions.length > 1 && (
               <FormField
                 control={form.control}
                 name="pricingRoomTypeId"

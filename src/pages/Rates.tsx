@@ -301,9 +301,13 @@ export default function Rates() {
         data: { basePrice: newPrice },
       });
       setEditingBasePrice(null);
+      // El cartel decía "se aplicará a nuevas reservas" y no era cierto. Una
+      // baja también alcanza a las ya tomadas a precio de lista: al hacer el
+      // check-in el total se recalcula con tope en la lista de hoy. Lo pactado
+      // como tarifa especial sí queda quieto, que para eso se pacta.
       toast({
         title: '💰 Precio base actualizado',
-        description: 'El cambio se aplicará a nuevas reservas',
+        description: 'Rige para las reservas nuevas. Si bajaste el precio, al hacer el check-in también baja en las ya tomadas a precio de lista; las de tarifa especial no cambian.',
       });
     } catch (error) {
       toast({

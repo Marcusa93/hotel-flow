@@ -39,6 +39,7 @@ const CATEGORY_TARGETS: Record<NotificationCategory, UserRole[]> = {
     checkout: ['admin', 'reception'],
     promotion: ['admin', 'reception'],
     system: ['admin', 'reception'],
+    finance: ['admin'],
 };
 
 export const targetRolesForCategory = (category: NotificationCategory): UserRole[] =>

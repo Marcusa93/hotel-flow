@@ -65,7 +65,7 @@ export const useCreateExpense = () => {
 
             createNotificationIfEnabled({
                 type: 'info',
-                category: 'system',
+                category: 'finance',
                 title: 'Gasto registrado',
                 message: `${data.expenseType}: $${data.amount.toLocaleString('es-AR')}${data.description ? ` — ${data.description}` : ''}`,
                 metadata: { expenseId: data.id, expenseType: data.expenseType, amount: data.amount },

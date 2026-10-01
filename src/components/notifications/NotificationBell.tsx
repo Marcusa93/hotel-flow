@@ -34,6 +34,7 @@ const categoryIcons: Record<NotificationCategory, React.ReactNode> = {
     checkout: <LogOut className="w-4 h-4" />,
     promotion: <Sparkles className="w-4 h-4" />,
     system: <AlertTriangle className="w-4 h-4" />,
+    finance: <CreditCard className="w-4 h-4" />,
 };
 
 const categoryColors: Record<NotificationCategory, string> = {
@@ -44,6 +45,7 @@ const categoryColors: Record<NotificationCategory, string> = {
     checkout: 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400',
     promotion: 'bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400',
     system: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+    finance: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',
 };
 
 /** Resolve the best navigation route for a notification based on category + metadata + role */
@@ -64,6 +66,7 @@ function getNotificationRoute(notification: Notification, role: UserRole | null)
         // /audit-log is admin/auditor only — anyone else would get silently
         // bounced by RoleGuard, so send them to the notifications center instead
         system: role === 'admin' || role === 'auditor' ? '/audit-log' : '/notifications',
+        finance: '/finance',
     };
 
     return categoryRoutes[category] || '/notifications';

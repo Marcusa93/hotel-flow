@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useEffect } from 'react';
 
 export type NotificationType = 'info' | 'success' | 'warning' | 'error';
-export type NotificationCategory = 'booking' | 'payment' | 'housekeeping' | 'checkin' | 'checkout' | 'promotion' | 'system';
+export type NotificationCategory = 'booking' | 'payment' | 'housekeeping' | 'checkin' | 'checkout' | 'promotion' | 'system' | 'finance';
 
 export interface Notification {
     id: string;

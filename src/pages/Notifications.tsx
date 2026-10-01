@@ -41,6 +41,7 @@ const categoryIcons: Record<NotificationCategory, React.ReactNode> = {
   checkout: <LogOut className="w-5 h-5" />,
   promotion: <Sparkles className="w-5 h-5" />,
   system: <AlertTriangle className="w-5 h-5" />,
+  finance: <CreditCard className="w-5 h-5" />,
 };
 
 const categoryLabels: Record<NotificationCategory, string> = {
@@ -51,6 +52,7 @@ const categoryLabels: Record<NotificationCategory, string> = {
   checkout: 'Check-out',
   promotion: 'Promociones',
   system: 'Sistema',
+  finance: 'Finanzas',
 };
 
 const categoryColors: Record<NotificationCategory, string> = {
@@ -61,6 +63,7 @@ const categoryColors: Record<NotificationCategory, string> = {
   checkout: 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400',
   promotion: 'bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400',
   system: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+  finance: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',
 };
 
 export default function Notifications() {
@@ -302,6 +305,7 @@ function getNotificationRoute(notification: Notification, role: UserRole | null)
     // /audit-log is admin/auditor only — RoleGuard would silently bounce
     // anyone else, so stay on this page instead
     system: role === 'admin' || role === 'auditor' ? '/audit-log' : null,
+    finance: '/finance',
   };
   return categoryRoutes[category] ?? null;
 }

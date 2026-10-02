@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { findRoomConflicts, type AvailabilityResult } from '@/lib/roomAvailability';
 import { useBookings } from '@/hooks/useBookings';
 import { useCreateBooking } from '@/hooks/useCreateBooking';
 import { useUpdateBooking } from '@/hooks/useUpdateBooking';
@@ -154,6 +155,9 @@ export function useBookingOperations() {
     [updateBookingMutation, bookings, updateRoomMutation, createHousekeepingTaskMutation]
   );
 
+  // El espejo del trigger de la base, en src/lib/roomAvailability.ts: es pura y
+  // tiene tests, que para la regla que decide si se puede vender una noche no es
+  // un lujo.
   const checkRoomAvailability = useCallback(
     (
       roomId: string,
@@ -161,44 +165,11 @@ export function useBookingOperations() {
       checkOut: Date,
       excludeBookingId?: string,
       /** La que se está por cargar es media estadía: entra y sale el mismo día. */
-      isHalfDay = false
-    ): { available: boolean; conflicts: Booking[] } => {
-      const conflicts = bookings.filter((b) => {
-        if (
-          b.status === 'CANCELLED' ||
-          b.status === 'NO_SHOW' ||
-          b.status === 'CHECKED_OUT'
-        )
-          return false;
-        if (excludeBookingId && b.id === excludeBookingId) return false;
-        // Un alquiler del hotel completo choca con cualquier habitación: la
-        // habitación puede estar libre y no importa, el hotel está cerrado.
-        // El trigger de la base lo rechaza igual; esto lo avisa antes de guardar.
-        if (b.isFullHotel) {
-          const bIn = new Date(b.checkInDate);
-          const bOut = new Date(b.checkOutDate);
-          return new Date(checkIn) < bOut && new Date(checkOut) > bIn;
-        }
-        if (b.roomId !== roomId) return false;
-
-        const bCheckIn = new Date(b.checkInDate);
-        const bCheckOut = new Date(b.checkOutDate);
-        const newCheckIn = new Date(checkIn);
-        const newCheckOut = new Date(checkOut);
-
-        // Dos medias estadías el mismo día quieren la misma habitación de 10:00
-        // a 18:00. La comparación de abajo no las ve: el intervalo de una media
-        // estadía es vacío —entra y sale el mismo día— así que da falso siempre.
-        // Mismo caso que agrega el trigger; esto lo avisa antes de guardar.
-        if (isHalfDay && b.isHalfDay) {
-          return bCheckIn.getTime() === newCheckIn.getTime();
-        }
-
-        return newCheckIn < bCheckOut && newCheckOut > bCheckIn;
-      });
-
-      return { available: conflicts.length === 0, conflicts };
-    },
+      isHalfDay = false,
+      /** La que se está por cargar es estadía y media: se retira a las 18:00. */
+      halfDayAdd = false
+    ): AvailabilityResult =>
+      findRoomConflicts(bookings, { roomId, checkIn, checkOut, excludeBookingId, isHalfDay, halfDayAdd }),
     [bookings]
   );
 

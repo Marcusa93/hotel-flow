@@ -146,9 +146,15 @@ interface NewBookingDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Pre-selects the room, for when the booking starts from Habitaciones. */
   preselectedRoomId?: string;
+  /**
+   * Noche de entrada ya elegida, para cuando la reserva arranca con un clic en
+   * una celda del calendario. La salida se acomoda sola al día siguiente, que es
+   * lo que ya hace el formulario con cualquier entrada.
+   */
+  preselectedCheckIn?: Date;
 }
 
-export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewBookingDialogProps) {
+export function NewBookingDialog({ open, onOpenChange, preselectedRoomId, preselectedCheckIn }: NewBookingDialogProps) {
   const { bookings, addBooking, checkRoomAvailability } = useBookingOperations();
   const { guests, addGuest, updateGuest } = useGuestOperations();
   const { rooms, roomTypes } = useRoomOperations();
@@ -264,7 +270,7 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
 
   // Check for conflicts
   const conflicts = watchedRoomId && watchedCheckIn && watchedCheckOut
-    ? checkRoomAvailability(watchedRoomId, watchedCheckIn, watchedCheckOut, undefined, watchedHalfDay)
+    ? checkRoomAvailability(watchedRoomId, watchedCheckIn, watchedCheckOut, undefined, watchedHalfDay, watchedHalfDayAdd)
     : { available: true, conflicts: [] };
 
   const nights = watchedCheckIn && watchedCheckOut
@@ -451,6 +457,65 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
   const availableRooms = rooms.filter(r =>
     r.status !== 'MAINTENANCE'
   );
+
+  /**
+   * Las habitaciones con su disponibilidad para las fechas que se están pidiendo.
+   *
+   * Las ocupadas se muestran en gris y dicen por qué, en vez de desaparecer de
+   * la lista. Una habitación que no está es indistinguible de un error —"¿se
+   * borró?, ¿se rompió el sistema?"— y manda a recepción a revisar Habitaciones
+   * para entender qué pasó; una en gris que dice "ocupada del 1 al 5" se explica
+   * sola y además informa, que es lo que el mostrador necesita para ofrecer otra
+   * fecha sin colgar el teléfono.
+   *
+   * Es el mismo checkRoomAvailability que ya valida antes de guardar: acá se
+   * adelanta a la elección en vez de avisar después de haberla hecho.
+   */
+  const roomAvailability = useMemo(() => {
+    return availableRooms.map(room => {
+      if (!watchedCheckIn || !watchedCheckOut) {
+        return { room, available: true, reason: null as string | null };
+      }
+
+      const { available, conflicts } = checkRoomAvailability(
+        room.id,
+        watchedCheckIn,
+        watchedCheckOut,
+        undefined,
+        watchedHalfDay,
+        watchedHalfDayAdd
+      );
+
+      if (available) return { room, available: true, reason: null as string | null };
+
+      // El alquiler del hotel completo no es "esta habitación está ocupada":
+      // decirlo así manda a buscar otra habitación que tampoco va a haber.
+      const full = conflicts.find(c => c.isFullHotel);
+      if (full) {
+        return {
+          room,
+          available: false,
+          reason: `Hotel alquilado completo del ${format(new Date(full.checkInDate), 'dd/MM')} al ${format(new Date(full.checkOutDate), 'dd/MM')}`,
+        };
+      }
+
+      // El que primero entra es el que explica el choque: el que viene después
+      // ya se entiende solo una vez que se corrió la fecha.
+      const first = [...conflicts].sort(
+        (a, b) => new Date(a.checkInDate).getTime() - new Date(b.checkInDate).getTime()
+      )[0];
+
+      return {
+        room,
+        available: false,
+        reason: first
+          ? `Ocupada del ${format(new Date(first.checkInDate), 'dd/MM')} al ${format(new Date(first.checkOutDate), 'dd/MM')}`
+          : 'Ocupada en esas fechas',
+      };
+    });
+  }, [availableRooms, watchedCheckIn, watchedCheckOut, watchedHalfDay, watchedHalfDayAdd, checkRoomAvailability]);
+
+  const freeRoomCount = roomAvailability.filter(r => r.available).length;
 
   // Save new guest inline without closing the booking dialog
   const handleSaveNewGuest = async () => {
@@ -640,6 +705,15 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
       form.setValue('roomId', preselectedRoomId);
     }
   }, [open, preselectedRoomId, form]);
+
+  // Lo mismo con la noche cuando se entra por el calendario: se hizo clic en una
+  // celda, o sea en una habitación y un día. Pedirlos de nuevo en el paso 2 es
+  // justo el trabajo que el clic venía a ahorrar.
+  useEffect(() => {
+    if (open && preselectedCheckIn) {
+      form.setValue('checkInDate', preselectedCheckIn, { shouldValidate: true });
+    }
+  }, [open, preselectedCheckIn, form]);
 
   // La reserva queda a nombre de quien la está cargando, sin posibilidad de
   // escribir otro: el campo es de solo lectura y este efecto es su único autor.
@@ -999,14 +1073,27 @@ export function NewBookingDialog({ open, onOpenChange, preselectedRoomId }: NewB
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {availableRooms.map(room => {
+                      {/* Las libres primero: con el hotel lleno, la lista
+                          arrancaba con cinco renglones grises antes de la
+                          primera opción elegible. */}
+                      {[...roomAvailability]
+                        .sort((a, b) => Number(b.available) - Number(a.available))
+                        .map(({ room, available, reason }) => {
                         const roomType = roomTypes.find(rt => rt.id === room.roomTypeId);
                         return (
-                          <SelectItem key={room.id} value={room.id}>
-                            Hab {room.roomNumber} — {roomType?.maxGuests}p (${roomType?.basePrice.toLocaleString('es-AR')}/noche)
+                          <SelectItem key={room.id} value={room.id} disabled={!available}>
+                            <span className={cn(!available && 'text-muted-foreground')}>
+                              Hab {room.roomNumber} — {roomType?.maxGuests}p (${roomType?.basePrice.toLocaleString('es-AR')}/noche)
+                              {reason && ` · ${reason}`}
+                            </span>
                           </SelectItem>
                         );
                       })}
+                      {freeRoomCount === 0 && watchedCheckIn && watchedCheckOut && (
+                        <p className="px-2 py-3 text-xs text-muted-foreground">
+                          No hay habitaciones libres en esas fechas. Probá con otras.
+                        </p>
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />

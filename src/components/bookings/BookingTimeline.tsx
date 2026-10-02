@@ -4,7 +4,7 @@ import { Booking, Room, Guest, BookingStatus } from '@/types/hotel';
 import { addDays, differenceInDays, format, startOfDay, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -14,9 +14,19 @@ import {
 } from '@/components/ui/tooltip';
 
 interface BookingTimelineProps {
+  /**
+   * TODAS las reservas activas, no las filtradas de la pantalla.
+   *
+   * El calendario es un mapa de ocupación: una celda vacía significa "esa noche
+   * está libre". Si le llegaran las reservas ya filtradas, al filtrar por
+   * "Pendientes" las confirmadas desaparecerían y sus celdas se verían libres
+   * estando ocupadas —y acá encima se hace clic para reservar—.
+   */
   bookings: Booking[];
   rooms: Room[];
   guests: Map<string, Guest>;
+  /** Clic en una noche libre: arranca una reserva con la habitación y el día puestos. */
+  onEmptyCellClick?: (roomId: string, day: Date) => void;
 }
 
 const STATUS_COLORS: Record<BookingStatus, string> = {
@@ -42,7 +52,7 @@ const COL_WIDTH = 72; // px per day
 const ROW_HEIGHT = 44; // px per room row
 const ROOM_COL_WIDTH = 80; // px for room number column
 
-export function BookingTimeline({ bookings, rooms, guests }: BookingTimelineProps) {
+export function BookingTimeline({ bookings, rooms, guests, onEmptyCellClick }: BookingTimelineProps) {
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [startDate, setStartDate] = useState(() => startOfDay(addDays(new Date(), -2)));
@@ -191,15 +201,28 @@ export function BookingTimeline({ bookings, rooms, guests }: BookingTimelineProp
                   {/* Day cells (background grid) */}
                   <div className="relative flex-1 flex">
                     {days.map((day, i) => (
-                      <div
+                      <button
                         key={i}
+                        type="button"
+                        // Las barras de reserva van encima en absoluto, así que
+                        // una celda que recibe el clic es una noche libre. El
+                        // día de salida queda destapado a propósito: esa noche
+                        // se puede volver a vender.
+                        disabled={!onEmptyCellClick}
+                        onClick={() => onEmptyCellClick?.(room.id, day)}
+                        aria-label={`Reservar habitación ${room.roomNumber} el ${format(day, "d 'de' MMMM", { locale: es })}`}
                         className={cn(
-                          'shrink-0 border-r',
+                          'group shrink-0 border-r flex items-center justify-center',
                           isSameDay(day, today) && 'bg-primary/5',
                           day.getDay() === 0 && 'bg-rose-50/50 dark:bg-rose-950/10',
+                          onEmptyCellClick && 'cursor-pointer hover:bg-primary/10 transition-colors',
                         )}
                         style={{ width: COL_WIDTH, height: ROW_HEIGHT }}
-                      />
+                      >
+                        {onEmptyCellClick && (
+                          <Plus className="w-3.5 h-3.5 text-primary opacity-0 group-hover:opacity-60 transition-opacity" />
+                        )}
+                      </button>
                     ))}
 
                     {/* Booking bars */}

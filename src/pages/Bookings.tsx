@@ -71,7 +71,10 @@ export default function Bookings() {
   const [todayFilter, setTodayFilter] = useState<'checkin-today' | 'checkout-today' | null>(null);
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('kanban');
+  // El calendario primero: es el mapa de ocupación y desde acá se carga con un
+  // clic. Entrar por el tablero obligaba a elegir la vista cada vez para hacer
+  // lo que recepción hace todo el día, que es mirar qué hay libre y reservarlo.
+  const [viewMode, setViewMode] = useState<ViewMode>('timeline');
   /**
    * Cómo se ordenan las columnas del tablero. Arranca por los primeros —el que
    * llega antes, el que salió antes— que es el orden en que se atiende.
@@ -85,6 +88,8 @@ export default function Bookings() {
   /** La estadía con tarifa especial que se está tarifando. */
   const [pricingBooking, setPricingBooking] = useState<Booking | null>(null);
   const [preselectedRoomId, setPreselectedRoomId] = useState<string | undefined>(undefined);
+  // La noche que se eligió con un clic en el calendario.
+  const [preselectedCheckIn, setPreselectedCheckIn] = useState<Date | undefined>(undefined);
   /** Check-in arrastrado al tablero, esperando que se confirme */
   const [pendingCheckIn, setPendingCheckIn] = useState<{
     bookingId: string;
@@ -139,6 +144,21 @@ export default function Bookings() {
   );
 
   // Filter Logic
+  /**
+   * Lo que realmente ocupa una habitación, para el calendario.
+   *
+   * No son las filtradas de la pantalla: el calendario es el mapa de ocupación y
+   * se hace clic en sus celdas libres para reservar, así que filtrar por estado
+   * dejaría noches ocupadas con cara de disponibles. Tampoco son todas: una
+   * reserva cancelada o un no-show no ocupan nada, y dibujarlos taparía noches
+   * que se pueden vender. Es el mismo criterio que usa checkRoomAvailability
+   * para decidir si una habitación está libre.
+   */
+  const occupancyBookings = useMemo(
+    () => bookings.filter(b => b.status !== 'CANCELLED' && b.status !== 'NO_SHOW'),
+    [bookings]
+  );
+
   const filteredBookings = useMemo(() => {
     return bookings
       .filter(booking => {
@@ -385,13 +405,18 @@ export default function Bookings() {
               />
             ) : viewMode === 'timeline' ? (
               <BookingTimeline
-                bookings={filteredBookings}
+                bookings={occupancyBookings}
                 rooms={rooms}
                 guests={(() => {
                   const map = new Map<string, typeof guests[0]>();
                   for (const g of guests) map.set(g.id, g);
                   return map;
                 })()}
+                onEmptyCellClick={(roomId, day) => {
+                  setPreselectedRoomId(roomId);
+                  setPreselectedCheckIn(day);
+                  setIsNewDialogOpen(true);
+                }}
               />
             ) : (
               <BookingListView
@@ -423,9 +448,13 @@ export default function Bookings() {
         open={isNewDialogOpen}
         onOpenChange={(open) => {
           setIsNewDialogOpen(open);
-          if (!open) setPreselectedRoomId(undefined);
+          if (!open) {
+            setPreselectedRoomId(undefined);
+            setPreselectedCheckIn(undefined);
+          }
         }}
         preselectedRoomId={preselectedRoomId}
+        preselectedCheckIn={preselectedCheckIn}
       />
 
       <ReservationDetailsDrawer

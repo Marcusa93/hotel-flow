@@ -109,6 +109,40 @@ describe('la pantalla de la heladera', () => {
         expect(within(fila).getByText('cortesía')).toBeInTheDocument();
     });
 
+    // Del dueño: "al stock de la heladera sólo lo modifica el admin, los demás
+    // usuarios no pueden cargarle stock". Vender no es cargar stock: la gaseosa
+    // del mostrador sigue siendo trabajo de recepción.
+    it('recepción vende pero no toca el stock', () => {
+        rol = 'reception';
+        pintar();
+
+        expect(screen.getByRole('button', { name: /vender/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /consumo personal/i })).toBeInTheDocument();
+
+        expect(screen.queryAllByRole('button', { name: /reponer/i })).toHaveLength(0);
+        expect(screen.queryByRole('button', { name: /recuento/i })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /nuevo producto/i })).not.toBeInTheDocument();
+    });
+
+    it('el admin sí puede reponer y recontar', () => {
+        pintar();  // beforeEach deja rol = 'admin'
+
+        expect(screen.getAllByRole('button', { name: /reponer/i }).length).toBeGreaterThan(0);
+        expect(screen.getByRole('button', { name: /recuento/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /nuevo producto/i })).toBeInTheDocument();
+    });
+
+    it('recepción tampoco puede editar ni dar de baja un producto', () => {
+        rol = 'reception';
+        pintar();
+        const fila = screen.getByText('Gaseosa lata').closest('tr')!;
+
+        expect(within(fila).queryByRole('button', { name: /editar/i })).not.toBeInTheDocument();
+        expect(within(fila).queryByRole('button', { name: /dar de baja/i })).not.toBeInTheDocument();
+        // Lo suyo sí: cargarle a un empleado lo que se llevó.
+        expect(within(fila).getByRole('button', { name: /consumo del personal/i })).toBeInTheDocument();
+    });
+
     it('recepción puede cargar, el auditor sólo mira', () => {
         const { unmount } = pintar();
         expect(screen.getByRole('button', { name: /vender/i })).toBeInTheDocument();

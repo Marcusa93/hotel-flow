@@ -17,9 +17,9 @@ import {
     useDeleteMinibarMovement, useKnownStaffNames, useMinibarMovements,
 } from '@/hooks/useMinibarMovements';
 import {
-    CATEGORY_LABELS, MOVEMENT_KIND_LABELS, inventoryValue, movementAmount,
-    movementCost, needsRestock, staffConsumption, stockStatus, summarizeMovements,
-    unitMargin,
+    CATEGORY_LABELS, MOVEMENT_KIND_LABELS, esMovimientoDeStock, inventoryValue,
+    movementAmount, movementCost, needsRestock, staffConsumption, stockStatus,
+    summarizeMovements, unitMargin,
 } from '@/lib/heladera';
 import type { MinibarItem, MinibarMovement } from '@/types/hotel';
 import {
@@ -39,6 +39,17 @@ const money = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`;
 export default function Heladera() {
     const { currentRole } = useAppRole();
     const canWrite = currentRole === 'admin' || currentRole === 'reception';
+    /**
+     * Cargar y corregir el stock es del dueño.
+     *
+     * Vender no: la gaseosa del mostrador y el consumo que se le carga al
+     * huésped son el trabajo de recepción y siguen igual. Lo que pasa a ser
+     * exclusivo es lo que mueve el número sin una venta atrás —reponer, recontar,
+     * dar de baja por merma, dar de alta un producto con su stock inicial—, que
+     * es donde el inventario deja de poder contrastarse contra la plata que
+     * entró.
+     */
+    const canEditStock = currentRole === 'admin';
 
     const [selectedMonth, setSelectedMonth] = useState(new Date());
     const from = startOfMonth(selectedMonth);
@@ -179,7 +190,7 @@ export default function Heladera() {
                         <ChevronRight className="w-4 h-4" />
                     </Button>
                 </div>
-                {canWrite && (
+                {canEditStock && (
                     <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" onClick={() => setStockDialog({ open: true, mode: 'COMPRA', item: null })}>
                             <PackagePlus className="w-4 h-4 mr-2" />
@@ -207,7 +218,7 @@ export default function Heladera() {
                             <CardTitle className="text-base">
                                 {activos.length} producto{activos.length === 1 ? '' : 's'} en la heladera
                             </CardTitle>
-                            {canWrite && (
+                            {canEditStock && (
                                 <Button size="sm" onClick={() => setItemDialog({ open: true, item: null })}>
                                     <Plus className="w-4 h-4 mr-2" />
                                     Nuevo producto
@@ -243,6 +254,7 @@ export default function Heladera() {
                                                     key={item.id}
                                                     item={item}
                                                     canWrite={canWrite}
+                                                    canEditStock={canEditStock}
                                                     onEdit={() => setItemDialog({ open: true, item })}
                                                     onRestock={() => setStockDialog({ open: true, mode: 'COMPRA', item })}
                                                     onStaff={() => setStaffDialog({ open: true, item })}
@@ -264,7 +276,7 @@ export default function Heladera() {
                             <CardTitle className="text-base">
                                 Movimientos de {format(selectedMonth, 'MMMM', { locale: es })}
                             </CardTitle>
-                            {canWrite && (
+                            {canEditStock && (
                                 <Button
                                     variant="outline" size="sm"
                                     onClick={() => setStockDialog({ open: true, mode: 'MERMA', item: null })}
@@ -303,6 +315,7 @@ export default function Heladera() {
                                                     movement={m}
                                                     itemName={itemsById.get(m.itemId)?.name ?? 'Producto borrado'}
                                                     canWrite={canWrite}
+                                                    canEditStock={canEditStock}
                                                     onUndo={() => setToUndo(m)}
                                                 />
                                             ))}
@@ -444,13 +457,14 @@ export default function Heladera() {
 interface ProductRowProps {
     item: MinibarItem;
     canWrite: boolean;
+    canEditStock: boolean;
     onEdit: () => void;
     onRestock: () => void;
     onStaff: () => void;
     onToggle: () => void;
 }
 
-function ProductRow({ item, canWrite, onEdit, onRestock, onStaff, onToggle }: ProductRowProps) {
+function ProductRow({ item, canWrite, canEditStock, onEdit, onRestock, onStaff, onToggle }: ProductRowProps) {
     const estado = stockStatus(item);
     const margen = unitMargin(item);
 
@@ -486,22 +500,28 @@ function ProductRow({ item, canWrite, onEdit, onRestock, onStaff, onToggle }: Pr
             {canWrite && (
                 <TableCell>
                     <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Reponer" onClick={onRestock}>
-                            <PackagePlus className="w-4 h-4" />
-                        </Button>
+                        {canEditStock && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="Reponer" onClick={onRestock}>
+                                <PackagePlus className="w-4 h-4" />
+                            </Button>
+                        )}
                         <Button variant="ghost" size="icon" className="h-8 w-8" title="Consumo del personal" onClick={onStaff}>
                             <Coffee className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar" onClick={onEdit}>
-                            <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                            variant="ghost" size="icon" className="h-8 w-8"
-                            title={item.isActive ? 'Dar de baja' : 'Reactivar'}
-                            onClick={onToggle}
-                        >
-                            <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {canEditStock && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar" onClick={onEdit}>
+                                <Pencil className="w-4 h-4" />
+                            </Button>
+                        )}
+                        {canEditStock && (
+                            <Button
+                                variant="ghost" size="icon" className="h-8 w-8"
+                                title={item.isActive ? 'Dar de baja' : 'Reactivar'}
+                                onClick={onToggle}
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </Button>
+                        )}
                     </div>
                 </TableCell>
             )}
@@ -528,10 +548,11 @@ interface MovementRowProps {
     movement: MinibarMovement;
     itemName: string;
     canWrite: boolean;
+    canEditStock: boolean;
     onUndo: () => void;
 }
 
-function MovementRow({ movement, itemName, canWrite, onUndo }: MovementRowProps) {
+function MovementRow({ movement, itemName, canWrite, canEditStock, onUndo }: MovementRowProps) {
     const entra = movement.quantity > 0;
 
     // Una venta se mira por lo que entró; una reposición o una merma, por lo que
@@ -566,9 +587,15 @@ function MovementRow({ movement, itemName, canWrite, onUndo }: MovementRowProps)
             </TableCell>
             {canWrite && (
                 <TableCell>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Borrar movimiento" onClick={onUndo}>
-                        <Undo2 className="w-4 h-4" />
-                    </Button>
+                    {/* Borrar una reposición o un recuento es volver a mover el
+                        stock por la puerta de atrás, así que va con la misma
+                        llave. Recepción sí puede deshacer lo que cargó ella: una
+                        venta mal tipeada se corrige en el momento. */}
+                    {(canEditStock || !esMovimientoDeStock(movement.kind)) && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Borrar movimiento" onClick={onUndo}>
+                            <Undo2 className="w-4 h-4" />
+                        </Button>
+                    )}
                 </TableCell>
             )}
         </TableRow>

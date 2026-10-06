@@ -31,6 +31,22 @@ export const SALIDAS: MinibarMovementKind[] = [
   'VENTA_HUESPED', 'VENTA_MOSTRADOR', 'CONSUMO_PERSONAL', 'MERMA',
 ];
 
+/**
+ * Los movimientos que mueven el stock sin una venta atrás.
+ *
+ * Son los que cambian el inventario por decisión de alguien y no porque entró
+ * plata: reponer, recontar y dar de baja por merma. Esos quedan para el dueño,
+ * porque son el único lugar donde el stock deja de poder contrastarse contra la
+ * caja. Las ventas y el consumo del personal mueven el stock igual, pero cada
+ * uno tiene su contraparte —un cobro, una reserva, un empleado— y son el
+ * trabajo diario de recepción.
+ */
+export const MOVIMIENTOS_DE_STOCK: MinibarMovementKind[] = ['COMPRA', 'MERMA', 'AJUSTE'];
+
+/** Si este movimiento es de los que solo el dueño puede hacer o deshacer. */
+export const esMovimientoDeStock = (kind: MinibarMovementKind): boolean =>
+  MOVIMIENTOS_DE_STOCK.includes(kind);
+
 // ─── El producto ─────────────────────────────────────────────────────
 
 export type StockStatus = 'sin-stock' | 'negativo' | 'bajo' | 'ok';

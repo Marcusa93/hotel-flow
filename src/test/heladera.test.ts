@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+    esMovimientoDeStock,
     inventoryValue,
     knownStaffNames,
     needsRestock,
@@ -264,5 +265,22 @@ describe('lo que hay adentro', () => {
 
     it('no pide reponer un producto dado de baja', () => {
         expect(needsRestock([producto({ stock: 0, isActive: false })])).toEqual([]);
+    });
+});
+
+// Del dueño: "al stock de la heladera sólo lo modifica el admin". La regla
+// separa lo que mueve el inventario por decisión de alguien de lo que lo mueve
+// porque hubo una venta atrás.
+describe('esMovimientoDeStock', () => {
+    it('reponer, recontar y dar de baja por merma son del dueño', () => {
+        expect(esMovimientoDeStock('COMPRA')).toBe(true);
+        expect(esMovimientoDeStock('AJUSTE')).toBe(true);
+        expect(esMovimientoDeStock('MERMA')).toBe(true);
+    });
+
+    it('las ventas y el consumo del personal no: son el trabajo de recepción', () => {
+        expect(esMovimientoDeStock('VENTA_MOSTRADOR')).toBe(false);
+        expect(esMovimientoDeStock('VENTA_HUESPED')).toBe(false);
+        expect(esMovimientoDeStock('CONSUMO_PERSONAL')).toBe(false);
     });
 });

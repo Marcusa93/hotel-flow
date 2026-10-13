@@ -10,15 +10,29 @@ import { useCompletePasswordChange } from '@/hooks/useAdminUsers';
 
 const MIN_LENGTH = 8;
 
+interface ForcePasswordChangeProps {
+  /**
+   * De dónde viene el bloqueo. 'handover' es la cuenta que creó un admin con
+   * contraseña temporal; 'recovery', el que llegó por el mail de recuperación.
+   * Cambia sólo lo que se le dice: el que olvidó su contraseña no entiende
+   * "la que te pasaron", y el que la recibió no entiende "recuperación".
+   */
+  reason?: 'handover' | 'recovery';
+}
+
 /**
- * Blocks the whole app until a user created by an admin replaces the
- * handed-over password with one only they know.
+ * Bloquea la app hasta que el usuario elija una contraseña que sólo él sepa.
+ *
+ * El mail de recuperación de Supabase no pide contraseña nueva: crea una sesión
+ * válida y suelta al usuario adentro. Sin esta pantalla en el medio, el que
+ * olvidó su clave entraba igual y la seguía sin saber, así que al cerrar sesión
+ * volvía al mismo problema y a pedir otro mail.
  */
-export function ForcePasswordChange() {
+export function ForcePasswordChange({ reason = 'handover' }: ForcePasswordChangeProps) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const { toast } = useToast();
-  const { signOut } = useAuth();
+  const { signOut, clearPasswordRecovery } = useAuth();
   const completeChange = useCompletePasswordChange();
 
   const tooShort = password.length > 0 && password.length < MIN_LENGTH;
@@ -32,6 +46,7 @@ export function ForcePasswordChange() {
 
     try {
       await completeChange.mutateAsync(password);
+      clearPasswordRecovery();
       toast({
         title: 'Contraseña actualizada',
         description: 'Ya podés usar el sistema con normalidad.',
@@ -54,8 +69,9 @@ export function ForcePasswordChange() {
           </div>
           <CardTitle>Elegí tu contraseña</CardTitle>
           <CardDescription>
-            Tu cuenta fue creada por un administrador. Por seguridad, definí una contraseña
-            que solo vos conozcas antes de entrar al sistema.
+            {reason === 'recovery'
+              ? 'Entraste desde el mail de recuperación. Elegí una contraseña nueva para terminar: con esta vas a entrar de ahora en más.'
+              : 'Tu cuenta fue creada por un administrador. Por seguridad, definí una contraseña que solo vos conozcas antes de entrar al sistema.'}
           </CardDescription>
         </CardHeader>
 

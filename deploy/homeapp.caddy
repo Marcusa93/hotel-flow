@@ -1,0 +1,38 @@
+# ---------------------------------------------------------------------------
+# HoMe — sistema de gestión del Hotel Mediterráneo (/etc/caddy/homeapp.caddy)
+#
+# A diferencia del resto de los proyectos, este no tiene servidor propio: es una
+# SPA compilada y Caddy entrega los archivos directo. La base sigue en Supabase.
+#
+# Se migró desde Vercel en octubre de 2026. Motivo: los deploys salían por CLI
+# desde la carpeta local, y uno hecho desde una rama sin mergear estuvo tres
+# semanas en producción sin que nadie lo notara.
+#
+# El nombre sslip.io es el acceso que no depende del DNS. El dominio propio
+# (homeapp.com.ar) se agrega acá al lado cuando Cloudflare esté apuntando.
+# ---------------------------------------------------------------------------
+
+homeapp.2-25-185-242.sslip.io {
+	root * /var/www/homeapp
+	encode zstd gzip
+
+	# Lo de /assets lleva el hash del contenido en el nombre: ese archivo nunca
+	# cambia, así que se cachea para siempre.
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# Todo lo demás es lo contrario: nombre fijo y contenido que cambia en cada
+	# deploy. Cacheado, el navegador sigue pidiendo los assets viejos y se ve la
+	# versión anterior aunque el deploy haya salido bien.
+	#
+	# Va por descarte y no listando /index.html: el navegador que entra a la raíz
+	# pide "/" y el que entra a /bookings pide "/bookings" — los dos reciben el
+	# index.html, y ninguno de los dos matchea una regla escrita como /index.html.
+	@resto not path /assets/*
+	header @resto Cache-Control "no-store, must-revalidate"
+
+	# Las rutas (/bookings, /heladera) las resuelve el navegador, no existen como
+	# carpetas: sin esto, entrar directo o apretar F5 da 404.
+	try_files {path} /index.html
+	file_server
+}

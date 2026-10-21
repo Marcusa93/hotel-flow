@@ -70,6 +70,95 @@ This project is built with:
 
 Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
 
+## Despliegue en la VPS
+
+El front vive en la VPS (`2.25.185.242`, junto a otros proyectos) y la base
+sigue en Supabase: desplegar no toca datos, sólo reemplaza archivos estáticos.
+
+Se migró desde Vercel en octubre de 2026. El motivo está en el comentario de
+`deploy/homeapp.caddy`: los deploys salían por CLI desde la carpeta local, y uno
+hecho desde una rama sin mergear estuvo tres semanas en producción sin que nadie
+lo notara.
+
+### Dónde está qué
+
+| | |
+|---|---|
+| Clon que se compila | `/opt/homeapp` (rama `main`) |
+| Archivos que sirve Caddy | `/var/www/homeapp` |
+| Configuración del sitio | `/etc/caddy/homeapp.caddy`, importado desde el Caddyfile |
+| Acceso sin DNS | `https://homeapp.2-25-185-242.sslip.io` |
+
+`/home/bothotelflow/hotel-flow` es **otra cosa**: el clon del bot de Telegram,
+con su propio servicio corriendo. No se toca para desplegar.
+
+### Actualizar producción
+
+```bash
+ssh root@2.25.185.242
+cd /opt/homeapp && git pull --ff-only && ./scripts/deploy-vps.sh
+```
+
+El script se niega a desplegar si no estás en `main`, si hay cambios sin
+commitear, si tu rama no coincide con el remoto, o si fallan el typecheck o los
+tests.
+
+### Primera instalación (ya hecha, queda documentado)
+
+```bash
+git clone --branch main https://github.com/Marcusa93/hotel-flow.git /opt/homeapp
+cd /opt/homeapp
+
+# Las dos únicas variables que usa el build. La anon key es pública por diseño:
+# viaja dentro del bundle que descarga cualquier visitante.
+cat > .env <<'ENV'
+VITE_SUPABASE_URL=https://xxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
+ENV
+
+cp deploy/homeapp.caddy /etc/caddy/homeapp.caddy
+echo 'import /etc/caddy/homeapp.caddy' >> /etc/caddy/Caddyfile
+caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile   # ANTES de recargar
+systemctl reload caddy
+
+./scripts/deploy-vps.sh
+```
+
+El `caddy validate` antes de recargar no es ceremonia: en esa máquina viven
+otros proyectos y una recarga con la configuración rota los deja caídos a todos.
+
+### Dos cosas que importan
+
+**Las variables se hornean en el build.** Vite las mete adentro del bundle al
+compilar. Si cambia el `.env`, hay que volver a correr el script; recargar Caddy
+no alcanza.
+
+**El `index.html` no se cachea, y tiene que seguir así.** Está resuelto en
+`deploy/homeapp.caddy` por descarte: todo lo que no sea `/assets/*` va con
+`no-store`. Si se cacheara, el navegador seguiría pidiendo los assets de la
+versión anterior y el usuario vería código viejo aunque el deploy haya salido
+bien — el mismo síntoma que motivó la migración, pero por causa propia.
+
+### Verificar qué versión está arriba
+
+Sin depender de lo que se vea en pantalla:
+
+```bash
+H=https://homeapp.com.ar
+IDX=$(curl -s $H/ | grep -o '/assets/index-[^"]*\.js' | head -1)
+curl -s $H$IDX | grep -o 'assets/Bookings-[A-Za-z0-9_-]*\.js' | head -1
+# y después, en ese chunk, buscar alguna cadena de la versión esperada
+```
+
+### Cloudflare
+
+El dominio se delegó a Cloudflare en NIC.ar. Los registros A de `homeapp.com.ar`
+y `www` apuntan a `2.25.185.242` **en nube gris (DNS only)**: proxeados,
+Cloudflare terminaría el TLS y Caddy no podría emitir el certificado.
+
+Los registros CAA autorizan a `letsencrypt.org`, que es la CA que usa Caddy. Si
+se borran dejando sólo las otras, el certificado deja de renovarse.
+
 ## Supabase keepalive
 
 This repo includes a dedicated Supabase keepalive mechanism for production so a Supabase Free project does not get paused for inactivity. It does not touch any business tables, product flows, or application logic.

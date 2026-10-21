@@ -326,6 +326,30 @@ export default function Bookings() {
                 rooms={rooms}
                 onSelect={(id) => navigate(`/bookings/${id}`)}
               />
+              {/* Calendario o tarjetas, sólo en celular. El selector completo
+                  de abajo no sirve acá: el tablero se arrastra con el mouse y
+                  la tabla no entra en la pantalla. */}
+              <div className="md:hidden flex items-center bg-muted/50 rounded-xl p-1">
+                <Button
+                  variant={viewMode === 'timeline' ? 'default' : 'ghost'}
+                  size="icon"
+                  className="h-8 w-8 rounded-lg"
+                  onClick={() => setViewMode('timeline')}
+                  title="Calendario"
+                >
+                  <CalendarRange className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={viewMode !== 'timeline' ? 'default' : 'ghost'}
+                  size="icon"
+                  className="h-8 w-8 rounded-lg"
+                  onClick={() => setViewMode('list')}
+                  title="Lista"
+                >
+                  <List className="w-4 h-4" />
+                </Button>
+              </div>
+
               <div className="hidden md:flex items-center gap-2">
               {viewMode === 'kanban' && (
                 <Button
@@ -429,16 +453,40 @@ export default function Bookings() {
               />
             )}
           </div>
-          {/* Mobile: compact card list */}
-          <div className="md:hidden h-full overflow-y-auto space-y-3 pb-4">
-            <MobileBookingCards
-              bookings={filteredBookings}
-              guests={guests}
-              rooms={rooms}
-              roomTypes={roomTypes}
-              accounts={accounts}
-              onCardClick={(id) => navigate(`/bookings/${id}`)}
-            />
+          {/* Mobile: el mismo calendario, o las tarjetas.
+              Antes acá sólo había tarjetas y el selector de vistas estaba
+              oculto, así que desde un celular el calendario no existía ni había
+              forma de pedirlo: el dueño lo reportó como que "se había salido"
+              del modo agenda. Entra deslizando, con la columna de habitación
+              fija. */}
+          <div className="md:hidden h-full">
+            {viewMode === 'timeline' ? (
+              <BookingTimeline
+                bookings={occupancyBookings}
+                rooms={rooms}
+                guests={(() => {
+                  const map = new Map<string, typeof guests[0]>();
+                  for (const g of guests) map.set(g.id, g);
+                  return map;
+                })()}
+                onEmptyCellClick={(roomId, day) => {
+                  setPreselectedRoomId(roomId);
+                  setPreselectedCheckIn(day);
+                  setIsNewDialogOpen(true);
+                }}
+              />
+            ) : (
+              <div className="h-full overflow-y-auto space-y-3 pb-4">
+                <MobileBookingCards
+                  bookings={filteredBookings}
+                  guests={guests}
+                  rooms={rooms}
+                  roomTypes={roomTypes}
+                  accounts={accounts}
+                  onCardClick={(id) => navigate(`/bookings/${id}`)}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

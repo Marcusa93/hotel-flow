@@ -149,7 +149,12 @@ export function BookingTimeline({ bookings, rooms, guests, onEmptyCellClick }: B
             {/* Day headers */}
             <div className="flex border-b sticky top-0 bg-card z-10">
               <div
-                className="shrink-0 border-r bg-muted/50 flex items-center justify-center text-xs font-semibold text-muted-foreground"
+                // Fija al deslizar: en un celular entran cuatro días, y sin esto
+                // la columna se va de pantalla y queda una grilla de barras de
+                // colores sin saber de qué habitación es cada fila. Opaca a
+                // propósito —no bg-muted/50— porque ahora le pasan reservas por
+                // debajo.
+                className="shrink-0 sticky left-0 z-20 border-r bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground"
                 style={{ width: ROOM_COL_WIDTH, height: 48 }}
               >
                 Hab.
@@ -192,7 +197,7 @@ export function BookingTimeline({ bookings, rooms, guests, onEmptyCellClick }: B
                 <div key={room.id} className="flex border-b relative" style={{ height: ROW_HEIGHT }}>
                   {/* Room label */}
                   <div
-                    className="shrink-0 border-r bg-muted/30 flex items-center justify-center text-xs font-bold"
+                    className="shrink-0 sticky left-0 z-10 border-r bg-muted flex items-center justify-center text-xs font-bold"
                     style={{ width: ROOM_COL_WIDTH }}
                   >
                     {room.roomNumber}

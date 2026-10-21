@@ -7,7 +7,7 @@ import { ForcePasswordChange } from '@/components/auth/ForcePasswordChange';
 import { Loader2 } from 'lucide-react';
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-    const { session, loading } = useAuth();
+    const { session, loading, passwordRecovery } = useAuth();
     const { mustChangePassword, profileLoading } = useAppRole();
     const navigate = useNavigate();
     const location = useLocation();
@@ -31,8 +31,13 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
         return null; // Will redirect via useEffect
     }
 
-    // Accounts created by an admin start with a handed-over password. Nothing
-    // else in the app is reachable until it's replaced.
+    // Dos formas de llegar acá sin una contraseña propia: la cuenta que creó un
+    // admin con una temporal, y el que acaba de usar el link del mail de
+    // recuperación. En los dos casos hay sesión válida y nada más de la app es
+    // alcanzable hasta que elija una.
+    if (passwordRecovery) {
+        return <ForcePasswordChange reason="recovery" />;
+    }
     if (!profileLoading && mustChangePassword) {
         return <ForcePasswordChange />;
     }

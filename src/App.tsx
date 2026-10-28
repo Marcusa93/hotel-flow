@@ -92,7 +92,12 @@ const AnimatedRoutes = () => {
         {/* Housekeeping needs this: the bell is in the Topbar for every role, and
             cleaning notices now target them. */}
         <Route path="/notifications" element={<RoleGuard allowedRoles={['admin', 'reception', 'housekeeping']}><PageWrapper><Notifications /></PageWrapper></RoleGuard>} />
-        <Route path="/settings" element={<RoleGuard allowedRoles={['admin', 'reception']}><PageWrapper><Settings /></PageWrapper></RoleGuard>} />
+        {/* Limpieza entra, pero sólo a lo suyo: el interruptor de las
+            notificaciones push y la apariencia. Sin eso no tiene dónde
+            activarlas, y el aviso al teléfono —que es lo que hace útil el rol
+            para alguien que está caminando por el hotel— no le llega nunca.
+            Las pestañas las filtra la propia pantalla. */}
+        <Route path="/settings" element={<RoleGuard allowedRoles={['admin', 'reception', 'housekeeping']}><PageWrapper><Settings /></PageWrapper></RoleGuard>} />
 
         {/* Redirects */}
         <Route path="/calendar" element={<Navigate to="/" replace />} />

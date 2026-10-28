@@ -61,6 +61,15 @@ export default function Settings() {
   const { currentRole } = useAppRole();
   // Creating users needs the service_role key and an admin-only RLS read policy.
   const isAdmin = currentRole === 'admin';
+  /**
+   * Limpieza entra acá por una sola cosa: activar las notificaciones push.
+   *
+   * Es el interruptor que hace que le suene el teléfono cuando le asignan una
+   * habitación, y vivía detrás de una pantalla que su rol no podía abrir. El
+   * resto de Configuración —datos del hotel, roles, usuarios— no es asunto suyo
+   * y se le oculta.
+   */
+  const soloNotificaciones = currentRole === 'housekeeping';
   const { data: settings, isLoading } = useHotelSettings();
   const updateMutation = useUpdateHotelSettings();
   const { theme, setTheme } = useTheme();
@@ -121,20 +130,24 @@ export default function Settings() {
         description="Ajustes del sistema y preferencias del hotel"
       />
 
-      <Tabs defaultValue="hotel" className="space-y-6">
-        <TabsList className={`grid w-full grid-cols-2 ${isAdmin ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} lg:w-auto lg:inline-grid`}>
-          <TabsTrigger value="hotel" className="gap-2">
-            <Building2 className="w-4 h-4 hidden sm:block" />
-            Hotel
-          </TabsTrigger>
+      <Tabs defaultValue={soloNotificaciones ? 'notifications' : 'hotel'} className="space-y-6">
+        <TabsList className={`grid w-full ${soloNotificaciones ? 'grid-cols-2 sm:grid-cols-2' : `grid-cols-2 ${isAdmin ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`} lg:w-auto lg:inline-grid`}>
+          {!soloNotificaciones && (
+            <TabsTrigger value="hotel" className="gap-2">
+              <Building2 className="w-4 h-4 hidden sm:block" />
+              Hotel
+            </TabsTrigger>
+          )}
           <TabsTrigger value="notifications" className="gap-2">
             <Bell className="w-4 h-4 hidden sm:block" />
             Notificaciones
           </TabsTrigger>
-          <TabsTrigger value="roles" className="gap-2">
-            <Users className="w-4 h-4 hidden sm:block" />
-            Roles
-          </TabsTrigger>
+          {!soloNotificaciones && (
+            <TabsTrigger value="roles" className="gap-2">
+              <Users className="w-4 h-4 hidden sm:block" />
+              Roles
+            </TabsTrigger>
+          )}
           {isAdmin && (
             <TabsTrigger value="users" className="gap-2">
               <UserCog className="w-4 h-4 hidden sm:block" />

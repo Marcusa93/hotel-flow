@@ -1,9 +1,16 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import pkg from "./package.json";
 
 export default defineConfig({
   plugins: [react()],
+  // Lo mismo que define vite.config.ts al compilar. Sin esto, cualquier test que
+  // monte una pantalla que muestre la versión revienta con "__APP_VERSION__ is
+  // not defined", que no tiene nada que ver con lo que se está probando.
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   test: {
     environment: "jsdom",
     globals: true,
